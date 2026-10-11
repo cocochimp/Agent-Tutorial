@@ -26,7 +26,7 @@ function loggedIn(user){
   $('who').textContent = user.user_id + ' · 学员';
   $('login-card').hidden = true;
   $('logout').hidden = false;
-  showView('teaching');
+  showView('guide');
   if (window.Guide) window.Guide.init();
   if (window.Teaching) window.Teaching.init();
   if (window.Interview) window.Interview.init();
