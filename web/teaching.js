@@ -12,8 +12,8 @@
 
   async function loadData() {
     const [a, b] = await Promise.all([
-      fetch('/static/work-items.json', {cache: 'no-cache'}).then(r => { if (!r.ok) throw new Error('工作项数据加载失败'); return r.json(); }),
-      fetch('/static/tutorial-data.json', {cache: 'no-cache'}).then(r => { if (!r.ok) throw new Error('教程数据加载失败'); return r.json(); })
+      fetch('static/work-items.json', {cache: 'no-cache'}).then(r => { if (!r.ok) throw new Error('工作项数据加载失败'); return r.json(); }),
+      fetch('static/tutorial-data.json', {cache: 'no-cache'}).then(r => { if (!r.ok) throw new Error('教程数据加载失败'); return r.json(); })
     ]);
     workItems = a.workItems || [];
     files = b.files || {};

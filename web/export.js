@@ -211,7 +211,7 @@
     async guide() {
       // 导出「完整实习复盘手册」：原样输出旧手册（22 章 + 目录侧栏 + 搜索/编辑/保存草稿/导出新HTML/导出PDF/随机抽题），
       // 正文可编辑，学员可下载后自定义项目内容。
-      const r = await fetch('/static/handbook.html', {cache: 'no-cache'});
+      const r = await fetch('static/handbook.html', {cache: 'no-cache'});
       if (!r.ok) throw new Error('手册数据加载失败');
       const html = await r.text();
       download(html, '贝壳找房_房产经纪经营AI Agent_实习复盘手册.html');
@@ -219,7 +219,7 @@
     workItem() {
       const item = window.Teaching && window.Teaching.getCurrent();
       if (!item) return;
-      const r = fetch('/static/tutorial-data.json', {cache: 'no-cache'});
+      const r = fetch('static/tutorial-data.json', {cache: 'no-cache'});
       r.then(res => res.ok ? res.json() : {files: {}}).then(({files}) => {
         download(shell(item.title + ' · 学习页', workBody(item, files)), nameOf(item));
       });
@@ -229,7 +229,7 @@
       const t = window.Interview ? window.Interview.getCurrentTopic() : null;
       if (!t) return;
       const catName = t.title;
-      const r = await fetch('/static/interview-topics.json', {cache: 'no-cache'});
+      const r = await fetch('static/interview-topics.json', {cache: 'no-cache'});
       if (!r.ok) throw new Error('面试题数据加载失败');
       const data = await r.json();
       const topic = data.topics.find(x => x.id === t.id);

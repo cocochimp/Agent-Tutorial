@@ -11,7 +11,7 @@
 
   async function load() {
     if (chapters.length) return;
-    const r = await fetch('/static/guide-data.json', {cache: 'no-cache'});
+    const r = await fetch('static/guide-data.json', {cache: 'no-cache'});
     if (!r.ok) throw new Error('导读数据加载失败');
     chapters = (await r.json()).chapters || [];
   }

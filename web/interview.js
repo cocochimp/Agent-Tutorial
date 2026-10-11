@@ -12,7 +12,7 @@
 
   async function load() {
     if (topics) return topics;
-    const r = await fetch('/static/interview-topics.json', {cache: 'no-cache'});
+    const r = await fetch('static/interview-topics.json', {cache: 'no-cache'});
     if (!r.ok) throw new Error('面试题数据加载失败');
     topics = (await r.json()).topics;
     return topics;
