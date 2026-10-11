@@ -31,10 +31,46 @@ function loggedIn(user){
   if (window.Teaching) window.Teaching.init();
   if (window.Interview) window.Interview.init();
 }
+
+// —— Pages 静态模式支持 ——
+// GitHub Pages 无法运行 FastAPI 后端，登录改为前端校验（账号密码与本地 accounts.json 一致）。
+// 后端模式（本地部署）：走真实 /api/login 会话；静态模式（Pages）：前端比对后本地标记登录。
+const STATIC_ACCOUNT = {username: 'chaoyang', password: 'demo-chaoyang'};
+let staticMode = false;
+
+async function detectModeAndRestore() {
+  try {
+    const r = await fetch('/api/session', {headers: {'Content-Type': 'application/json'}});
+    if (r.status === 404) { staticMode = true; }          // 无后端（Pages）
+    else {
+      const value = await r.json();
+      if (value && value.user) { loggedIn(value.user); return; }
+    }
+  } catch (e) { staticMode = true; }
+  if (staticMode && localStorage.getItem('agent_tutorial_login') === '1') {
+    loggedIn({user_id: STATIC_ACCOUNT.username});
+  }
+}
+
 $('login').onclick = async () => {
-  try { loggedIn(await post('/api/login', {username: $('username').value.trim(), password: $('password').value})); }
+  const username = $('username').value.trim();
+  const password = $('password').value;
+  if (staticMode) {
+    if (username === STATIC_ACCOUNT.username && password === STATIC_ACCOUNT.password) {
+      localStorage.setItem('agent_tutorial_login', '1');
+      loggedIn({user_id: STATIC_ACCOUNT.username});
+    } else {
+      error({message: '账号或密码错误'});
+    }
+    return;
+  }
+  try { loggedIn(await post('/api/login', {username, password})); }
   catch (e) { error(e); }
 };
-$('logout').onclick = async () => { await post('/api/logout', {}); location.reload(); };
+$('logout').onclick = async () => {
+  if (staticMode) localStorage.removeItem('agent_tutorial_login');
+  else await post('/api/logout', {});
+  location.reload();
+};
 
-api('/api/session').then(value => value.user && loggedIn(value.user)).catch(() => {});
+detectModeAndRestore();
