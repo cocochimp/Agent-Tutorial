@@ -1,0 +1,1287 @@
+<!doctype html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1" name="viewport">
+<title>贝壳找房 · 房产经纪经营 AI Agent · 实习复盘与面试</title>
+<style>
+    :root {
+      --ink: #1d2a35;
+      --muted: #5f6d78;
+      --line: #d7e0e5;
+      --paper: #ffffff;
+      --wash: #f4f7f8;
+      --navy: #17324d;
+      --teal: #087f8c;
+      --orange: #c7682e;
+      --green: #2d7c61;
+      --shadow: 0 14px 38px rgba(23, 50, 77, 0.10);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--wash);
+      font: 15px/1.7 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    .topbar {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      padding: 12px max(22px, calc((100vw - 1380px) / 2));
+      color: #fff; background: var(--navy); box-shadow: 0 4px 16px rgba(0,0,0,.16);
+    }
+    .brand { font-weight: 800; letter-spacing: .02em; margin-right: auto; }
+    .brand small { display: block; color: #bcd0df; font-weight: 500; letter-spacing: 0; font-size: 11px; }
+    .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .toolbar button, .toolbar input {
+      border: 1px solid rgba(255,255,255,.28); border-radius: 6px; padding: 7px 11px;
+      color: #fff; background: rgba(255,255,255,.10);
+    }
+    .toolbar input { width: 185px; background: #fff; color: var(--ink); }
+    .toolbar button:hover { background: rgba(255,255,255,.20); }
+    .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); max-width: 1380px; margin: 0 auto; }
+    aside { position: sticky; top: 68px; align-self: start; height: calc(100vh - 68px); overflow: auto; padding: 22px 14px 30px 22px; }
+    aside h2 { margin: 0 0 10px; font-size: 13px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+    aside > button { margin: 0 0 10px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 5px; color: var(--teal); background: #fff; }
+    aside > button:hover { background: #e7f1f2; }
+    aside a { display: block; padding: 7px 9px; color: var(--muted); text-decoration: none; border-left: 2px solid transparent; }
+    aside a:hover, aside a.active { color: var(--teal); border-left-color: var(--teal); background: #e7f1f2; }
+    main { min-width: 0; padding: 30px 28px 80px; }
+    .hero { padding: 34px 38px; color: #fff; background: var(--navy); border-radius: 8px; box-shadow: var(--shadow); }
+    .hero .eyebrow { color: #8fd2d5; text-transform: uppercase; letter-spacing: .12em; font-size: 12px; font-weight: 700; }
+    .hero h1 { margin: 8px 0 10px; font-size: clamp(28px, 4vw, 48px); line-height: 1.18; }
+    .hero p { max-width: 850px; margin: 0; color: #d9e7ef; font-size: 16px; }
+    .hero-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 22px; align-items: end; }
+    .hero-note { border-left: 3px solid #8fd2d5; padding-left: 15px; color: #c8dce7; font-size: 14px; }
+    section { margin-top: 30px; padding: 28px 30px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 5px 18px rgba(23,50,77,.04); }
+    section h2 { margin: 0 0 13px; color: var(--navy); font-size: 25px; line-height: 1.3; }
+    section h3 { margin: 24px 0 8px; color: var(--teal); font-size: 18px; }
+    section h4 { margin: 18px 0 6px; color: var(--orange); font-size: 15px; }
+    p { margin: 8px 0; }
+    ul, ol { margin: 8px 0 12px 22px; padding: 0; }
+    li { margin: 4px 0; }
+    code { padding: 1px 5px; border-radius: 4px; color: #8c431d; background: #fff1e8; font-family: "SFMono-Regular", Consolas, monospace; font-size: .92em; }
+    pre { overflow: auto; margin: 12px 0; padding: 15px 17px; color: #e9f2f5; background: #172833; border-radius: 6px; font: 13px/1.6 "SFMono-Regular", Consolas, monospace; }
+    .callout { margin: 16px 0; padding: 13px 16px; border-left: 4px solid var(--teal); background: #edf8f8; }
+    .callout.warn { border-left-color: var(--orange); background: #fff5ed; }
+    .callout.good { border-left-color: var(--green); background: #eef8f2; }
+    .grid-2, .grid-3 { display: grid; gap: 16px; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .mini { padding: 15px 16px; border: 1px solid var(--line); border-radius: 6px; background: #fbfcfc; }
+    .mini strong { color: var(--navy); }
+    table { width: 100%; border-collapse: collapse; margin: 13px 0; font-size: 14px; }
+    th, td { padding: 9px 10px; text-align: left; vertical-align: top; border: 1px solid var(--line); }
+    th { color: var(--navy); background: #eef3f5; }
+    .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0; }
+    .flow span { padding: 8px 11px; border: 1px solid #b9d5d8; border-radius: 5px; color: var(--navy); background: #f0fbfb; font-weight: 700; }
+    .flow b { color: var(--orange); }
+    .resume { padding: 22px 24px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfc; }
+    .resume-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding-bottom: 12px; border-bottom: 2px solid var(--navy); }
+    .resume-head .who { font-size: 18px; font-weight: 800; color: var(--navy); }
+    .resume-head .who span { color: var(--teal); }
+    .resume-head .when { color: var(--muted); font-size: 14px; }
+    .resume p { margin: 10px 0; }
+    .resume ol { margin: 10px 0 4px 20px; }
+    .resume ol li { margin: 8px 0; }
+    .resume .k { color: var(--navy); font-weight: 700; }
+    .case { margin: 16px 0; border: 1px solid #cfe0e2; border-radius: 8px; background: #fbfdfd; }
+    .case-title { padding: 10px 14px; background: #e7f1f2; color: var(--navy); font-weight: 800; border-bottom: 1px solid #cfe0e2; border-radius: 8px 8px 0 0; }
+    .case-title small { font-weight: 600; color: var(--teal); }
+    .case-body { padding: 8px 16px 12px; }
+    .case-body .row { display: flex; gap: 10px; margin: 9px 0; }
+    .case-body .lbl { flex: 0 0 84px; height: fit-content; padding: 2px 8px; border-radius: 4px; background: #e2f2f3; color: #245d65; font-size: 12px; font-weight: 700; text-align: center; }
+    .case-body .lbl.warn { background: #fbe6d6; color: #9c4a1e; }
+    .case-body .row > div:last-child { flex: 1; min-width: 0; }
+    .story { margin: 18px 0 24px; border: 1px solid #b8d5d8; border-radius: 8px; overflow: hidden; background: #fbfefe; }
+    .story-head { padding: 11px 15px; background: #dff1f2; color: var(--navy); font-weight: 800; }
+    .story-head small { margin-left: 8px; color: var(--teal); font-weight: 650; }
+    .story-body { padding: 13px 16px 15px; }
+    .story-step { display: grid; grid-template-columns: 92px 1fr; gap: 11px; padding: 8px 0; border-bottom: 1px dashed #d8e5e7; }
+    .story-step:last-child { border-bottom: 0; }
+    .story-step .badge { height: fit-content; padding: 3px 7px; border-radius: 4px; text-align: center; font-size: 12px; font-weight: 800; background: #e9f5f5; color: #245d65; }
+    .story-step.problem .badge { background: #fbe7d9; color: #9c4a1e; }
+    .story-step.action .badge { background: #e5eef8; color: #315d84; }
+    .story-step.result .badge { background: #e5f4eb; color: #315848; }
+    .story-step.interview .badge { background: #f4ebfa; color: #6b4682; }
+    .story-script { margin-top: 12px; padding: 12px 14px; border-left: 4px solid var(--orange); background: #fff8f2; }
+    .truth-note { margin: 18px 0; padding: 12px 15px; border: 1px solid #ead3a6; border-radius: 6px; background: #fffaf0; color: #6d5528; }
+    .qa { border-top: 1px solid var(--line); }
+    .qa details { padding: 11px 0; border-bottom: 1px solid var(--line); }
+    .qa summary { cursor: pointer; color: var(--navy); font-weight: 750; }
+    .qa summary::marker { color: var(--orange); }
+    .answer { margin: 9px 0 2px; padding: 12px 14px; background: #f7fafb; border-left: 3px solid #9ab5be; }
+    .tag { display: inline-block; margin: 0 5px 5px 0; padding: 2px 8px; border-radius: 99px; color: #245d65; background: #e2f2f3; font-size: 12px; }
+    .score { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border-radius: 5px; color: #315848; background: #e5f4eb; font-weight: 700; }
+    .edit-hint { margin-top: 8px; color: var(--muted); font-size: 13px; }
+    [contenteditable="true"] { outline: 1px dashed rgba(8,127,140,.28); outline-offset: 2px; cursor: text; }
+    [contenteditable="true"]:focus { outline: 2px solid #6db8be; background: #fffef5; }
+    .hidden { display: none !important; }
+    mark { padding: 0 2px; background: #ffe18e; }
+    footer { margin: 30px 0 0; color: var(--muted); text-align: center; font-size: 13px; }
+    @media (max-width: 900px) {
+      .layout { display: block; }
+      aside { position: static; height: auto; padding: 12px 18px; border-bottom: 1px solid var(--line); background: #fff; }
+      aside nav { display: flex; gap: 4px; overflow-x: auto; }
+      aside a { white-space: nowrap; border-left: 0; border-bottom: 2px solid transparent; }
+      aside a:hover, aside a.active { border-left: 0; border-bottom-color: var(--teal); }
+      main { padding: 18px 14px 60px; }
+      section { padding: 21px 18px; }
+      .hero { padding: 25px 22px; }
+      .hero-grid, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .case-body .row { flex-direction: column; gap: 3px; }
+      .toolbar { width: 100%; }
+      .toolbar input { flex: 1; width: auto; }
+    }
+    @media print {
+      @page { margin: 12mm; }
+      body { background: #fff; }
+      .topbar, aside { display: none; }
+      .layout { display: block; }
+      main { padding: 0; }
+      section, .hero { box-shadow: none; break-inside: avoid; }
+      [contenteditable="true"] { outline: 0; }
+    }
+  </style>
+</head>
+<body>
+<header class="topbar">
+<div class="brand">贝壳找房 · 房产经纪经营 AI Agent<small>AI 应用研发 · Agent · RAG · Text-to-SQL · Evals · 面试强化</small></div>
+<div class="toolbar">
+<input aria-label="搜索" id="search" placeholder="搜索问题或关键词" type="search">
+<button aria-pressed="true" id="editBtn" type="button">锁定编辑</button>
+<button id="saveBtn" type="button">保存草稿</button>
+<button id="exportBtn" type="button">导出新 HTML</button>
+<button id="pdfBtn" type="button">导出 PDF</button>
+<button id="addSectionBtn" type="button">新增章节</button>
+<button id="resetBtn" type="button">恢复已发布版</button>
+<button id="randomBtn" type="button">随机抽题</button>
+</div>
+</header>
+<div class="layout">
+<aside>
+<h2>目录</h2>
+<button id="addTocBtn" type="button">新增目录项</button>
+<nav>
+<a href="#resume">实习经历模板</a>
+<a href="#positioning">项目定位：为什么适合广投</a>
+<a href="#opening">30 秒 开场</a>
+<a href="#business">贝壳业务场景：系统到底给谁用</a>
+<a href="#story-method">场景化面试法：从业务问题讲技术</a>
+<a href="#architecture">整体架构：一次请求怎么跑</a>
+<a href="#basics">核心介绍LLM / RAG / Agent</a>
+<a href="#work1">工作一 · 意图理解与结构化输出</a>
+<a href="#work2">工作二 · 企业知识库 RAG</a>
+<a href="#work3">工作三 · Tool Calling 与智能查数</a>
+<a href="#work4">工作四 · Agent 规划与工作流</a>
+<a href="#memory">工作五 · Context 与 Memory</a>
+<a href="#quality">工作六 · 幻觉治理与结果校验</a>
+<a href="#engineering">工程化：真正像研发项目</a>
+<a href="#eval">评测体系：怎么证明有效</a>
+<a href="#trace">完整 Trace：从问题到结论</a>
+<a href="#advanced">高级加分项：GraphRAG / MCP / Multi-Agent / LoRA</a>
+<a href="#roles">同一项目适配不同岗位</a>
+<a href="#resume2">简历怎么写：基础版 / 强化版</a>
+<a href="#qa">高频面试追问</a>
+<a href="#pitfalls">答题易错点</a>
+<a href="#cheatsheet">术语与指标速查</a>
+</nav>
+</aside>
+<main id="document">
+<div class="callout good" style="margin-top:0">
+<strong>✎ </strong>打开 HTML 后，直接点击标题、正文、表格、面试题答案即可修改。
+        修改后点顶部“保存草稿”，或按 <code>Ctrl+S</code>；想生成一份独立的新文件，点“导出新 HTML”。
+        “锁定编辑”可暂时关闭编辑，避免误触。如果浏览器存在旧版缓存，点击“恢复已发布版”，即可显示修改后的版本。</div>
+<div class="hero">
+<div class="hero-grid">
+<div>
+<div class="eyebrow">AI Application Engineering · Agent + RAG + Tools</div>
+<h1>房产经纪经营 AI 智能分析与决策平台</h1>
+<p>面向城市运营、区域经理与门店经营人员，把自然语言经营问题转成可审计的数据查询、经营诊断、作业规范检索与报告生成流程。</p>
+</div>
+<div class="hero-note"><strong>业务：</strong>房源 / 客源 / 带看 / 成交 / 门店经营<br><strong>岗位：</strong>AI 应用研发 / Agent 开发实习生<br>RAG · Text-to-SQL · LangGraph · Evals · Observability</div>
+</div>
+</div>
+<section data-search="实习经历 模板 简历 AI Agent RAG Tool Calling 企业级 智能分析 定量 指标 Recall Task Success SQL Faithfulness P95" id="resume">
+<h2>实习经历模板</h2>
+<div class="truth-note"><strong>简历使用说明：</strong>本页按“贝壳找房房产经纪经营场景”重构，便于业务表达。</div>
+<div class="callout warn"><strong>简历中有很多定量化描述，回答完工作内容后，</strong>面试官很可能继续问“这 94% 怎么测的”，所以后文会给出测量方法。</div>
+<div class="resume">
+<div class="resume-head">
+<div class="who">贝壳找房　·　<span>AI 应用研发 / Agent 开发实习生</span></div>
+<div class="when">20XX.XX – 20XX.XX</div>
+</div>
+<p><span class="k">项目：</span>房产经纪经营 AI 智能分析与决策平台 —— 面向城市运营、区域经理与门店经营人员，提供自然语言查数、经营漏斗诊断、业务 SOP / 规则问答、异常原因归纳与经营日报生成能力；知识库示例规模约 <strong>8.2 万篇文档 / 62 万个 Chunk</strong>，接入 <strong>6 类业务 Tool</strong>，覆盖经营问答、数据查询和多步分析任务。</p>
+<p><span class="k">项目背景：</span>门店经营数据分散在房源、客源、带看、成交、经纪人及运营指标表中，作业规范、指标口径与运营手册又分散在文档知识库。项目将 LLM 定位为“理解与决策层”，通过 RAG、Tool Calling、LangGraph 状态编排与 Verifier，把“哪个门店转化下滑、为什么下滑、应该怎么跟进”这类自然语言问题转化为可审计的数据查询、漏斗分析、知识检索和多步任务执行。</p>
+<p class="k">工作内容：</p>
+<ol>
+<li><strong>Agent Runtime / 工作流：</strong>将知识检索、SQL 查询、异常分析、指标计算、报表生成等能力封装为 <strong>6 类 Function Calling Tools</strong>，以 <strong>LangGraph StateGraph</strong> 管理状态、条件边、重试、Checkpoint 与 Human-in-the-loop，在动态决策节点使用 <strong>ReAct</strong>；在 <strong>260 条多步任务评测集</strong>上，Tool Selection Accuracy 由 <strong>86.8% 提升至 94.1%</strong>，端到端 Task Success Rate 由 <strong>73.5% 提升至 89.2%</strong>，重复 Tool Call 比例由 <strong>7.6% 降至 2.1%</strong>。</li>
+<li><strong>企业 RAG / 检索优化：</strong>构建 <strong>Parent-Child Chunk + Metadata/ACL</strong> 文档体系，在线采用 <strong>Query Rewrite → ACL/Metadata Pre-Filter → Dense + BM25 → RRF → Cross-Encoder Reranker → Authority/Validity → MMR → Dynamic TopK</strong>；在 <strong>420 条人工标注 Query</strong>上，Recall@20 从 <strong>79.0% 提升至 94.0%</strong>，MRR 从 <strong>0.61 提升至 0.78</strong>，nDCG@10 从 <strong>0.69 提升至 0.84</strong>。</li>
+<li><strong>Text-to-SQL / 安全查数：</strong>引入 <strong>Schema Retrieval、指标口径检索、只读账号、表/字段白名单、SQL AST 校验、超时与行数限制</strong>，LLM 只生成受约束查询计划，实际统计由数据库/确定性代码完成；在 <strong>180 条 SQL Gold Case</strong>上 Execution Accuracy 达 <strong>90.6%</strong>，高风险 SQL 测试集拦截率 <strong>100%</strong>，无效 SQL 比例由 <strong>14.4% 降至 5.0%</strong>。</li>
+<li><strong>可信生成 / 幻觉治理：</strong>对数字、时间范围、制度条款等关键结论强制绑定 <strong>Tool Result / Evidence ID</strong>，加入引用一致性校验、事实核查、业务规则校验与低置信度转人工；在 <strong>300 条回答评测集</strong>上 Faithfulness 由 <strong>87.3% 提升至 96.1%</strong>，无依据结论率由 <strong>6.8% 降至 1.9%</strong>。</li>
+<li><strong>Evals &amp; Observability / 性能优化：</strong>建设约 <strong>500 条分层回归用例</strong>，覆盖 Query、Retriever、Reranker、Tool、SQL 与 Agent End-to-End；Trace 记录模型/Prompt/检索参数/Tool I/O/错误码/Token/耗时，并通过缓存、上下文裁剪和动态 TopK 将示例复杂任务 <strong>P95 延迟由 5.2s 降至 3.8s</strong>，平均 Prompt Token 下降约 <strong>28%</strong>。</li>
+</ol>
+<p><span class="k">核心技术栈：</span>Python、FastAPI（或 Java/Spring Boot）、LangGraph / StateGraph、Function Calling、RAG、Embedding、Vector DB、BM25、RRF、Cross-Encoder Reranker、ACL/Metadata Filter、Text-to-SQL、Redis、Evals、Trace / Observability。</p>
+</div>
+<div class="callout good"><strong>这段为什么更像“真的做过”：</strong>不是单纯堆“提升 XX%”，而是同时给出 <strong>数据规模 → 评测集规模 → 指标名称 → Baseline → 优化后结果</strong>。例如面试官问“Recall@20 的 94% 怎么来的”，你能继续回答：420 条 Query 每条人工标注 Gold 文档，只要 Gold 出现在前 20 个候选中就记为命中，最后计算命中 Query 占比。</div>
+<p class="edit-hint"><br></p>
+</section>
+<section data-search="项目定位 广投 研发岗 AI 应用 后端 数据 电子信息 为什么" id="positioning">
+<h2>项目定位：</h2>
+<p>这个项目的核心定位：<strong>把 AI 变成房产经纪经营系统中的“智能分析层”，而不是做一个只会聊天的页面。</strong></p>
+<div class="grid-3">
+<div class="mini"><strong>投 AI / Agent 岗</strong><br>重点讲 RAG、Function Calling、Agent Workflow、Memory、Evals、Guardrails。</div>
+<div class="mini"><strong>投研发 / 后端岗</strong><br>重点讲 API、数据库、权限、状态机、任务调度、并发、超时重试、缓存、日志、可观测性。</div>
+<div class="mini"><strong>投数据 / 行业研发</strong><br>重点讲 Text-to-SQL、经营指标口径、房源/客源/带看/成交漏斗、异常分析、规则引擎与运营知识融合。</div>
+</div>
+<h3>为什么不把“LoRA”放主线</h3>
+<p>LoRA/SFT 是<strong>模型能力定制</strong>，但企业 AI 应用大量问题首先不是“模型不会说话”，而是<strong>数据拿不到、知识搜不准、工具调错、流程不可靠、结果不可验证</strong>。因此本项目把 LoRA 放在高级加分项：面试算法/大模型岗位时再展开；投 AI 应用、研发、后端、数据岗位时，主线仍然成立。</p>
+<div class="callout good"><strong>面试定位话术：</strong>“我的优势不是只会调一个大模型接口，而是能把 LLM 放进真实业务系统里：前面做任务理解，中间接知识库和工具，后面做校验、权限、日志和评测，让它变成可以被工程系统使用的 AI 能力。”</div>
+</section>
+<section data-search="30秒 2分钟 项目介绍 开场 面试 自我介绍" id="opening">
+<h2>项目总览：30 秒、2 分钟、5 分钟分别怎么讲</h2>
+<h3>30 秒版本（必须背熟）</h3>
+<div class="callout good"><strong>建议表达：</strong>我在贝壳找房的房产经纪经营场景里做了一个 AI 智能分析与决策平台。城市运营或区域经理可以直接用自然语言问门店经营数据、转化异常、指标口径或运营规范。大语言模型本质是一个概率预测模型，我的系统不会让模型凭空回答，而是先做任务理解，再根据问题调用知识库、数据库查询、异常分析和报表工具，最后把工具结果进行校验后生成带来源的结论。我主要负责 RAG、Tool Calling、Agent Workflow、上下文管理以及评测与幻觉治理这几块。</div>
+<h3>2 分钟版本（大多数技术面够用）</h3>
+<ol>
+<li><strong>背景：</strong>门店经营数据分散在房源、客源、带看、成交和经纪人等数据表里，指标口径与运营规范又在知识库中，过去很多经营复盘需要人工查报表、拆漏斗、翻 SOP、再写总结。</li>
+<li><strong>目标：</strong>用户只描述目标，例如“分析朝阳某片区最近 7 天带看转成交率为什么下降”，AI 自动判断要先查哪些经营数据、再分析哪个漏斗环节、最后需要补充哪些运营规范。</li>
+<li><strong>技术链路：</strong>意图识别 → Planning → Tool Calling / RAG → 数据计算 → 结果校验 → 生成回答。</li>
+<li><strong>重点难点：</strong>RAG 召回、SQL 安全、工具参数可靠、复杂多步任务的状态管理、幻觉与可追溯。</li>
+<li><strong>工程化：</strong>超时、重试、权限、缓存、Trace、Evals，不把它当“聊天 Demo”做。</li>
+</ol>
+<h3>5 分钟版本（面试官让你“详细讲讲项目”）</h3>
+<div class="flow"><span>业务问题</span><b>→</b><span>结构化理解</span><b>→</b><span>任务规划</span><b>→</b><span>知识 / 数据工具</span><b>→</b><span>验证</span><b>→</b><span>可追溯回答</span></div>
+<p>讲 5 分钟时不要陷进模型参数。按“<strong>为什么做 → 架构 → 我负责什么 → 一个真实 Trace → 难点 → 怎么验证效果</strong>”讲，面试官会更容易判断你的工程能力。</p>
+</section>
+
+<section data-search="贝壳 找房 房产 经纪 门店 经营 转化 带看 房源 客源 成交 业务场景" id="business">
+<h2>贝壳业务场景：这个 Agent 到底给谁用、解决什么问题</h2>
+<div class="callout good"><strong>一句话业务定位：</strong>给城市运营、区域经理和门店经营人员使用的“经营分析 Agent”。它不替代业务决策，而是把原来需要“查报表 → 找异常 → 拆漏斗 → 翻 SOP → 写复盘”的工作串成一次自然语言任务。</div>
+<div class="grid-3">
+<div class="mini"><strong>经营数据</strong><br>房源新增/在架、客源新增、咨询量、带看量、带看转成交率、成交套数、成交周期、经纪人人效、门店业绩等。</div>
+<div class="mini"><strong>知识库</strong><br>指标口径、门店运营 SOP、房客源维护规范、带看跟进规范、签约流程、培训手册、历史运营案例。</div>
+<div class="mini"><strong>典型用户</strong><br>城市运营、区域经理、门店店长、经营分析人员。不同角色通过 ACL 看到不同范围的数据与文档。</div>
+</div>
+<h3>贯穿全文的主业务案例</h3>
+<div class="case">
+<div class="case-title">主 Case · “北京朝阳某片区最近 7 天带看转成交率为什么下降？找出问题门店，并给我跟进建议。”</div>
+<div class="case-body">
+<div class="row"><div class="lbl">查什么</div><div>先查区域/门店维度的客源、带看、成交、转化率与历史基线。</div></div>
+<div class="row"><div class="lbl">怎么分析</div><div>找到下降最大的门店后，再拆房源供给、有效客源、带看量、带看后跟进、经纪人人效等漏斗指标。</div></div>
+<div class="row"><div class="lbl">为什么 RAG</div><div>数据能说明“发生了什么”，但“指标怎么定义、应该怎么跟进、哪些动作符合 SOP”需要查运营规范和业务手册。</div></div>
+<div class="row"><div class="lbl">为什么 Agent</div><div>下一步查什么取决于上一轮 SQL / Analysis 的结果：先定位门店，再定位漏斗环节，再查适用规范，最后生成复盘。</div></div>
+<div class="row"><div class="lbl">我的工作</div><div>把 Query Understanding、RAG、Text-to-SQL、经营分析 Tool、LangGraph 状态流转、Verifier、Evals 与 Trace 串成一条可回归的任务链路。</div></div>
+</div>
+</div>
+</section>
+
+<section data-search="场景化 面试 STAR 业务问题 我的工作 结果 追问 实习复盘" id="story-method">
+<h2>场景化面试法：任何技术问题都回到“当时为什么要做”</h2>
+<div class="truth-note"><strong>使用说明：</strong>问到任何工作问题时，都能按照此模板回答。</div>
+<p>面试官真正想判断的通常不是“你背没背过 BM25 / LangGraph”，而是：<strong>你是不是遇到过问题、能不能定位问题、为什么选这个方案、你具体改了什么、怎么证明改对了。</strong></p>
+<div class="flow"><span>业务现场</span><b>→</b><span>出现问题</span><b>→</b><span>定位原因</span><b>→</b><span>我的动作</span><b>→</b><span>为什么这样选</span><b>→</b><span>结果/指标</span></div>
+<h3>统一回答模板（建议每个工作都按这 6 句讲）</h3>
+<ol>
+<li><strong>场景：</strong>“我们当时有一个业务场景是……”</li>
+<li><strong>问题：</strong>“第一版上线/测试时发现……”</li>
+<li><strong>定位：</strong>“我看 Trace / 错误样本后发现主要原因是……”</li>
+<li><strong>我做了什么：</strong>“我负责把……改成……，具体做了 A/B/C。”</li>
+<li><strong>为什么：</strong>“没有直接换大模型，是因为问题发生在检索/参数/状态/校验这一层。”</li>
+<li><strong>结果：</strong>“最后用 X 条 Gold Case 做评测，指标从 A 提升到 B，同时延迟/成本控制在……”</li>
+</ol>
+<div class="callout good"><strong>万能收口：</strong>“所以这个技术不是为了堆栈才加的，是因为我们在这个业务场景里确实碰到了对应故障，我负责把问题定位到这一层，再用可验证的工程方案解决。”</div>
+</section>
+<section data-search="整体架构 Agent Runtime RAG Retriever ACL Filter SQL verifier LangGraph ReAct" id="architecture">
+<h2>整体架构：先看清“层”和“Tool 内部”</h2>
+<p>ACL 不是让 LLM 自己判断，而是由登录身份/角色转成检索过滤条件，在候选文档进入上下文之前完成权限过滤。</p>
+<pre>用户 / 登录身份
+   │  user_id / roles / department
+   ▼
+[0] AuthN / AuthZ
+   │
+   ▼
+[1] Intent &amp; Query Understanding
+   - 意图、实体、时间、指标、约束
+   - 生成结构化 Task Spec
+   │
+   ▼
+[2] LangGraph / Agent Runtime  ← 保存 State、控制条件边、Checkpoint
+   │
+   ├──────────────── RAG Tool ───────────────────────────────┐
+   │      Query Rewrite / Decompose                          │
+   │                ↓                                       │
+   │      ACL + Metadata Filter  ← roles/department/time     │
+   │                ↓                                       │
+   │       Hybrid Retriever                                 │
+   │       ├─ Dense Vector Search                            │
+   │       └─ BM25 Sparse Search                             │
+   │                ↓                                       │
+   │             RRF Fusion                                  │
+   │                ↓                                       │
+   │       Cross-Encoder Reranker                            │
+   │                ↓                                       │
+   │   Validity/Authority → MMR/Dedup → Dynamic TopK         │
+   │                ↓                                       │
+   │       Evidence + Citation IDs                           │
+   │                                                        │
+   ├──────────────── SQL Tool ───────────────────────────────┤
+   │      Schema Retrieval → SQL Plan → Guard → Execute      │
+   │                                                        │
+   ├────────────── Analysis Tool ────────────────────────────┤
+   │      anomaly / trend / statistics / rule engine         │
+   │                                                        │
+   └────────────── Report Tool ──────────────────────────────┤
+                                                            ▼
+[3] Verifier / Guardrail
+    - 数字是否等于 Tool Result？
+    - 引用是否支持结论？
+    - 权限/时效/版本是否正确？
+    - 是否需要人工审批？
+                                                            │
+                                                            ▼
+[4] Response Generator → 带证据、指标口径和风险提示的答案</pre>
+<div class="callout"><strong>最重要的设计思想：</strong>LLM 做“理解、规划、路由、解释”；Retriever/SQL/代码做“查找、计算、执行”；权限由确定性 AuthZ + ACL 控制；LangGraph 管整个任务的状态和流转。</div>
+<h3>为什么 ACL 必须在检索层</h3>
+<div class="grid-2">
+<div class="mini"><strong>错误做法：Prompt 约束</strong><br>先把机密文档检索出来，再在 Prompt 写“不要告诉用户”。此时敏感内容已经进入应用上下文，安全边界太晚。</div>
+<div class="mini"><strong>正确做法：Retrieval-time ACL</strong><br>文档/Chunk 带 allowed_roles / department / security_level，Retriever 构造 Filter，让无权限 Chunk 根本不进入候选集。</div>
+</div>
+<h4>ACL Metadata 示例</h4>
+<pre>{
+  "chunk_id": "policy_2026_031#4.2",
+  "department": "beijing_ops",
+  "security_level": "L2",
+  "allowed_roles": ["region_manager", "city_ops"],
+  "valid_from": "2026-01-01",
+  "valid_to": null
+}</pre>
+<h3>分层职责</h3>
+<table>
+<thead><tr><th>层</th><th>输入</th><th>输出</th><th>关键失败点</th></tr></thead>
+<tbody>
+<tr><td>理解层</td><td>自然语言 + 会话上下文</td><td>Task Spec</td><td>意图错、字段漏、时间理解错</td></tr>
+<tr><td>编排层</td><td>Task Spec + State</td><td>下一节点 / Tool Call</td><td>路由错、死循环、缺终止条件</td></tr>
+<tr><td>检索层</td><td>Query + ACL + Metadata</td><td>Evidence</td><td>漏召、错排、越权、过期制度</td></tr>
+<tr><td>工具层</td><td>结构化参数</td><td>可审计 Tool Result</td><td>参数错、SQL 错、超时</td></tr>
+<tr><td>验证层</td><td>Draft + Evidence + Result</td><td>pass / retry / human</td><td>引用不支持、数值不一致</td></tr>
+</tbody>
+</table>
+</section>
+<section data-search="小白 LLM RAG Agent Tool Function Calling Token Embedding 向量数据库 基础" id="basics">
+<h2>LLM、RAG、Agent、Tool 到底是什么</h2>
+<h3>1. LLM 是什么</h3>
+<p><strong>白话：</strong>LLM 就是一个非常强的“下一词预测器”。你给它上下文，它根据训练得到的概率分布生成后续 Token。它擅长理解语言、归纳、改写、规划，但<strong>不知道你公司今天数据库里的真实数据，也不能天然保证每句话都是真的</strong>。</p>
+<div class="callout warn"><strong>面试不要说：</strong>“大模型会思考，所以它什么都能做。”<br><strong>应该说：</strong>“LLM 对语言理解和弱结构推理很强，但外部事实、实时数据、精确计算和权限执行要交给检索与工具。”</div>
+<h3>2. RAG 是什么</h3>
+<p><strong>RAG = Retrieval-Augmented Generation，检索增强生成。</strong>先从企业知识库找材料，再把材料放进 Prompt，让 LLM 基于材料回答。它解决的是“<strong>模型不知道公司内部知识 / 知识更新快 / 回答要有出处</strong>”。</p>
+<h3>3. Agent 是什么</h3>
+<p><strong>Agent = LLM + Tools + State + Loop/Workflow。</strong>它不只输出一段文字，还可以决定“下一步该查什么、调什么工具、工具失败后是否重试、是否向用户追问”。</p>
+<h3>4. Function Calling / Tool Calling 是什么</h3>
+<p>不是让模型真的去执行函数，而是<strong>让模型输出一个受约束的工具调用意图</strong>，例如：</p>
+<pre>{
+  "tool": "query_business_metric",
+  "arguments": {
+    "metric": "showing_to_deal_rate",
+    "time_range": "2026-09-23",
+    "group_by": "store"
+  }
+}</pre>
+<p>后端接到这个 JSON，再真正执行代码。这样模型负责“决定调用谁”，程序负责“执行”。</p>
+<h3>5. Embedding / 向量数据库是什么</h3>
+<p>Embedding 把一段文字变成高维向量。语义越接近，向量距离通常越近。向量数据库负责快速寻找“和用户问题最相似的文档块”。</p>
+<h3>6. Token / Context Window 是什么</h3>
+<p>模型并不是无限记忆。Prompt、历史对话、检索文档、工具结果都要占 Token。上下文太长会变慢，还可能让模型“注意力分散”。所以要做<strong>上下文选择、摘要、压缩和动态注入</strong>。</p>
+</section>
+<section data-search="工作一 意图理解 结构化输出 query understanding entity intent schema json prompt" id="work1">
+<h2>工作一 · 意图理解与结构化输出</h2>
+
+<div class="story">
+<div class="story-head">🎯 场景复盘 · 一句话同时包含查数、对比、分析、写结论 <small>Query Understanding / Structured Output</small></div>
+<div class="story-body">
+<div class="story-step"><div class="badge">业务现场</div><div>业务人员习惯直接说：“帮我看看朝阳这个片区最近 7 天带看转成交率为什么掉了，和上周同期比一下，再给个结论。”他们不会按系统字段逐项填写 region、metric、date、compare_to。</div></div>
+<div class="story-step problem"><div class="badge">遇到问题</div><div>第一版直接把整句自然语言传给下游 Agent。结果不同 Tool 对“最近 7 天”“带看转成交率”“朝阳”的理解不一致：SQL Tool 按自然周取数，分析 Tool 却按滚动 7 天；“转化率”有时被映射成咨询转带看，有时被映射成带看转成交，导致同一请求前后口径打架。</div></div>
+<div class="story-step"><div class="badge">怎么定位</div><div>我把失败请求按 Trace 拆开看，发现很多错误不是 SQL 算错，而是在最前面的 Query Understanding 已经把时间窗口、经营指标或比较基线抽错，后面模块只是沿用错误参数。</div></div>
+<div class="story-step action"><div class="badge">我做了什么</div><div>我负责把自然语言入口改成结构化 Task Spec：用 JSON Schema/Pydantic 约束 intent、region、metric、date、compare_to、tasks；补了时间归一化和业务字典映射；对“转化率”这类多义指标加冲突检测，低置信度时触发澄清，而不是让后面的 Tool 自己猜。</div></div>
+<div class="story-step"><div class="badge">为什么这样选</div><div>因为问题本质是“模块边界不稳定”，不是模型知识不够。结构化以后，每个 Tool 只消费固定字段，才能做类型校验、权限判断、重试和回归测试。</div></div>
+<div class="story-step result"><div class="badge">结果怎么讲</div><div>把 Intent Accuracy、Slot F1、JSON Parse Rate 纳入 Query 层评测；同时观察后续 Tool 参数错误是否下降。面试时重点说明：先修入口参数，才能避免错误一路放大到 SQL、RAG 和报告生成。</div></div>
+<div class="story-step interview"><div class="badge">被追问时</div><div><strong>“Prompt Engineering 你具体做了什么？”</strong>就讲这个场景：不是写更长 Prompt，而是把 Prompt 当接口协议，规定字段、枚举、正反例和失败策略。<br><strong>“为什么要结构化输出？”</strong>继续讲不同 Tool 对时间和指标理解不一致的真实故障。</div></div>
+<div class="story-script"><strong>1 分钟话术：</strong>“我们最开始把用户原话直接往后传，后来 Trace 里发现很多 SQL/RAG 错误其实源头是第一步把时间或指标理解错了。我负责把入口改成结构化 Task Spec，用 Schema、时间归一化、业务字典和低置信澄清把参数固定下来。这样后面的 Tool 不再各自猜用户意思，问题定位和回归测试也简单很多。”</div>
+</div></div>
+
+<div class="callout good"><strong>🎯 场景：</strong>用户说：“帮我看看朝阳某片区最近 7 天带看转成交率为什么下降，顺便和上周同期比一下，再给我写个简短结论。”一句话里其实包含：查数据、同比/环比、异常原因分析、生成结论四件事。</div>
+<div class="flow"><span>自然语言</span><b>→</b><span>意图识别</span><b>→</b><span>实体抽取</span><b>→</b><span>任务拆解</span><b>→</b><span>结构化 JSON</span></div>
+<h3>为什么第一步必须结构化</h3>
+<p>如果把整句话直接丢给后面所有模块，每个模块都要重新猜“最近 7 天到底是哪段时间、朝阳对应哪个业务区域编码、转化率到底是哪一层漏斗指标”。结构化之后，后面的工具只接固定字段，系统会稳定很多。</p>
+<h4>示例结构化输出</h4>
+<pre>{
+  "intent": "business_anomaly_analysis",
+  "entities": {
+    "region": "北京-朝阳",
+    "metric": "showing_to_deal_rate",
+    "date_range": "last_7_days",
+    "compare_to": "previous_7_days"
+  },
+  "tasks": [
+    "query_metric",
+    "compare_baseline",
+    "anomaly_reasoning",
+    "generate_summary"
+  ],
+  "need_clarification": false,
+  "confidence": 0.94
+}</pre>
+<h3>实现要点</h3>
+<div class="grid-3">
+<div class="mini"><strong>Schema 约束</strong><br>用 JSON Schema / Pydantic 约束字段类型、枚举和值域。解析失败就重试或回退。</div>
+<div class="mini"><strong>时间归一化</strong><br>“昨天、上周一、最近三个月”统一转换成绝对日期范围，避免不同工具理解不一致。</div>
+<div class="mini"><strong>歧义澄清</strong><br>如果用户说“转化率”但系统里有“咨询转带看率/带看转成交率/客源转成交率”，不能瞎猜，必须追问或根据上下文消歧。</div>
+</div>
+<h3>面试追问</h3>
+<div class="qa">
+<details open=""><summary>为什么一定要结构化输出？直接自然语言传给下一个 Agent 不行吗？</summary><div class="answer">自然语言很难做类型校验、权限判断和失败重试；结构化 JSON 可以做 Schema 校验，也方便日志、Trace 和工具路由。我的原则是：模型内部可以自然语言推理，但模块边界尽量结构化。</div></details>
+<details><summary>LLM 抽错字段怎么办？</summary><div class="answer">三层兜底：第一层 Schema 校验；第二层业务字典/枚举校验，例如 region 必须能映射到合法区域 ID；第三层低置信或冲突时向用户澄清。不要靠“再问一次模型”无限重试。</div></details>
+<details><summary>Prompt Engineering 主要做了什么？</summary><div class="answer">不是堆很多“请认真思考”，而是明确角色、任务、输入字段、允许输出格式、边界条件、正反例和失败策略。结构化任务里，好的 Prompt 更像“接口协议”而不是作文提示词。</div></details>
+</div>
+</section>
+<section data-search="工作二 RAG Retriever Chunk Parent Child Embedding BM25 RRF Cross Encoder Reranker MMR ACL Filter Query Rewrite HyDE Dynamic TopK" id="work2">
+<h2>工作二 · 企业知识库 RAG：从“能搜”做到“搜得准、搜得安全”</h2>
+
+<div class="story">
+<div class="story-head">🎯 场景复盘 · 搜到了“相关文档”，却不是“当前真正能用的制度” <small>RAG / Hybrid Retrieval / Reranker / ACL</small></div>
+<div class="story-body">
+<div class="story-step"><div class="badge">业务现场</div><div>区域经理发现某门店带看转成交率异常后，会继续问“按照运营规范应该怎么跟进、哪些动作要检查、指标口径怎么定义”。这些信息不在数据库，而是在制度、手册和历史案例里。</div></div>
+<div class="story-step problem"><div class="badge">遇到问题</div><div>第一版只做 Dense 向量检索。线上/测试里出现三类典型错误：① 用户问SOP 编号或指标编码时向量检索漏掉精确编号；② 旧版运营规范和新版规范语义几乎一样，旧版反而排前；③ TopK 经常是同一章节的重复 Chunk，真正的审批条款被挤掉。</div></div>
+<div class="story-step"><div class="badge">怎么定位</div><div>我整理错误 Query，把失败分成“漏召回”和“排序错误”两类，再看 Recall@20、MRR、nDCG。发现SOP 编号/指标编码主要是漏召回问题；新旧版本和适用范围主要是排序与元数据问题。</div></div>
+<div class="story-step action"><div class="badge">我做了什么</div><div>我负责把检索链路从 Dense Only 改成 Dense + BM25 双路召回，用 RRF 融合；文档切分改为标题感知 + Parent-Child；Chunk 入库补 department、version、valid_time、ACL 等 Metadata；召回后用 Cross-Encoder Reranker 精排，再做 Validity/Authority 与 MMR 去重，最后 Dynamic TopK 控制注入证据数。</div></div>
+<div class="story-step"><div class="badge">为什么这样选</div><div>BM25解决制度号、指标编码等精确 token；Dense 解决“预算超了怎么办”这类语义改写；Reranker 负责候选内部精排；Validity/ACL 是确定性业务约束，不能交给相似度；MMR 用来避免 Context 被重复段落占满。</div></div>
+<div class="story-step result"><div class="badge">结果怎么讲</div><div>420 条人工标注 Query 上，Dense Only 的 Recall@20 为 79.0%，Dense+BM25 后 89.3%，再加 RRF + Rewrite 到 94.0%；加入 Cross-Encoder 后 Recall 基本不变，但 MRR/nDCG 明显提升。这个结果正好能说明“召回”和“排序”是两层问题。</div></div>
+<div class="story-step interview"><div class="badge">被追问时</div><div><strong>“为什么用 BM25？”</strong>讲制度编号漏召回。<br><strong>“为什么要 Reranker？”</strong>讲旧版/不适用制度排前。<br><strong>“为什么 Parent-Child？”</strong>讲 Child 命中了条款半句话但缺条件。<br><strong>“为什么 MMR？”</strong>讲 Top10 七条来自同一章节。<br><strong>“ACL 放哪？”</strong>讲财务机密附件不能先检索再靠 Prompt 隐藏。</div></div>
+<div class="story-script"><strong>1 分钟话术：</strong>“我们第一版只用向量检索，语义问题能搜到，但制度编号、旧版制度、重复 Chunk 很容易出错。我当时先做错误分类，发现既有 Recall 问题也有 Ranking 问题，所以不是简单换 Embedding。我把链路改成 Dense+BM25→RRF→Reranker，再把版本、有效期、ACL 做成 Metadata 硬过滤，最后用 MMR 和 Dynamic TopK 控 Context。420 条 Gold Query 上 Recall@20 从 79% 做到 94%，排序指标也明显提升。”</div>
+</div></div>
+
+<div class="callout good"><strong>🎯 真实业务型场景：</strong>用户问“朝阳某门店带看转成交率连续下降，按照运营规范应该怎么跟进？”SQL 只能给出现象和数值；“怎么处理、适用哪些条件、谁审批”存在制度和手册里。RAG 的目标不是“把最像的文档搜出来”这么简单，而是<strong>在权限、时效、版本都正确的前提下，把真正能支撑结论的证据召回并排到前面</strong>。</div>
+<h3>一、先背住完整 RAG 漏斗</h3>
+<pre>离线知识入库
+PDF / Word / Wiki / 历史案例
+    ↓
+解析清洗（页眉页脚、乱码、表格、重复段）
+    ↓
+Parent-Child Chunk
+    ↓
+Metadata：source / department / version / valid_time / ACL
+    ↓
+Embedding Index + BM25 Index
+
+在线检索
+User Query
+    ↓
+① Query Understanding / Rewrite / Decompose
+    ↓
+② ACL + Metadata Pre-Filter
+    ↓
+③ Dense Recall Top-60  +  BM25 Recall Top-60
+    ↓
+④ RRF Fusion &amp; Dedup → Top-40
+    ↓
+⑤ Cross-Encoder Reranker → Top-10
+    ↓
+⑥ Authority + Validity + Business Metadata Re-score
+    ↓
+⑦ MMR / Near-Duplicate Removal → Top-5
+    ↓
+⑧ Dynamic TopK → 注入 2~5 条 Evidence
+    ↓
+⑨ LLM Grounded Answer + Citation</pre>
+<div class="callout"><strong>一句话记忆：</strong>先解决“<strong>别漏</strong>”（Recall），再解决“<strong>排准</strong>”（Ranking），最后解决“<strong>别塞太多重复/低质量证据</strong>”（Context）。权限和有效期不是相关性问题，而是<strong>确定性过滤条件</strong>。</div>
+<h3>二、Chunk：不是固定 500 字切一刀</h3>
+<div class="grid-3">
+<div class="mini"><strong>Child Chunk</strong><br>较短，负责向量召回，主题更集中；例如制度第 4.2.1 条单独作为 250~450 tokens 的检索块。</div>
+<div class="mini"><strong>Parent Chunk</strong><br>保留完整条款/章节上下文。Child 命中后回表取 Parent，避免只拿到半句话导致条件缺失。</div>
+<div class="mini"><strong>Overlap</strong><br>只在跨段逻辑明显时保留少量重叠，不是越大越好。Overlap 太大会制造大量近重复候选。</div>
+</div>
+<p><strong>怎么选 Chunk Size？</strong>不是背 512。先按“用户问题粒度”和“制度条款完整性”设初值，再用 Recall@K + 最终 QA 做实验。项目中，固定 800-token 粗切的 Recall@20 为 <strong>82.1%</strong>，改成标题感知 + Parent-Child 后为 <strong>89.5%</strong>。</p>
+<h3>三、Query Understanding：检索前先决定“怎么搜”</h3>
+<div class="grid-3">
+<div class="mini"><strong>Rewrite</strong><br>“这个要怎么跟进？”结合上一轮补成“朝阳某门店带看转成交率下降的运营跟进流程”，解决指代和残缺 Query。</div>
+<div class="mini"><strong>Decompose</strong><br>“为什么异常、制度怎么处理、谁审批”拆成数据子任务 + 知识子 Query，避免一个 Query 同时承担多个目标。</div>
+<div class="mini"><strong>Metadata Extraction</strong><br>抽取部门、制度类型、业务对象、生效日期等结构化字段，交给 Filter 而不是让向量相似度猜。</div>
+</div>
+<div class="callout good"><strong>可选增强：</strong>HyDE / Step-back 可以作为“长尾召回补救”，而不是默认每个 Query 都跑。只有口语和文档术语差距很大、基础混合检索仍漏召时再开启，否则会增加延迟和语义漂移风险。</div>
+<h3>四、ACL / Metadata Filter：权限必须先于内容注入</h3>
+<p>文档入库时给每个 Chunk 标记 <code>department</code>、<code>allowed_roles</code>、<code>security_level</code>、<code>valid_from</code>、<code>valid_to</code>、<code>version</code>。查询时后端从真实登录态得到用户权限，并构造过滤条件：</p>
+<pre>user.roles = ["region_manager"]
+user.department = "beijing_chaoyang"
+
+retrieval_filter = {
+  "allowed_roles": {"$contains_any": user.roles},
+  "department": {"$in": [user.department, "public"]},
+  "valid_from": {"$lte": query_date},
+  "$or": [
+    {"valid_to": null},
+    {"valid_to": {"$gte": query_date}}
+  ]
+}</pre>
+<p><strong>为什么不只做 Post-Filter？</strong>如果先 TopK 再删无权文档，可能 20 条里 18 条都被过滤，最后只剩 2 条，召回会塌。更合理的是尽量做 Pre-Filter / 原生 metadata filter；向量库能力有限时再“扩大候选 + Post-Filter”兜底。</p>
+<h3>五、Dense + BM25：两路召回互补</h3>
+<div class="grid-2">
+<div class="mini"><strong>Dense / Embedding</strong><br>解决语义改写：“带看后客户没成交怎么办”可以召回“带看后跟进与转化提升规范”。双塔可离线编码文档，在线只编码 Query，ANN 检索速度快。</div>
+<div class="mini"><strong>BM25 / Sparse</strong><br>解决精确 token：SOP 编号、指标编码、门店编码、业务缩写。向量有时会把“意思像但编号错”的文档推上来，BM25 可以补精确匹配。</div>
+</div>
+<h4>为什么用 RRF 融合</h4>
+<p>Dense 相似度和 BM25 分数不是同一个尺度，直接相加很危险。RRF 只看排名：<code>score(d)=Σ 1/(k+rank_i(d))</code>，常用 k≈60，对不同检索器的分数尺度更鲁棒。需要根据 Query 类型动态偏向某一路时，再考虑归一化加权。</p>
+<h3>六、Reranker：召回负责“别漏”，精排负责“排准”</h3>
+<p>Embedding 是 <strong>Bi-Encoder</strong>：Query 和 Doc 分开编码再算距离，快但交互浅；Reranker 常用 <strong>Cross-Encoder</strong>：把 <code>[Query, Doc]</code> 一起输入，让模型做深度交互，因此更准但更慢，只适合几十条候选。</p>
+<table>
+<thead><tr><th>阶段</th><th>候选数（示例）</th><th>目标</th><th>主要指标</th></tr></thead>
+<tbody>
+<tr><td>Dense / BM25</td><td>各 Top-60</td><td>尽可能不漏正确证据</td><td>Recall@K / Hit@K</td></tr>
+<tr><td>RRF</td><td>Top-40</td><td>融合双路并去重</td><td>Recall@40</td></tr>
+<tr><td>Cross-Encoder</td><td>Top-10</td><td>把真正适用制度排到前面</td><td>MRR / nDCG@10</td></tr>
+<tr><td>MMR + Dynamic TopK</td><td>2~5</td><td>减少重复和上下文噪声</td><td>Faithfulness / Token / Latency</td></tr>
+</tbody>
+</table>
+<h3>七、为什么还要 Authority / Validity / MMR</h3>
+<div class="grid-3">
+<div class="mini"><strong>Authority</strong><br>同样相关时，公司正式制度 &gt; 部门操作手册 &gt; 历史经验。权威度是业务先验，不完全交给语义分数决定。</div>
+<div class="mini"><strong>Validity</strong><br>旧制度即使语义再像，只要已失效就不能给当前问题作证据。生效时间和版本是硬约束。</div>
+<div class="mini"><strong>MMR / Dedup</strong><br>Top-10 可能 7 条都是同一制度的近重复段。MMR 在相关性和多样性之间取平衡，避免 Context 全被重复内容占满。</div>
+</div>
+<p><strong>Dynamic TopK：</strong>不是永远 Top-5。比如要求 Reranker 分数 ≥0.62，最多 5 条、至少 2 条；高置信时只给 2~3 条，低置信时宁可触发“证据不足/澄清”也不硬塞低相关文档。</p>
+<h3>八、一个完整 RAG Case：为什么这条制度最后能排第一</h3>
+<div class="case">
+<div class="case-title">Case · “朝阳某门店带看转成交率下降，按什么运营规范跟进？” <small>Query → ACL → Hybrid → Rerank → Evidence</small></div>
+<div class="case-body">
+<div class="row"><div class="lbl">Rewrite</div><div>结合会话补成“朝阳某门店带看转成交率下降的跟进流程、责任人与核查步骤”。</div></div>
+<div class="row"><div class="lbl">ACL</div><div>当前用户是区域经理，只允许 public + beijing_chaoyang + region_manager 可见文档；其他城市内部运营材料在召回前被过滤。</div></div>
+<div class="row"><div class="lbl">召回</div><div>Dense 命中“门店转化率异常诊断流程”，BM25 命中“经纪运营规范 BK-OPS-17”；两路各 Top-60。</div></div>
+<div class="row"><div class="lbl">融合</div><div>RRF 后“BK-OPS-17 v3”进入 Top-3，“v2”虽然相关但 valid_to 已过期。</div></div>
+<div class="row"><div class="lbl">精排</div><div>Cross-Encoder 判断 v3 第 4.2 节与“带看转成交率下降 + 门店 + 跟进”高度匹配，排到第 1。</div></div>
+<div class="row"><div class="lbl">去重</div><div>其余同章节近重复片段被 MMR 去掉，最终注入 v3 §4.2、§4.3 和一条历史案例。</div></div>
+<div class="row"><div class="lbl warn">兜底</div><div>如果 ACL 后没有足够证据，回答“当前权限范围内未检索到适用制度”，而不是绕过权限扩大检索。</div></div>
+</div>
+</div>
+<h3>九、怎么用数据证明 RAG 真的做过</h3>
+<div class="callout warn"><strong>下面是</strong>整理 300~500 条 Query，人工标注 Gold Evidence，再跑 baseline 和各阶段 ablation的结果。</div>
+<table>
+<thead><tr><th>方案</th><th>Recall@20</th><th>MRR</th><th>nDCG@10</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>Dense Only</td><td>79.0%</td><td>0.61</td><td>0.65</td><td>口语语义不错，但制度号/专业编码易漏</td></tr>
+<tr><td>Dense + BM25</td><td>89.3%</td><td>0.68</td><td>0.72</td><td>精确 token 得到补偿</td></tr>
+<tr><td>+ RRF + Query Rewrite</td><td>94.0%</td><td>0.75</td><td>0.78</td><td>解决残缺问法和双路融合</td></tr>
+<tr><td>+ Cross-Encoder Rerank</td><td>94.0%</td><td>0.83</td><td>0.84</td><td>Recall 不变，排序明显提升</td></tr>
+</tbody>
+</table>
+<p><span class="score">示例：420 条人工标注 Query · 约 1.8 万 Chunk · ACL 越权命中 0/120 权限负例</span></p>
+<p>面试时要能解释：<strong>Recall 提升属于召回层；MRR/nDCG 提升属于排序层；Reranker 不可能救回从未被召回的文档。</strong></p>
+<h3>十、高频面试追问</h3>
+<div class="qa">
+<details><summary>为什么不用纯向量检索？</summary><div class="answer">企业知识里既有自然语言语义，也有制度号、设备码、指标名等精确 token。Dense 擅长同义改写，BM25 擅长字面精确匹配，两路互补。我的 baseline 是 Dense Only，再通过混合召回观察 Recall@K 是否真的提升。</div></details>
+<details open=""><summary>为什么 Reranker 不能扫描全库？</summary><div class="answer">Cross-Encoder 需要每个 Query-Doc 对都跑一次前向，精度高但计算贵；召回阶段先用双塔/倒排把几万、几十万文档压到几十条，再付得起精排成本。</div></details>
+<details open=""><summary>ACL Filter 放在哪里？为什么不是 Prompt？</summary><div class="answer">放在 Retriever 的查询条件里，由后端 AuthZ 生成。Prompt 只能约束模型行为，不能承担访问控制；无权文档不应该进入候选集和 LLM Context。</div></details>
+<details open=""><summary>Pre-Filter 和 Post-Filter 怎么选？</summary><div class="answer">优先 Pre-Filter，安全边界清晰且不会浪费 TopK；如果向量引擎对复杂 ACL 支持弱，可以扩大召回后 Post-Filter，但必须考虑过滤后候选不足，并设置补召回/兜底。</div></details>
+<details open=""><summary>HyDE 为什么不默认开启？</summary><div class="answer">它能救回“用户问法和文档写法差很远”的长尾 Query，但要额外调用 LLM，会增加成本和延迟，还可能把 Query 改偏。所以先看错误分析：基础 Hybrid Retrieval 仍然漏召的场景才定向开启。</div></details>
+<details open=""><summary>为什么用了 Reranker，Recall@20 还是没变？</summary><div class="answer">这是正常的。Reranker 只改变已经召回候选的顺序，不能创造新候选。它更应该提升 MRR、nDCG 或 Top-3 Hit，而不是粗召回 Recall。</div></details>
+</div>
+</section>
+<section data-search="工作三 Tool Calling Function Calling Text-to-SQL 数据库 SQL Schema 安全 只读 工具调用" id="work3">
+<h2>工作三 · Tool Calling 与智能查数：让 AI 真正“做事”</h2>
+
+<div class="story">
+<div class="story-head">🎯 场景复盘 · 模型能“说出 SQL”，但结果不一定能用于业务 <small>Tool Calling / Text-to-SQL</small></div>
+<div class="story-body">
+<div class="story-step"><div class="badge">业务现场</div><div>用户会问“过去 7 天各区域能耗同比变化最大的前三个区域是什么？”这类问题要求实时查数据库、按统一口径计算，再解释结果。</div></div>
+<div class="story-step problem"><div class="badge">遇到问题</div><div>早期方案把较完整 Schema 全塞给模型直接生成 SQL，出现过选错同名字段、把同比口径写错、查询扫描范围过大，以及模型拿到 30 多行结果后自己算排名算错的问题。</div></div>
+<div class="story-step"><div class="badge">怎么定位</div><div>我把失败分成 Schema 选择错误、SQL 语法/逻辑错误、执行风险、结果计算错误四类。Trace 里同时记录生成 SQL、执行耗时、返回行数和最终回答，才能判断到底是“SQL 错”还是“LLM 解释错”。</div></div>
+<div class="story-step action"><div class="badge">我做了什么</div><div>我负责增加 Schema Retrieval，只把相关表字段和指标口径给模型；SQL 执行前做 AST 校验、SELECT-only、表/字段白名单、超时和行数限制；数据库用只读账号；同比、排序、聚合等确定性计算交给 SQL/Python，LLM 只解释已经算好的结构化结果。</div></div>
+<div class="story-step"><div class="badge">为什么这样选</div><div>Text-to-SQL 最危险的不是“SQL 看起来不优雅”，而是结果错、越权和拖垮数据库。能确定性计算的步骤不应该交给概率生成。</div></div>
+<div class="story-step result"><div class="badge">结果怎么讲</div><div>180 条 SQL Gold Case 上 Execution Accuracy 达到 90.6%，无效 SQL 比例由 14.4% 降到 5.0%；高风险 SQL 测试集拦截率 100%。重点说明 Gold Case 如何构造、Execution Accuracy 是执行结果是否一致，而不只是 SQL 字符串一样。</div></div>
+<div class="story-step interview"><div class="badge">被追问时</div><div><strong>“Text-to-SQL 最大难点？”</strong>从字段歧义、口径、安全和性能四类讲。<br><strong>“为什么不用模型直接算？”</strong>讲 37 个区域排名/同比时模型可能抄错漏行。<br><strong>“Schema Retrieval 有什么用？”</strong>讲全库 Schema 太长且容易选错同名字段。</div></div>
+<div class="story-script"><strong>1 分钟话术：</strong>“我们一开始让模型直接基于大 Schema 出 SQL，测试里出现过选错字段和同比算错。我的工作不是只调 Prompt，而是把 SQL Tool 工程化：先检索相关 Schema 和指标口径，再做只读、白名单、AST 校验、超时行数限制；统计和排名交给数据库/Python算。这样模型只负责理解和解释，Execution Accuracy 做到了 90% 以上，高风险 SQL 全部被 Guard 拦住。”</div>
+</div></div>
+
+<div class="callout good"><strong>🎯 场景：</strong>用户问“过去 7 天朝阳各门店带看转成交率下降最大的前三家门店是什么？”这不是知识问答，答案必须来自经营数据库计算。模型应该决定“查什么”，但真正的统计由 SQL/代码执行。</div>
+<h3>工具设计原则</h3>
+<pre>LLM：理解用户 → 选择工具 → 填参数
+程序：校验参数 → 执行 SQL/API/算法 → 返回结构化结果
+LLM：解释工具结果 → 组织成人类语言</pre>
+<h4>一个工具定义示例</h4>
+<pre>{
+  "name": "query_metric",
+  "description": "查询业务指标，不用于写入数据",
+  "parameters": {
+    "metric": "string",
+    "start_date": "YYYY-MM-DD",
+    "end_date": "YYYY-MM-DD",
+    "group_by": ["area", "department", "day"],
+    "aggregation": ["sum", "avg", "max", "min"]
+  }
+}</pre>
+<h3>Text-to-SQL 怎么做才像工程项目</h3>
+<div class="grid-3">
+<div class="mini"><strong>Schema Retrieval</strong><br>先只把相关表/字段给模型，不把整个数据库 Schema 全塞进去。</div>
+<div class="mini"><strong>SQL Guard</strong><br>只允许 SELECT；禁止 DROP/UPDATE/DELETE；限制表白名单、执行时间、返回行数。</div>
+<div class="mini"><strong>Result Validator</strong><br>检查空结果、异常值、单位、时间范围，并把 SQL 与结果一起记录到 Trace。</div>
+</div>
+<h3>为什么不能让 LLM 直接算</h3>
+<p>例如数据库返回 37 家门店的带看量、成交量和转化率，LLM 很可能在长上下文里加错、抄错或漏行。正确做法是让 Python/SQL 计算 <code>sum/avg/rank/同比</code>，最后把已经算好的结果交给 LLM 解释。</p>
+<div class="callout"><strong>面试金句：</strong>“模型负责理解和决策，确定性程序负责计算和执行；凡是能用代码精确完成的，就尽量不要让 LLM 用概率生成去完成。”</div>
+<h3>面试追问</h3>
+<div class="qa">
+<details open=""><summary>Text-to-SQL 最大风险是什么？</summary><div class="answer">一是生成错误 SQL 导致结论错；二是越权读取敏感表；三是生成高成本查询拖垮数据库；四是如果给写权限还可能造成破坏。因此生产上要只读账号、表/字段白名单、SQL 解析校验、超时、行数限制、审计。</div></details>
+<details open=""><summary>用户问了数据库里没有的字段怎么办？</summary><div class="answer">Schema 检索阶段会发现没有对应字段。此时不要编 SQL，返回“缺少数据字段/需要澄清指标口径”，或者路由到知识库查指标定义。</div></details>
+<details open=""><summary>为什么工具返回也要结构化？</summary><div class="answer">因为后续要校验和组合。比如统一返回 {status, data, source, latency, error_code}，Agent 才能知道是“查到了空数据”还是“工具调用失败”。</div></details>
+</div>
+</section>
+<section data-search="工作四 Agent ReAct LangGraph StateGraph node edge conditional state checkpoint human in the loop tool loop" id="work4">
+<h2>工作四 · Agent 规划与 LangGraph：ReAct 是“决策”，LangGraph 是“运行时”</h2>
+
+<div class="story">
+<div class="story-head">🎯 场景复盘 · 多步分析不是固定流水线，中间结果会决定下一步 <small>ReAct / LangGraph / State</small></div>
+<div class="story-body">
+<div class="story-step"><div class="badge">业务现场</div><div>用户要求“找出昨天成本异常最大的部门，解释原因，查相关制度，再生成一页汇报”。只有第一步 SQL 跑完后，系统才知道下一步应该围绕哪家门店、哪一段经营漏斗继续查。</div></div>
+<div class="story-step problem"><div class="badge">遇到问题</div><div>第一版用一个大 Prompt 让模型一次性规划全部步骤，工具一旦返回空结果/超时，模型容易重复调用同一个 Tool；服务重启后任务从头开始；某些“发通知/创建工单”类动作还存在重复执行风险。</div></div>
+<div class="story-step"><div class="badge">怎么定位</div><div>我通过 Trace 统计失败任务的 Tool Sequence，发现主要问题不是模型不会选 Tool，而是状态没有显式管理：不知道上一步到底成功、空结果、超时还是权限拒绝，也没有统一终止条件。</div></div>
+<div class="story-step action"><div class="badge">我做了什么</div><div>我负责用 LangGraph/StateGraph 把 understand、agent_node、query_sql、rag_search、analyze、validate、human_approval 等做成节点；State 显式保存 tool_results、retry_count、tool_call_count、risk_level；ReAct 只负责动态 next_action；补了重复调用检测、最大步数、错误码路由、Checkpoint 和高风险 Interrupt。</div></div>
+<div class="story-step"><div class="badge">为什么这样选</div><div>ReAct 解决“下一步做什么”，LangGraph 解决“怎么可靠地跑”；固定 Workflow 对确定任务更稳，只有路径依赖中间结果时才让 Agent 动态决策。</div></div>
+<div class="story-step result"><div class="badge">结果怎么讲</div><div>260 条多步任务评测中 Tool Selection Accuracy 86.8%→94.1%，Task Success 73.5%→89.2%，重复 Tool Call 7.6%→2.1%；回答时把提升归因到 Tool Description、Schema、条件路由、错误码与验证节点，而不是笼统说“模型变聪明了”。</div></div>
+<div class="story-step interview"><div class="badge">被追问时</div><div><strong>“ReAct 和 LangGraph 区别？”</strong>直接用这个场景说明决策与运行时。<br><strong>“为什么要 Checkpoint？”</strong>讲任务跑到第六步/人工审批时服务重启不能从头来。<br><strong>“什么时候不用 Agent？”</strong>强调固定步骤用 Workflow 更便宜稳定。</div></div>
+<div class="story-script"><strong>1 分钟话术：</strong>“这个场景最典型的地方是，下一步依赖上一步结果，所以不能一开始把流程完全写死。我们早期的大 Prompt 版本容易循环、超时后重复调用。我负责把状态显式化，用 LangGraph 管节点、条件边、重试、Checkpoint，ReAct 只在 agent_node 决定下一步。这样把端到端 Task Success 从 73.5% 提到了 89.2%，重复 Tool Call 也明显下降。”</div>
+</div></div>
+
+<div class="callout good"><strong>🎯 场景：</strong>用户问“找出最近 7 天带看转成交率下降最大的门店，解释原因，查相关运营规范，再生成一页复盘。”路径不是一次就能写死：查完 SQL 后才知道查哪家门店；RAG 可能证据不足；工具会超时；高风险动作可能需要人工审批。这就是为什么既需要 Agent 的动态决策，也需要工程化的状态编排。</div>
+<h3>一、先把两个概念彻底分开</h3>
+<div class="grid-2">
+<div class="mini"><strong>ReAct：决策策略</strong><br>Reason/Plan → Action → Observation → 再 Reason。解决“看到当前状态后，下一步调用什么 Tool”。它关心的是<strong>Agent 如何决定下一步</strong>。</div>
+<div class="mini"><strong>LangGraph / StateGraph：运行时编排</strong><br>用 Node、Edge、Conditional Edge 和 Shared State 组织步骤，负责重试、循环上限、Checkpoint、人工审批和恢复。它关心的是<strong>程序如何可靠地跑完整个过程</strong>。</div>
+</div>
+<div class="callout"><strong>一句话：</strong>ReAct 可以运行在 LangGraph 的 <code>agent_node</code> 里；Tool 执行结果写回 State，再回到 agent_node 继续决策。两者不是替代关系。</div>
+<h3>二、ReAct Loop 到底长什么样</h3>
+<pre>用户目标：找异常门店 → 拆经营漏斗 → 查运营规范 → 写复盘
+
+Reason / Plan:
+  先查最近 7 天各门店带看转成交率和历史基线
+Action:
+  query_metric(date_range=last_7_days, group_by=store)
+Observation:
+  望京A店带看转成交率 -18.6%，下降最大
+
+Reason / Plan:
+  已经知道对象，继续拆客源→带看→成交漏斗及经纪人人效
+Action:
+  analyze_conversion(store="望京A店")
+Observation:
+  有效带看 -21.4%，带看后 24h 跟进率 -17.2%
+
+Reason / Plan:
+  数据说明“发生了什么”，还要查“运营上应该怎么跟进”
+Action:
+  retrieve_knowledge(query="望京A店 带看转成交率下降 跟进规范")
+Observation:
+  命中《门店转化异常诊断与跟进规范 V3》4.2、4.3
+
+Reason / Plan:
+  证据齐全 → 进入验证与汇报生成</pre>
+<p>上面是“逻辑层”的 ReAct：<strong>每一步根据 Observation 再决定下一步</strong>。</p>
+<h3>三、同一件事放进 LangGraph 是什么关系</h3>
+<pre>                    ┌──────────── LangGraph / StateGraph ────────────┐
+START → understand → agent_node                                      │
+                    │                                                │
+                    │  ReAct 决定 next_action                         │
+                    ├────→ query_sql ─────┐                           │
+                    ├────→ rag_search ────┤                           │
+                    ├────→ analyze ───────┤                           │
+                    └────→ ask_user ──────┘                           │
+                                         │                            │
+                                         ▼ Tool Result 写入 State     │
+                                      agent_node  ←───────────────────┘
+                                         │
+                                   should_continue?
+                                  /       |        \
+                                tool    validate   fail
+                                 ↑         │         │
+                                 └─────────┘      fallback
+                                           │
+                                        validate
+                                  /          |          \
+                               pass       retryable     high_risk
+                                │             │             │
+                         generate_report   retry_node   human_approval
+                                │                           │
+                               END                    resume / END</pre>
+<p>所以你之前看到的“Plan → Tool → Observation → Next Plan”确实是 <strong>ReAct 流程图</strong>；LangGraph 图应该再多出：<strong>State、条件边、错误分支、Retry、Human Approval、Checkpoint</strong>。</p>
+<h3>四、State 里到底存什么</h3>
+<pre>{
+  "request_id": "req_8f12",
+  "user_query": "分析最近7天带看转成交率下降...",
+  "task_spec": {...},
+  "current_node": "agent_node",
+  "messages": [...],
+  "tool_results": {
+    "query_metric": {...},
+    "analyze_cost": {...}
+  },
+  "retrieved_evidence": [...],
+  "retry_count": 1,
+  "tool_call_count": 4,
+  "risk_level": "low",
+  "need_human": false
+}</pre>
+<p><strong>为什么 State 不能只是一串聊天记录？</strong>因为恢复、重试、校验都需要明确字段。比如 SQL 是“空结果”还是“调用失败”，必须用 status/error_code 区分。</p>
+<h3>五、Node、Edge、Conditional Edge 怎么理解</h3>
+<table>
+<thead><tr><th>概念</th><th>白话</th><th>本项目例子</th></tr></thead>
+<tbody>
+<tr><td>Node</td><td>一个可执行步骤</td><td>understand、agent_node、query_sql、rag_search、validate</td></tr>
+<tr><td>Edge</td><td>固定下一步</td><td>understand → agent_node</td></tr>
+<tr><td>Conditional Edge</td><td>根据 State 决定走哪条边</td><td>agent_node → SQL/RAG/ask_user/finish</td></tr>
+<tr><td>Checkpoint</td><td>把 State 持久化</td><td>人工审批前保存，服务重启后继续</td></tr>
+<tr><td>Interrupt / HITL</td><td>暂停自动执行等人工</td><td>发正式报告、写库、修改配置前审批</td></tr>
+</tbody>
+</table>
+<h3>六、为什么不是“完全自由 Agent”</h3>
+<p>生产系统通常用<strong>固定主干 + 局部自主决策</strong>：理解、鉴权、验证、审批这些关键关卡是确定性 Node；在“下一步需要查 SQL 还是 RAG、要不要补分析”这类开放节点才让 LLM 决策。</p>
+<table>
+<thead><tr><th>方式</th><th>可控性</th><th>灵活性</th><th>适用</th></tr></thead>
+<tbody>
+<tr><td>固定 Workflow</td><td>高</td><td>低</td><td>步骤确定、规则稳定</td></tr>
+<tr><td>自由 ReAct Loop</td><td>低</td><td>高</td><td>探索型任务、低风险场景</td></tr>
+<tr><td><strong>混合式 LangGraph + ReAct</strong></td><td>高</td><td>中高</td><td>企业 Agent 主流工程思路</td></tr>
+</tbody>
+</table>
+<h3>七、怎么防止 Agent 死循环和成本失控</h3>
+<ol>
+<li><strong>最大 Tool Call：</strong>示例设为 10 次；超过直接进入 fallback。</li>
+<li><strong>重复调用检测：</strong>同一 Tool + 相同 canonical arguments 连续出现 2 次，阻断并要求重新规划。</li>
+<li><strong>错误码驱动：</strong><code>TIMEOUT / EMPTY_RESULT / INVALID_ARGUMENT / PERMISSION_DENIED</code> 分开处理，不把所有失败都丢回 LLM 猜。</li>
+<li><strong>预算控制：</strong>State 记录 token_budget / tool_budget；低价值循环到阈值后终止。</li>
+<li><strong>高风险操作 Interrupt：</strong>写数据库、发通知、执行配置修改等必须暂停等待审批。</li>
+</ol>
+<h3>八、定量指标怎么体现“真的做过”</h3>
+<div class="callout warn">建立 200~300 条 Agent Task 测试集，每条标注 Gold Tool Sequence 或至少标注最终任务是否成功。</div>
+<table>
+<thead><tr><th>指标</th><th>Baseline</th><th>优化后</th><th>怎么测</th></tr></thead>
+<tbody>
+<tr><td>Tool Selection Accuracy</td><td>86.8%</td><td><strong>94.1%</strong></td><td>首个/关键 Tool 是否与 Gold Tool 一致</td></tr>
+<tr><td>Argument Exact Match</td><td>82.4%</td><td><strong>92.7%</strong></td><td>核心参数字段完全匹配</td></tr>
+<tr><td>Task Success Rate</td><td>73.5%</td><td><strong>89.2%</strong></td><td>端到端是否满足验收条件</td></tr>
+<tr><td>平均 Tool Call</td><td>6.8</td><td><strong>4.9</strong></td><td>减少无效循环</td></tr>
+<tr><td>Loop Abort Rate</td><td>4.6%</td><td><strong>0.8%</strong></td><td>因达到最大步数而失败的比例</td></tr>
+</tbody>
+</table>
+<p>优化来源可以讲：<strong>更清晰 Tool Description + JSON Schema + 条件路由 + 重复调用检测 + 错误码 + 固定验证节点</strong>，而不是简单说“换了更大的模型”。</p>
+<h3>九、高频面试追问</h3>
+<div class="qa">
+<details open=""><summary>ReAct 和 LangGraph 是一个东西吗？</summary><div class="answer">不是。ReAct 是 Agent 的决策范式；LangGraph 是有状态的运行时编排。我的实现里 agent_node 用 ReAct 决定 next_action，LangGraph 负责 State、Tool Node、条件边、重试、Checkpoint 和人工审批。</div></details>
+<details open=""><summary>为什么不用一个超级 Prompt 一次生成？</summary><div class="answer">因为任务依赖外部世界：只有 SQL 返回后才知道下一步查哪个部门；RAG 可能找不到证据；Tool 会失败；审批需要暂停。一次生成不能可靠表达这些状态迁移，也无法做精确错误恢复。</div></details>
+<details open=""><summary>什么时候不用 Agent？</summary><div class="answer">如果步骤完全确定，例如“上传文档→解析→入库”，固定 Workflow 更稳定便宜；如果只是“问文档→回答”，普通 RAG 足够。只有路径依赖中间结果、需要动态选 Tool 时才让 Agent 决策。</div></details>
+<details open=""><summary>Checkpoint 有什么价值？</summary><div class="answer">复杂任务跑到第 6 步或停在人工审批时，不应该服务重启就全部丢失。Checkpoint 保存 State，可以从断点恢复，也便于审计当时模型和工具看到了什么。</div></details>
+<details open=""><summary>为什么 Tool Result 要结构化？</summary><div class="answer">Agent 需要区分空结果、调用失败、权限拒绝、超时等状态；如果 Tool 只返回一句自然语言，很难做条件路由、重试和监控。统一 status/data/source/latency/error_code 更适合工程编排。</div></details>
+</div>
+</section>
+<section data-search="工作五 Context Memory 上下文 记忆 Redis short term long term summary token" id="memory">
+<h2>工作五 · Context 与 Memory：让多轮对话不断片，又不把历史全塞进去</h2>
+
+<div class="story">
+<div class="story-head">🎯 场景复盘 · 第二句话只有“它”和“这样”，系统却要知道用户在说什么 <small>Context / Memory</small></div>
+<div class="story-body">
+<div class="story-step"><div class="badge">业务现场</div><div>上一轮问“朝阳最近 7 天哪家门店带看转成交率下降最大？”，系统回答“望京A店”；下一轮用户直接说“那它上个月也这样吗？”——业务人员不会重新把门店、指标和异常类型说一遍。</div></div>
+<div class="story-step problem"><div class="badge">遇到问题</div><div>早期做法把最近很多轮对话原文全部塞进 Prompt。短对话还能工作，长会话后 Token 越来越高、延迟增加，而且模型偶尔把更早一轮的部门当成“它”的指代对象。</div></div>
+<div class="story-step"><div class="badge">怎么定位</div><div>我对长会话错误样本做回放，发现“聊天历史多”并不等于“上下文好”：真正需要的是当前对象、当前指标、时间范围、上轮 Tool Result 这些结构化状态，而不是所有原文。</div></div>
+<div class="story-step action"><div class="badge">我做了什么</div><div>我负责把上下文拆成 State、短期对话摘要和可选长期记忆三层；当前业务对象和 Tool Result 存结构化 State；最近 N 轮保留原文，更早历史做摘要；只在需要时检索相关历史，并对 Memory 设置作用域、TTL 和权限约束。</div></div>
+<div class="story-step"><div class="badge">为什么这样选</div><div>Memory 不是“把聊天记录全存起来”。Agent 恢复、指代消解需要的是结构化且可控的上下文；过量历史会增加成本和噪声。</div></div>
+<div class="story-step result"><div class="badge">结果怎么讲</div><div>结合 Context 命中率、指代消解准确率、平均 Prompt Token 和 P95 延迟观察效果。项目整体通过上下文裁剪、缓存和 Dynamic TopK，使平均 Prompt Token 下降约 28%，复杂任务 P95 延迟从 5.2s 降到 3.8s。</div></div>
+<div class="story-step interview"><div class="badge">被追问时</div><div><strong>“Memory 和 State 区别？”</strong>State 是当前任务确定状态，Memory 是跨轮/跨会话辅助上下文。<br><strong>“为什么不把所有历史都给模型？”</strong>讲 Token、延迟和错误指代三个问题。</div></div>
+</div></div>
+
+<div class="callout good"><strong>🎯 场景：</strong>用户先问“朝阳最近 7 天哪家门店带看转成交率下降最大？”系统答“望京A店”。下一句用户只说“那它上个月也这样吗？”——“它”指望京A店，“这样”指同类转化率下滑。</div>
+<h3>三种“记忆”要分清</h3>
+<table>
+<thead><tr><th>类型</th><th>存什么</th><th>典型存储</th><th>用途</th></tr></thead>
+<tbody>
+<tr><td>会话状态 State</td><td>当前任务节点、工具结果、对象 ID</td><td>内存 / Redis / Checkpoint</td><td>保证流程可恢复</td></tr>
+<tr><td>短期对话记忆</td><td>最近几轮关键上下文、摘要</td><td>Redis / DB</td><td>指代消解、多轮追问</td></tr>
+<tr><td>长期记忆</td><td>长期偏好、常用报表、权限内画像</td><td>DB / 向量库</td><td>个性化，但必须谨慎</td></tr>
+</tbody>
+</table>
+<h3>为什么不能把所有聊天记录都塞进去</h3>
+<p>成本高、延迟高，而且噪声会增加。常见策略是：</p>
+<ol>
+<li>最近 N 轮原文；</li>
+<li>更早历史做摘要；</li>
+<li>只检索和当前问题相关的历史；</li>
+<li>工具大结果不直接全塞，先结构化/聚合。</li>
+</ol>
+<h3>Context Engineering 是什么</h3>
+<p>可以把它理解成：<strong>在模型有限的上下文窗口里，决定“这一轮到底给模型看什么”</strong>。包括系统提示、用户问题、历史摘要、检索证据、工具结果、可用工具描述，甚至不同部分的 Token 预算。</p>
+<div class="callout"><strong>面试区分：</strong>Prompt Engineering 更偏“怎么写指令”；Context Engineering 更偏“这一轮给模型装配哪些信息”。</div>
+</section>
+<section data-search="工作六 幻觉治理 质量校验 guardrail verifier structured output fact checker self refinement 安全" id="quality">
+<h2>工作六 · 幻觉治理与结果校验：企业 AI 最关键的一层</h2>
+
+<div class="story">
+<div class="story-head">🎯 场景复盘 · SQL 查对了 18.6%，回答却写成 16.8% <small>Verifier / Hallucination Control</small></div>
+<div class="story-body">
+<div class="story-step"><div class="badge">业务现场</div><div>系统已经能查数据库、搜制度，但业务方更关心“最终结论能不能信”，尤其是数字、制度条款、时间范围和审批建议。</div></div>
+<div class="story-step problem"><div class="badge">遇到问题</div><div>测试中出现过 Tool Result 是 18.6%，LLM 在长回答里写成 16.8%；也出现过引用了正确制度，但结论其实不被那一段证据直接支持。也就是说“Tool/RAG 对了”不等于“最终回答一定对”。</div></div>
+<div class="story-step"><div class="badge">怎么定位</div><div>我把幻觉拆成知识、数据、工具、逻辑、权限几类，分别找可验证信号，而不是用一个笼统的“让模型自检”解决全部问题。</div></div>
+<div class="story-step action"><div class="badge">我做了什么</div><div>我负责增加 Verifier：关键数字从 Tool Result 结构化字段注入；引用必须绑定 Evidence ID；检查引用是否真正支持结论；校验时间范围、单位、版本和权限；低置信或高风险结论转人工。对于纯确定性规则优先用代码校验，而不是再让 LLM 自评。</div></div>
+<div class="story-step"><div class="badge">为什么这样选</div><div>Self-Reflection 本身仍是概率模型，不能替代可确定检查。数字一致性、权限、版本、SQL 执行状态都应该由后端真实结果约束。</div></div>
+<div class="story-step result"><div class="badge">结果怎么讲</div><div>300 条回答评测上 Faithfulness 87.3%→96.1%，无依据结论率 6.8%→1.9%。面试官追问时要说明 Faithfulness 的判断标准：关键结论是否能被 Evidence/Tool Result 支撑。</div></div>
+<div class="story-step interview"><div class="badge">被追问时</div><div><strong>“你们怎么降低幻觉？”</strong>不要只答 RAG，直接讲这个 18.6→16.8 的故障：RAG 解决知识来源，Verifier 解决“回答有没有忠实使用来源”。</div></div>
+</div></div>
+
+<p>所谓“幻觉”不是单一问题。至少要分成下面几类：</p>
+<table>
+<thead><tr><th>幻觉类型</th><th>例子</th><th>治理办法</th></tr></thead>
+<tbody>
+<tr><td>知识幻觉</td><td>编一条不存在的制度</td><td>RAG + 引用 + Faithfulness 校验</td></tr>
+<tr><td>数据幻觉</td><td>SQL 查出 18.6%，回答成 16.8%</td><td>关键数字字段强制从 Tool Result 注入</td></tr>
+<tr><td>工具幻觉</td><td>调用不存在的工具/参数</td><td>Tool Schema + 白名单 + 参数验证</td></tr>
+<tr><td>逻辑幻觉</td><td>把相关性说成因果</td><td>规则约束 + 分析模板 + 证据要求</td></tr>
+<tr><td>权限幻觉</td><td>“我已经帮你修改配置”但实际没权限</td><td>执行状态必须来自后端真实返回</td></tr>
+</tbody>
+</table>
+<h3>验证链</h3>
+<pre>LLM Draft
+  → JSON Schema 校验
+  → 数字/字段对齐 Tool Result
+  → 引用是否命中证据
+  → 业务规则检查
+  → 风险级别判断
+      ├─ 低风险：直接输出
+      ├─ 中风险：Self-Refinement 再生成一次
+      └─ 高风险：人工审核</pre>
+<h3>结构化输出为什么重要</h3>
+<p>例如最终答案先生成：</p>
+<pre>{
+  "conclusion": "朝阳片区转化率下滑主要集中在望京A店",
+  "evidence": [
+    {"type": "sql", "value": "+23.4%", "query_id": "q_1024"},
+    {"type": "rag", "doc": "门店转化异常诊断与跟进规范 V3", "section": "4.2"}
+  ],
+  "confidence": 0.87,
+  "risk": "medium",
+  "next_action": "建议复核望京A店有效带看与24小时跟进执行情况"
+}</pre>
+<p>后端可以校验这些字段，再决定怎么渲染，而不是完全相信一段自由文本。</p>
+</section>
+<section data-search="工程化 研发 API FastAPI Spring Boot Redis timeout retry idempotent permission logging trace cache security" id="engineering">
+<h2>工程化：怎样让这个项目看起来像“研发”，而不是 AI Demo</h2>
+
+<div class="story">
+<div class="story-head">🎯 场景复盘 · Demo 能跑，但一并发/一超时就暴露工程问题 <small>Backend / Reliability / Observability</small></div>
+<div class="story-body">
+<div class="story-step"><div class="badge">业务现场</div><div>单人演示时 Agent 链路能跑通，但接入多人测试后，请求会同时打到 LLM、向量库、数据库和多个业务 Tool，单次任务还可能持续数秒到几十秒。</div></div>
+<div class="story-step problem"><div class="badge">遇到问题</div><div>出现过模型接口超时导致整条链路卡住、Tool 重试造成重复创建、热点 Schema/RAG 查询重复计算、只看最终错误码无法判断是哪一步失败等问题。</div></div>
+<div class="story-step"><div class="badge">怎么定位</div><div>我把一次请求拆成 request_id 下的多段 Trace，记录模型、Prompt 版本、检索参数、Tool I/O、SQL、错误码、Token 和耗时，按节点统计 P50/P95 与错误类型。</div></div>
+<div class="story-step action"><div class="badge">我做了什么</div><div>我参与/负责接入超时与指数退避、备用模型/降级路径、Redis 热点缓存、并发限制；对有副作用 Tool 增加 idempotency_key；长任务增加 Checkpoint；统一 status/data/source/latency/error_code 返回格式，方便条件路由和观测。</div></div>
+<div class="story-step"><div class="badge">为什么这样选</div><div>企业 Agent 的问题经常不在“模型回答质量”，而在依赖链路：只要下游任一服务抖动，整个任务都可能失败，所以需要把 AI 调用当成分布式系统的一部分来做。</div></div>
+<div class="story-step result"><div class="badge">结果怎么讲</div><div>通过缓存、上下文裁剪和 Dynamic TopK，将示例复杂任务 P95 从 5.2s 降至 3.8s，平均 Prompt Token 下降约 28%；同时 Trace 让错误可以定位到 Query/Retriever/Tool/SQL/Generator 的具体层级。</div></div>
+<div class="story-step interview"><div class="badge">被追问时</div><div><strong>“为什么 Trace 比日志重要？”</strong>讲一次 Agent 请求内部有多次模型与 Tool 调用。<br><strong>“幂等怎么做？”</strong>讲 Tool 超时重试可能重复创建工单。<br><strong>“模型挂了怎么办？”</strong>讲重试、备用模型和非 AI 降级入口。</div></div>
+</div></div>
+
+<div class="grid-3">
+<div class="mini"><strong>API 层</strong><br>FastAPI / Spring Boot 暴露会话、查询、任务、知识库接口；统一错误码与鉴权。</div>
+<div class="mini"><strong>任务层</strong><br>长任务异步化，支持状态查询、取消、超时、重试和 Checkpoint。</div>
+<div class="mini"><strong>缓存层</strong><br>Redis 缓存会话状态、Schema、热点检索结果；注意 TTL 与数据一致性。</div>
+<div class="mini"><strong>权限层</strong><br>用户身份 → 文档 ACL / 数据范围 / Tool 权限；高风险工具需要审批。</div>
+<div class="mini"><strong>日志与 Trace</strong><br>记录 request_id、模型调用、Prompt 版本、Tool 参数、耗时、Token、结果状态。</div>
+<div class="mini"><strong>降级与容错</strong><br>模型超时可切备用模型；RAG 失败时返回“无法确认”而不是编；工具失败返回可解释错误。</div>
+</div>
+<h3>幂等是什么，为什么 Agent 里很重要</h3>
+<p>如果一个工具因为网络超时被 Agent 重试两次，而工具是“创建工单”或“发送通知”，可能重复执行。解决办法：给业务操作带 <strong>idempotency_key</strong>，服务端检测相同 key 只执行一次。</p>
+<h3>Checkpoint 是什么</h3>
+<p>复杂 Agent 跑到第 6 步失败，不应该从第 1 步全部重来。把关键状态持久化：用户问题、已完成节点、Tool Result、审批状态。恢复时从断点继续。</p>
+<h3>并发和限流</h3>
+<p>LLM 调用通常比普通 API 慢且贵。需要并发上限、队列、限流、超时、批处理、缓存；否则高峰期容易把模型网关或下游数据库打满。</p>
+<h3>面试追问</h3>
+<div class="qa">
+<details open=""><summary>如果模型接口挂了怎么办？</summary><div class="answer">按场景做降级：重试要指数退避；可切备用模型；关键业务可以保留非 AI 的传统查询入口；不能因为模型不可用就让核心业务完全不可用。</div></details>
+<details open=""><summary>为什么 Trace 比普通日志更重要？</summary><div class="answer">Agent 是多步链路。只看最终错误很难定位。Trace 能看到每一步的输入、输出、模型版本、Tool Call、检索结果和耗时，从而判断是意图错、检索错、工具错还是生成错。</div></details>
+</div>
+</section>
+<section data-search="评测 Evals Recall MRR nDCG Task Success Tool Accuracy SQL Execution Accuracy Faithfulness latency ablation" id="eval">
+<h2>评测体系：所有“提升 XX%”都必须能解释怎么算</h2>
+
+<div class="story">
+<div class="story-head">🎯 场景复盘 · “感觉效果变好了”不能作为上线依据 <small>Evals / Regression / Ablation</small></div>
+<div class="story-body">
+<div class="story-step"><div class="badge">业务现场</div><div>团队每次改 Prompt、Embedding、Reranker、Tool Description 或 Agent 路由，都可能修好一类问题同时把另一类问题改坏。如果只人工试玩几个问题，很难判断版本是否真的更好。</div></div>
+<div class="story-step problem"><div class="badge">遇到问题</div><div>早期优化经常出现“这几个 Case 好了，但整体不知道有没有退化”；尤其 RAG 的 Recall、排序、最终 Faithfulness 混在一起时，很难知道改动到底影响哪一层。</div></div>
+<div class="story-step"><div class="badge">怎么定位</div><div>我把链路按 Query、Retriever、Reranker、ACL、Tool、SQL、Agent E2E、Answer 分层，每层定义 Gold 与指标，不再只看一个最终“正确率”。</div></div>
+<div class="story-step action"><div class="badge">我做了什么</div><div>我参与/负责建设约 500 条分层回归用例；RAG 用 Gold Evidence 测 Recall@K/MRR/nDCG，Tool 用 Gold Tool/Arguments 测 Selection 与 Arg EM，SQL 用 Gold Result 测 Execution Accuracy，Agent 用验收条件测 Task Success，回答层测 Faithfulness；每次改动做 baseline 对比和 ablation。</div></div>
+<div class="story-step"><div class="badge">为什么这样选</div><div>只有分层指标才能判断“是没召回、排错了、工具选错、SQL 算错，还是生成阶段失真”，否则所有问题都只能归咎于“模型不稳定”。</div></div>
+<div class="story-step result"><div class="badge">结果怎么讲</div><div>面试中任何一个百分比都要能回答四件事：样本哪里来、Gold 怎么标、公式是什么、baseline 是什么。比如 Recall@20=420 条 Query 中 Gold Evidence 进入前 20 的 Query 占比。</div></div>
+<div class="story-step interview"><div class="badge">被追问时</div><div><strong>“94% 怎么测的？”</strong>直接说样本数、Gold、TopK 命中定义。<br><strong>“怎么证明 Reranker 有用？”</strong>看 MRR/nDCG，不期待它提升粗召回 Recall。</div></div>
+</div></div>
+
+<p>面试里数字本身不是重点，<strong>指标定义、样本来源、Gold 标注、baseline 和实验方法</strong>才是重点。没有测量口径的“98%”反而是风险。</p>
+<table>
+<thead><tr><th>层</th><th>核心指标</th><th>Gold / 判断标准</th><th>典型失败</th></tr></thead>
+<tbody>
+<tr><td>Query Understanding</td><td>Intent Accuracy、Slot F1、JSON Parse Rate</td><td>人工标注意图与实体</td><td>时间、指标、对象识别错误</td></tr>
+<tr><td>Retriever</td><td>Recall@K / Hit@K</td><td>Gold Evidence 是否进 TopK</td><td>正确制度根本没召回</td></tr>
+<tr><td>Reranker</td><td>MRR、nDCG@K</td><td>相关性等级/正确文档排序</td><td>正确候选排太后</td></tr>
+<tr><td>ACL</td><td>Unauthorized Exposure Rate</td><td>权限负例不应返回任何禁看 Chunk</td><td>越权文档进入候选/Context</td></tr>
+<tr><td>Tool</td><td>Selection Accuracy、Arg EM、Execution Success</td><td>Gold Tool / Gold Args / 执行状态</td><td>选错工具、参数错</td></tr>
+<tr><td>Text-to-SQL</td><td>Execution Accuracy、Result Match</td><td>结果集与 Gold SQL/Gold Result 一致</td><td>语法对但语义错</td></tr>
+<tr><td>Generation</td><td>Faithfulness、Citation Precision、Correctness</td><td>答案每个关键结论有 Evidence/Tool 支持</td><td>编制度、抄错数字</td></tr>
+<tr><td>Agent E2E</td><td>Task Success、Avg Steps、Abort Rate</td><td>业务验收条件是否满足</td><td>死循环、缺步骤、失败未恢复</td></tr>
+<tr><td>Engineering</td><td>P50/P95、Token/Task、Timeout Rate</td><td>压测/线上 Trace</td><td>太慢、太贵、下游被打满</td></tr>
+</tbody>
+</table>
+<h3>一个可落地的离线评测集</h3>
+<p>示例：整理 <strong>500 条</strong>真实/脱敏业务 Query，按场景分层；</p>
+<table>
+<thead><tr><th>场景</th><th>样本数（示例）</th><th>需要标注</th></tr></thead>
+<tbody>
+<tr><td>知识问答/RAG</td><td>200</td><td>Gold Evidence、答案要点、权限</td></tr>
+<tr><td>数据查询/Text-to-SQL</td><td>120</td><td>Gold Schema、Gold Result</td></tr>
+<tr><td>多步 Agent</td><td>120</td><td>关键 Tool、完成条件、风险等级</td></tr>
+<tr><td>边界/权限/故障</td><td>60</td><td>应该拒绝/澄清/降级的行为</td></tr>
+</tbody>
+</table>
+<h3>Ablation：面试官问“到底是哪一步带来提升”</h3>
+<pre>Baseline A：Dense Only
+  ↓ + BM25
+Baseline B：Hybrid Retrieval
+  ↓ + Query Rewrite + RRF
+Baseline C：Better Recall
+  ↓ + Cross-Encoder Reranker
+Baseline D：Better Ranking
+  ↓ + ACL / Validity / MMR / Dynamic TopK
+Production-like Retrieval</pre>
+<p>每次只改一两个变量，才能把提升归因清楚。比如 Reranker 后 Recall@20 不变但 nDCG@10 提升，这就说明“候选没变，排序变好了”。</p>
+<h3>示例结果看板（请替换为你实测）</h3>
+<table>
+<thead><tr><th>指标</th><th>Baseline</th><th>优化后</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>RAG Recall@20</td><td>79.0%</td><td><strong>94.0%</strong></td><td>Hybrid + Rewrite + RRF</td></tr>
+<tr><td>RAG nDCG@10</td><td>0.69</td><td><strong>0.84</strong></td><td>Cross-Encoder Rerank</td></tr>
+<tr><td>Tool Selection Accuracy</td><td>86.8%</td><td><strong>94.1%</strong></td><td>Schema + Tool 描述 + 路由约束</td></tr>
+<tr><td>Task Success Rate</td><td>73.5%</td><td><strong>89.2%</strong></td><td>LangGraph + retry + validation</td></tr>
+<tr><td>Faithfulness</td><td>87.3%</td><td><strong>96.1%</strong></td><td>Evidence/Tool 对齐 + Verifier</td></tr>
+<tr><td>P95 端到端延迟</td><td>4.8 s</td><td><strong>3.6 s</strong></td><td>减少无效 Tool Call + 缓存/并行</td></tr>
+</tbody>
+</table>
+<div class="callout warn"><strong>正式简历前：</strong>想“体现真的做过”，最有效的不是编一个漂亮百分比，而是能拿出评测集和 ablation 逻辑。</div>
+</section>
+<section data-search="完整 trace 案例 业务问题 分析 异常 SQL RAG tool agent report" id="trace">
+<h2>完整 Trace：拿这一条流程就能讲 5～10 分钟</h2>
+
+<div class="story">
+<div class="story-head">🎯 面试主案例 · 把所有技术串成一次真实请求 <small>建议背熟这一条，再从它分叉回答</small></div>
+<div class="story-body">
+<div class="story-step"><div class="badge">用户需求</div><div>“为什么朝阳某片区最近 7 天带看转成交率下降？找出问题门店，给我原因和跟进建议。”</div></div>
+<div class="story-step problem"><div class="badge">业务难点</div><div>这个问题同时需要实时数据、历史基线、异常拆解和制度依据，任何一层错都会导致最终建议不可信。</div></div>
+<div class="story-step action"><div class="badge">我的链路</div><div>先把 Query 结构化成 region/metric/date_range；Agent 先调 SQL 找到望京A店转化率下降 18.6%；再调分析 Tool 拆客源、带看、成交与跟进漏斗；随后 RAG 检索适用的运营规范；最后 Verifier 检查数字、口径和引用，生成带 Evidence ID 的结论。</div></div>
+<div class="story-step"><div class="badge">异常分支</div><div>SQL 超时走重试/降级；RAG 证据不足不强答；旧制度被 Validity 过滤；高风险动作进入 Human Approval；中途服务异常可从 Checkpoint 恢复。</div></div>
+<div class="story-step result"><div class="badge">如何证明</div><div>Query 层看字段抽取，RAG 看 Recall/MRR/nDCG，SQL 看 Execution Accuracy，Agent 看 Tool Selection/Task Success，最终回答看 Faithfulness 和 P95。</div></div>
+<div class="story-step interview"><div class="badge">万能转场</div><div>面试官不管问 RAG、Tool、LangGraph、幻觉、Trace 还是 Evals，都可以先说：“这个技术是在我们‘朝阳门店转化率异常分析’这条链路里遇到具体问题后加的”，再切到对应步骤。</div></div>
+</div></div>
+
+<div class="case">
+<div class="case-title">案例 · “为什么朝阳某片区最近 7 天带看转成交率下降？找出问题门店，给我原因和跟进建议。” <small>Agent + SQL + RAG + Verifier</small></div>
+<div class="case-body">
+<div class="row"><div class="lbl">Step 1</div><div><strong>意图理解：</strong>识别为“经营异常分析”；抽取 region=北京-朝阳、metric=带看转成交率、date_range=最近7天；发现用户还需要“问题门店 + 原因 + 建议”。</div></div>
+<div class="row"><div class="lbl">Step 2</div><div><strong>Planning：</strong>先查成本明细 → 找异常最大的部门 → 查相关生产/业务指标 → 检索异常处置制度 → 汇总。</div></div>
+<div class="row"><div class="lbl">Step 3</div><div><strong>Tool 1：SQL：</strong>按门店汇总最近 7 天带看量、成交量与转化率，并与前 7 天及历史基线比较。返回望京A店转化率下降 18.6%，明显高于其他门店。</div></div>
+<div class="row"><div class="lbl">Step 4</div><div><strong>Tool 2：分析算法：</strong>继续拆解房源→客源→带看→成交漏斗，发现有效带看量与带看后24小时跟进率同时下降；统计工具计算相关变化，但不直接把“相关”说成“因果”。</div></div>
+<div class="row"><div class="lbl">Step 5</div><div><strong>RAG：</strong>检索“门店转化异常诊断规范”“带看后跟进作业规范”，得到适用的核查步骤、指标口径和跟进要求。</div></div>
+<div class="row"><div class="lbl">Step 6</div><div><strong>Verifier：</strong>检查回答中的 23.4% 必须等于 SQL 返回值；检查“应核查生产计划”有制度证据；没有证据的“设备故障”不能下结论，只能写“待核查假设”。</div></div>
+<div class="row"><div class="lbl">Step 7</div><div><strong>生成：</strong>输出“现象 → 数据证据 → 可能原因 → 证据强弱 → 建议动作 → 引用来源”。</div></div>
+<div class="row"><div class="lbl warn">失败兜底</div><div>如果 SQL 无数据：停止原因判断，返回“缺少昨日数据”；如果 RAG 没找到制度：只给数据事实，不伪造处置规范；如果多个指标口径冲突：向用户确认。</div></div>
+</div>
+</div>
+<h3>这条 Trace 能体现哪些能力</h3>
+<p><span class="tag">Query Understanding</span><span class="tag">Planning</span><span class="tag">Tool Calling</span><span class="tag">Text-to-SQL</span><span class="tag">RAG</span><span class="tag">Verifier</span><span class="tag">Structured Output</span><span class="tag">Guardrail</span><span class="tag">Trace</span></p>
+</section>
+<section data-search="高级 GraphRAG MCP Multi-Agent LoRA SFT vLLM 微调 加分项" id="advanced">
+<h2>高级加分项：知道什么时候该用，比“全部都用”更重要</h2>
+<h3>1. GraphRAG</h3>
+<p>普通 RAG 擅长“从文档里找相关段落”，GraphRAG 更适合“实体关系很多”的问题，例如“这个异常指标关联哪些设备、部门、制度和历史事件”。但建设图谱成本高，不要为了名词强上。</p>
+<h3>2. MCP</h3>
+<p>MCP 可以理解成一种把外部工具/资源以统一协议暴露给模型或 Agent 的方式。面试时重点讲<strong>统一工具接入、Schema、权限、可发现性</strong>，不要把 MCP 说成“比 Function Calling 更高级的模型能力”。</p>
+<h3>3. Multi-Agent</h3>
+<p>可以拆成“数据分析 Agent、知识检索 Agent、报告 Agent”，但多 Agent 会增加通信、上下文、成本和调试难度。简单任务单 Agent + 多 Tool 往往更稳。</p>
+<h3>4. LoRA / SFT</h3>
+<p>当 Prompt + RAG + Tool 已经解决不了“稳定输出某种任务格式 / 特定领域行为”时，可以考虑微调。它不是企业知识更新的首选方案，因为知识变化频繁时重新训练成本高。</p>
+<h3>5. vLLM / 本地部署</h3>
+<p>如果企业强调数据不出内网、推理成本、吞吐，可以将开源模型通过 vLLM 部署成 OpenAI-compatible API。面试可讲 batch、KV Cache、吞吐与显存，但它是部署能力，不是 Agent 核心。</p>
+<div class="callout good"><strong>成熟回答：</strong>“我会使用lora，他更适合xx情况。我做项目不是把所有知识都塞进去，而是先看业务问题属于知识、工具、流程还是模型能力问题，再决定是 RAG、Agent、规则、微调还是本地部署。”</div>
+</section>
+<section data-search="不同岗位 AI Agent 后端 研发 数据 电子信息 简历 适配" id="roles">
+<h2>同一个项目，投不同岗位怎么换重点</h2>
+<table>
+<thead><tr><th>岗位</th><th>重点讲</th><th>弱化</th></tr></thead>
+<tbody>
+<tr><td>Agent / AI 应用研发</td><td>RAG、Function Calling、Planning、Memory、Evals、Guardrails</td><td>底层采集细节</td></tr>
+<tr><td>Python 后端研发</td><td>FastAPI、服务拆分、数据库、Redis、异步任务、鉴权、Trace、超时重试</td><td>模型原理深挖</td></tr>
+<tr><td>Java 后端研发</td><td>Spring Boot 实现同类 API/任务编排，强调服务治理和系统设计；AI 作为业务模块</td><td>LoRA / 模型训练</td></tr>
+<tr><td>数据研发 / 数据分析</td><td>Text-to-SQL、指标口径、ETL/数仓接口、异常分析、结果解释</td><td>Multi-Agent 花活</td></tr>
+<tr><td>电子信息 / 行业研发</td><td>AI 与业务系统/设备数据结合、规则与知识融合、智能分析</td><td>纯互联网场景包装</td></tr>
+</tbody>
+</table>
+<p>所以项目名称保持“<strong>AI 智能分析与决策平台</strong>”很重要：它告诉面试官你会 AI，但不会把你锁死在“只会大模型训练”上。</p>
+</section>
+<section data-search="简历写法 基础版 强化版 项目描述 STAR 实习公司" id="resume2">
+<h2>简历怎么写：基础版、强化版、研发版</h2>
+<h3>A. AI Agent 岗版</h3>
+<div class="resume">
+<p><strong>贝壳找房｜房产经纪经营 AI 智能分析与决策平台｜AI Agent 应用研发</strong></p>
+<ol>
+<li>设计基于 LangGraph/状态机的 Agent Workflow，将运营知识检索、门店经营查询、漏斗分析、经营复盘生成封装为 Function Calling Tools，支持多步任务拆解、重试与人工审批。</li>
+<li>构建房产经纪运营知识库 RAG，采用 Embedding + BM25 混合召回、RRF 融合与 Reranker 精排，结合元数据过滤、文档版本与权限控制提升检索可用性。</li>
+<li>实现自然语言查数与 Text-to-SQL，通过 Schema Retrieval、只读权限、SQL 校验、超时/行数限制保证查询安全，并将统计计算交给确定性程序完成。</li>
+<li>搭建 Evals 与 Trace，覆盖 RAG、Tool Calling、SQL 和端到端任务成功率，结合结构化输出、引用校验和置信度阈值降低幻觉。</li>
+</ol>
+</div>
+<h3>B. 后端 / 研发岗版</h3>
+<div class="resume">
+<ol>
+<li>负责 AI 智能分析平台后端服务设计，提供会话、任务、知识检索和数据查询 API，统一鉴权、错误码、日志与链路追踪。</li>
+<li>设计异步任务与状态管理机制，支持超时重试、Checkpoint、幂等与人工审批；使用 Redis 管理会话状态和热点缓存。</li>
+<li>将 LLM 作为任务理解与决策模块接入现有系统，通过受控 Tool Calling 调用数据库和业务能力，避免模型直接执行高风险操作。</li>
+<li>建设可观测与评测体系，记录模型、Prompt、Tool、SQL、延迟、Token 与错误类型，为版本回归和问题定位提供依据。</li>
+</ol>
+</div>
+<h3>贝壳公司名怎么写</h3>
+<ul>
+<li>可写“贝壳找房｜AI 应用研发 / Agent 开发实习生”，并把真实部门、时间和职责替换进去。</li>
+<li><br></li>
+<li><br></li>
+</ul>
+</section>
+<section data-search="高频面试题 面试追问 50题 RAG Agent SQL Prompt 模型" id="qa">
+<h2>高频面试追问（建议随机抽题练）</h2>
+<div class="qa">
+<details><summary>1. 你的项目为什么一定要用 Agent？普通 RAG 不够吗？</summary><div class="answer">普通 RAG 适合“问一个问题 → 找文档 → 回答”。我的场景还包括查数据库、调用分析工具、根据前一步结果决定下一步、失败重试，所以需要 Tool Calling 和状态编排。简单问答仍然走普通 RAG，不强行 Agent 化。</div></details>
+<details><summary>2. RAG 和 Agent 的关系是什么？</summary><div class="answer">RAG 是一种“获取外部知识”的能力，Agent 是“根据目标决定并执行多步行动”的框架。RAG 可以是 Agent 的一个 Tool，也可以单独存在。</div></details>
+<details><summary>3. 为什么不用大模型直接连接数据库然后随便生成 SQL？</summary><div class="answer">风险太高。生产上要做 Schema Retrieval、只读账号、表字段白名单、SQL AST/规则校验、超时、行数限制、审计；复杂指标最好调用预定义数据服务而不是任意 SQL。</div></details>
+<details><summary>4. 你怎么减少幻觉？</summary><div class="answer">先分幻觉类型。知识靠 RAG + 引用；数据靠工具结果；计算靠代码；工具靠 Schema；最终用结构化输出、事实核查、置信度和人工兜底。不是只在 Prompt 里写一句“不要幻觉”。</div></details>
+<details><summary>5. RAG 的 Chunk Size 怎么定？</summary><div class="answer">没有固定魔法值。按文档结构、模型上下文和问题粒度调。通过 Recall@K + 最终 QA 指标做实验。制度文档通常要保持条款完整，并保留标题/父段 metadata。</div></details>
+<details><summary>6. Embedding 和 Reranker 有什么区别？</summary><div class="answer">Embedding 适合大规模快速召回，一次把 query/doc 各自编码；Reranker 对 query-doc 成对深度打分，更准但慢，所以只处理召回后的少量候选。</div></details>
+<details><summary>7. BM25 已经有了，为什么还要向量检索？</summary><div class="answer">BM25 依赖字面匹配，对同义改写弱；向量检索能匹配语义。企业场景既有口语化表达，又有编号/专有名词，所以混合检索互补。</div></details>
+<details open=""><summary>8. 什么是 RRF？</summary><div class="answer">Reciprocal Rank Fusion。它忽略不同检索器的原始分数，只根据排名累加 1/(k+rank)，适合融合 BM25 和向量这种分数量纲不同的结果，简单鲁棒。</div></details>
+<details><summary>9. Agent 为什么会死循环？怎么解决？</summary><div class="answer">模型可能反复调用同一工具或无法判断结束。设置最大步数、重复调用检测、明确终止条件、工具错误码、失败计数和人工兜底。</div></details>
+<details><summary>10. Memory 和 RAG 是一回事吗？</summary><div class="answer">不是。RAG 通常检索企业知识；Memory 更多保存与当前用户/会话相关的历史状态和偏好。实现上都可能用向量检索，但语义和生命周期不同。</div></details>
+<details><summary>11. Prompt 越长越好吗？</summary><div class="answer">不是。太长会增加成本和噪声。应该把稳定规则放系统提示，动态证据按需注入，长历史做摘要，工具描述只给当前可用的。</div></details>
+<details><summary>12. 模型换了，Prompt 需要重新评测吗？</summary><div class="answer">需要。不同模型对指令、JSON、工具调用、长上下文敏感度不同。模型版本、Prompt 版本、检索参数都应该进入回归评测。</div></details>
+<details><summary>13. 如何判断一个问题应该走 RAG 还是 SQL？</summary><div class="answer">问“制度/规则/说明/经验”通常走知识；问“多少/趋势/排名/过去几天”通常走数据；复杂问题可能先 SQL 得到现象，再 RAG 查处理规范。路由可以由意图分类 + 规则共同决定。</div></details>
+<details open=""><summary>14. 如果 RAG 找到多个互相冲突的制度怎么办？</summary><div class="answer">用生效时间、版本、来源权威度和业务范围做冲突消解；无法确定时把冲突明确呈现，不让模型自行选一条“看起来合理”的。</div></details>
+<details><summary>15. 为什么要做 Evals，人工看看不行吗？</summary><div class="answer">人工抽查适合早期，但模型/Prompt/知识库更新频繁，没有自动回归就不知道改一个地方是否把另一个场景搞坏。Evals 是 AI 工程里的单元测试 + 集成测试。</div></details>
+<details><summary>16. Temperature 设多少？</summary><div class="answer">结构化抽取、Tool Calling、SQL 等确定性任务一般低温度；创意文案可更高。但不要把系统稳定性寄托在 Temperature，一个可靠系统还需要 Schema、校验和重试。</div></details>
+<details><summary>17. Context 太长怎么办？</summary><div class="answer">摘要、检索历史、裁剪无关 Tool Result、父子 Chunk、按任务动态分配 Token；必要时把中间结果存状态而不是重复塞 Prompt。</div></details>
+<details><summary>18. MCP 和 Function Calling 有什么区别？</summary><div class="answer">Function Calling 是模型输出结构化工具调用的一种交互方式；MCP 更偏外部工具/资源接入的统一协议与生态。两者可以一起使用，不是简单替代关系。</div></details>
+<details><summary>19. Multi-Agent 一定比单 Agent 好吗？</summary><div class="answer">不一定。多个 Agent 增加通信成本、上下文同步、错误传播和可观测难度。任务边界非常清晰、需要独立角色时才值得拆；否则单 Agent + 多 Tool 更简单。</div></details>
+<details><summary>20. LoRA 在这个项目里什么时候有价值？</summary><div class="answer">当主要问题是模型行为不稳定、固定领域表达/结构任务长期靠 Prompt 很难稳住，且有高质量训练数据时可以考虑。企业动态知识优先 RAG，不应该拿 LoRA 当知识库。</div></details>
+<details><summary>21. 你项目里最难的问题是什么？</summary><div class="answer">建议选“可靠性”而不是单个框架：如何让模型调用正确工具、拿到真实数据、找对知识、失败可恢复、结果可验证。然后用一个具体 Trace 展开。</div></details>
+<details><summary>22. 如果让你重新做一次，你会改什么？</summary><div class="answer">可以回答：更早建立分层评测集和 Trace；减少自由 Agent 路径，更多采用固定主流程 + 局部决策；把权限和数据口径前置，而不是功能做完再补。</div></details>
+<details><summary>23. ACL Filter 和普通 Metadata Filter 有什么区别？</summary><div class="answer">实现上都可能是 metadata 条件，但语义不同：Metadata Filter 主要提升业务相关性/时效性，ACL Filter 是安全边界。ACL 条件必须来自可信登录态和 AuthZ，不能让 LLM 自己生成“我应该有什么权限”。</div></details><details><summary>24. 为什么 LangGraph 图里还会有 ReAct 循环？</summary><div class="answer">LangGraph 管外层 Node/Edge/State；agent_node 内部负责 LLM 决策。Tool 执行后把 Observation 写回 State，再通过边回到 agent_node，所以 ReAct Loop 是图中的局部循环，而 LangGraph 是承载它的运行时。</div></details><details><summary>25. RAG 的 Pre-Filter 会不会伤害 Recall？</summary><div class="answer">会，如果 metadata/ACL 标注错误或 Filter 过紧，会把正确文档在召回前直接删掉。所以权限字段必须高质量；业务 Filter 可做容错/逐步放宽，而 ACL 不能为了 Recall 越权放宽。</div></details><details><summary>26. 你这些提升数字怎么来的？</summary><div class="answer">面试时只讲自己真实测过的数字。做法是固定同一批 Gold 数据，先跑 baseline，再逐步增加模块做 ablation；检索看 Recall/MRR/nDCG，Agent 看 Tool Accuracy/Task Success，生成看 Faithfulness，并记录模型和参数版本保证可复现。</div></details></div>
+</section>
+<section data-search="易错点 面试 不要说 背答案 项目造假 指标 术语 堆技术" id="pitfalls">
+<h2>答题易错点：这些话很容易被面试官追死</h2><div class="callout warn"><strong>关于“像真实项目”的数字：</strong>面试官最容易追问的是样本量、Gold 标注、baseline、计算公式和失败样例。能解释这些，比写一个夸张百分比更像真项目。</div>
+<div class="grid-2">
+<div class="mini"><span class="tag">不要说</span><strong>“用了 LangChain 所以实现了 Agent。”</strong><br>框架不是能力。要讲状态、工具、路由、重试、终止和评测。</div>
+<div class="mini"><span class="tag">不要说</span><strong>“RAG 可以完全解决幻觉。”</strong><br>RAG 也会检索错、引用错。还要验证、结构化、规则和人工兜底。</div>
+<div class="mini"><span class="tag">不要说</span><strong>“模型自己算同比和排名。”</strong><br>统计计算交给 SQL/Python，模型只解释。</div>
+<div class="mini"><span class="tag">不要说</span><strong>“准确率 98%”却讲不出评测集。</strong><br>任何数字都要能解释样本、口径、baseline 和测试方法。</div>
+<div class="mini"><span class="tag">不要说</span><strong>“Multi-Agent 越多越先进。”</strong><br>企业系统看可靠性，不看角色数量。</div>
+<div class="mini"><span class="tag">不要说</span><strong>“用了 LoRA 就比 RAG 高级。”</strong><br>它们解决的问题不同。</div>
+</div>
+<h3>面试最稳的回答结构：STAR + 技术取舍</h3>
+<p><strong>S：</strong>什么业务场景；<strong>T：</strong>你要解决什么；<strong>A：</strong>怎么设计、为什么这么选、失败怎么处理；<strong>R：</strong>结果怎么评测。技术面最好额外补一句：<strong>Trade-off 是什么</strong>。</p>
+</section>
+<section data-search="术语速查 glossary RAG Agent embedding BM25 RRF reranker MMR ReAct LangGraph MCP LoRA Evals" id="cheatsheet">
+<h2>术语与指标速查</h2>
+<table>
+<thead><tr><th>术语</th><th>小白解释</th></tr></thead>
+<tbody>
+<tr><td>LLM</td><td>大语言模型，擅长自然语言理解、生成和弱结构推理。</td></tr>
+<tr><td>RAG</td><td>先检索外部资料，再让模型基于资料回答。</td></tr>
+<tr><td>Embedding</td><td>把文本映射成向量，用向量距离表示语义接近程度。</td></tr>
+<tr><td>Vector DB</td><td>保存/检索向量，支持 ANN 近邻搜索。</td></tr>
+<tr><td>BM25</td><td>经典关键词检索，擅长精确 token 和专有名词。</td></tr>
+<tr><td>RRF</td><td>按排名融合多路检索结果，不依赖原始分数尺度。</td></tr>
+<tr><td>Reranker</td><td>对少量候选做更精确的 query-doc 相关性打分。</td></tr>
+<tr><td>Function Calling</td><td>让模型输出“调用哪个工具 + 参数”，真正执行由后端完成。</td></tr>
+<tr><td>Agent</td><td>LLM + 工具 + 状态 + 决策循环/工作流。</td></tr>
+<tr><td>ReAct</td><td>推理 → 行动 → 观察 → 再推理的 Agent 策略。</td></tr>
+<tr><td>LangGraph</td><td>用图/状态机管理多步 Agent 工作流和状态。</td></tr>
+<tr><td>Context Engineering</td><td>决定这一轮给模型装配哪些上下文，以及如何压缩和排序。</td></tr>
+<tr><td>Memory</td><td>保存会话状态、短期上下文或长期偏好。</td></tr>
+<tr><td>Text-to-SQL</td><td>把自然语言问题转换成 SQL 或查询计划。</td></tr>
+<tr><td>Guardrail</td><td>对输入/输出/工具调用做规则、权限和安全约束。</td></tr>
+<tr><td>Verifier</td><td>验证答案中的数据、引用、规则是否与真实来源一致。</td></tr>
+<tr><td>Evals</td><td>AI 系统的自动评测/回归测试体系。</td></tr>
+<tr><td>Trace</td><td>记录 Agent 每一步模型、检索、工具、状态和耗时，便于定位错误。</td></tr>
+<tr><td>Recall@K</td><td>正确文档有没有出现在前 K 个候选里。</td></tr>
+<tr><td>MRR</td><td>第一个正确答案排得越靠前，分数越高。</td></tr>
+<tr><td>nDCG@K</td><td>综合考虑相关性等级和排名位置的排序指标。</td></tr>
+<tr><td>Faithfulness</td><td>回答是否真正被检索证据/工具结果支持。</td></tr>
+<tr><td>Task Success Rate</td><td>端到端任务最终是否成功完成。</td></tr>
+<tr><td>LoRA</td><td>参数高效微调方法，用少量可训练参数适配模型行为。</td></tr>
+<tr><td>MCP</td><td>连接外部工具与资源的一种标准化协议/接口生态。</td></tr>
+<tr><td>Retriever</td><td>RAG 中真正执行文档检索的模块；接收 Query、Filter、TopK，返回候选 Evidence。</td></tr><tr><td>Metadata Filter</td><td>按部门、文档类型、生效时间、版本等结构化字段做确定性过滤，不参与语义相关性打分。</td></tr><tr><td>ACL / ACL Filter</td><td>Access Control List。根据用户/角色/部门过滤无权文档；应在检索阶段执行，而不是靠 Prompt 提醒模型保密。</td></tr><tr><td>Hybrid Retrieval</td><td>同时使用 Dense 向量检索和 Sparse/BM25 关键词检索，再融合候选。</td></tr><tr><td>Parent-Child Chunk</td><td>用较小 Child 做召回，命中后取更完整 Parent 进入上下文，兼顾召回精度和语义完整性。</td></tr><tr><td>MMR</td><td>Maximal Marginal Relevance，在相关性和多样性之间折中，减少 TopK 近重复文档。</td></tr><tr><td>Dynamic TopK</td><td>根据相关性阈值动态决定注入多少条证据，而不是永远固定 Top-5。</td></tr><tr><td>State</td><td>Agent 运行时共享状态，保存任务、工具结果、证据、错误码、重试次数等结构化信息。</td></tr><tr><td>Node / Edge</td><td>LangGraph 中的执行步骤和状态转移；Conditional Edge 根据当前 State 决定下一节点。</td></tr><tr><td>Checkpoint</td><td>把 Agent State 持久化，支持中断恢复、人工审批后继续执行和故障重启恢复。</td></tr><tr><td>Human-in-the-loop</td><td>高风险节点暂停自动执行，由人确认后再继续。</td></tr></tbody>
+</table>
+<div class="callout good"><strong>最后的面试主线：</strong>“用户问题 → 结构化理解 → Planner → RAG / SQL / Tool → Validator → Answer → Evals/Trace”。如果任何追问把你问乱了，就回到这条主线，说明它发生在哪一层、输入输出是什么、为什么这样设计。</div>
+<div class="callout warn">在面试的过程中积累经验，不断完善面试复盘手册。</div>
+</section>
+<footer>企业级 AI 智能分析与决策平台</footer>
+</main>
+</div>
+<script>
+    (() => {
+      const doc = document.getElementById('document');
+      const layout = document.querySelector('.layout');
+      const brand = document.querySelector('.brand');
+      const editBtn = document.getElementById('editBtn');
+      const saveBtn = document.getElementById('saveBtn');
+      const exportBtn = document.getElementById('exportBtn');
+      const pdfBtn = document.getElementById('pdfBtn');
+      const addSectionBtn = document.getElementById('addSectionBtn');
+      const addTocBtn = document.getElementById('addTocBtn');
+      const resetBtn = document.getElementById('resetBtn');
+      const randomBtn = document.getElementById('randomBtn');
+      const search = document.getElementById('search');
+      const storageKey = 'beike-realestate-agent-interview-v4-editable-all';
+      let editing = true;
+
+      const editableNodes = () => [
+        brand,
+        ...Array.from(layout.querySelectorAll('h1,h2,h3,h4,p,li,td,th,.mini,.callout,.truth-note,.hero-note,.answer,.flow span,.flow b,.eyebrow,.qa summary,.resume,.case-title,.case-body .row>div:last-child,.story-head,.story-step .badge,.story-step>div:last-child,.story-script,footer,aside h2,aside a')),
+      ];
+      function setEditing(value) {
+        editing = value;
+        editableNodes().forEach((node) => node.setAttribute('contenteditable', String(value)));
+        editBtn.textContent = value ? '锁定编辑' : '开启编辑';
+        editBtn.setAttribute('aria-pressed', String(value));
+      }
+      function serializeDocument() {
+        const snapshot = layout.cloneNode(true);
+        snapshot.querySelectorAll('.hidden').forEach((node) => node.classList.remove('hidden'));
+        snapshot.querySelectorAll('[contenteditable]').forEach((node) => node.removeAttribute('contenteditable'));
+        return JSON.stringify({ layout: snapshot.innerHTML, brand: brand.innerHTML });
+      }
+      function saveDraft() {
+        localStorage.setItem(storageKey, serializeDocument());
+        saveBtn.textContent = '已保存';
+        setTimeout(() => { saveBtn.textContent = '保存草稿'; }, 1400);
+      }
+      function restoreDraft() {
+        const saved = localStorage.getItem(storageKey);
+        if (!saved) return;
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.layout) layout.innerHTML = parsed.layout;
+          if (parsed.brand) brand.innerHTML = parsed.brand;
+        } catch {
+          doc.innerHTML = saved;
+        }
+      }
+      function exportHtml() {
+        const clone = document.documentElement.cloneNode(true);
+        clone.querySelectorAll('.hidden').forEach((node) => node.classList.remove('hidden'));
+        clone.querySelectorAll('[contenteditable]').forEach((node) => node.removeAttribute('contenteditable'));
+        const html = '<!doctype html>\n' + clone.outerHTML;
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const stamp = new Date().toISOString().slice(0, 10);
+        link.href = url;
+        link.download = 'enterprise-ai-decision-platform-' + stamp + '.html';
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      function exportPdf() {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+          window.print();
+          return;
+        }
+        const clone = document.documentElement.cloneNode(true);
+        clone.querySelectorAll('.hidden').forEach((node) => node.classList.remove('hidden'));
+        clone.querySelectorAll('.topbar, aside, script').forEach((node) => node.remove());
+        clone.querySelectorAll('[contenteditable]').forEach((node) => node.removeAttribute('contenteditable'));
+        const printStyle = '<style>@page { margin: 12mm; } body { background: #fff; } main { padding: 0; }</style>';
+        const html = '<!doctype html>\n' + clone.outerHTML.replace('</head>', printStyle + '</head>');
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.document.title = '企业级 AI 智能分析与决策平台 · 面试复盘手册';
+        printWindow.document.addEventListener('afterprint', () => printWindow.close(), { once: true });
+        window.setTimeout(() => {
+          printWindow.focus();
+          printWindow.print();
+        }, 150);
+      }
+      function addSection() {
+        const title = prompt('请输入新章节标题：', '新章节');
+        if (title === null) return;
+        const cleanTitle = title.trim() || '新章节';
+        const index = document.querySelectorAll('section[id^="custom-section-"]').length + 1;
+        const id = 'custom-section-' + index;
+        const section = document.createElement('section');
+        section.id = id;
+        section.dataset.search = cleanTitle;
+        section.innerHTML = '<h2>' + escapeHtml(cleanTitle) + '</h2>'
+          + '<p>在这里填写本章节的核心结论、真实需求场景与关键取舍。</p>'
+          + '<h3>面试问题</h3>'
+          + '<div class="qa"><details open><summary>这里放一个面试问题</summary><div class="answer">这里填写参考回答、关键边界和可能的追问。</div></details></div>';
+        const footer = doc.querySelector('footer');
+        doc.insertBefore(section, footer);
+        const link = document.createElement('a');
+        link.href = '#' + id;
+        link.textContent = cleanTitle;
+        document.querySelector('aside nav').appendChild(link);
+        setEditing(editing);
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      function escapeHtml(value) {
+        const node = document.createElement('div');
+        node.textContent = value;
+        return node.innerHTML;
+      }
+      function filterSections(term) {
+        const query = term.trim().toLowerCase();
+        doc.querySelectorAll('section').forEach((section) => {
+          const haystack = (section.dataset.search + ' ' + section.textContent).toLowerCase();
+          section.classList.toggle('hidden', Boolean(query) && !haystack.includes(query));
+        });
+      }
+      editBtn.addEventListener('click', () => setEditing(!editing));
+      saveBtn.addEventListener('click', saveDraft);
+      exportBtn.addEventListener('click', exportHtml);
+      pdfBtn.addEventListener('click', exportPdf);
+      addSectionBtn.addEventListener('click', addSection);
+      addTocBtn.addEventListener('click', addSection);
+      resetBtn.addEventListener('click', () => {
+        if (confirm('清除本地草稿并恢复文件内的已发布内容？')) {
+          localStorage.removeItem(storageKey);
+          location.reload();
+        }
+      });
+      randomBtn.addEventListener('click', () => {
+        const items = Array.from(doc.querySelectorAll('#qa details'));
+        if (!items.length) return;
+        const picked = items[Math.floor(Math.random() * items.length)];
+        items.forEach((item) => { item.open = item === picked; });
+        picked.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+      search.addEventListener('input', (event) => filterSections(event.target.value));
+      // 打开时套用你「保存草稿」过的内容；想回到文件原始版本点顶栏「恢复已发布版」
+      restoreDraft();
+      setEditing(true);
+      // Ctrl+S：保存草稿到当前浏览器本地存储。
+      document.addEventListener('keydown', (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+          event.preventDefault();
+          saveDraft();
+        }
+      });
+    })();
+  </script>
+</body></html>

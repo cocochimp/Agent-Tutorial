@@ -1,0 +1,292 @@
+{
+ "version": "2.0",
+ "categories": [
+  "agent",
+  "rag",
+  "sql",
+  "hallucination",
+  "evals",
+  "general"
+ ],
+ "questions": [
+  {
+   "id": "q-intent-01",
+   "category": "agent",
+   "question": "为什么一定要结构化输出？直接把自然语言传给下一个 Agent 不行吗？",
+   "tips": "从模块边界、校验、路由、可观测四个角度讲；强调模型内部可以自然语言推理，但模块边界要结构化。",
+   "answer": "自然语言很难做类型校验、权限判断和失败重试；结构化 JSON 可以做 Schema 校验，也方便日志、Trace 和工具路由。我的原则是：模型内部可以自然语言推理，但模块边界尽量结构化。",
+   "weight": 5,
+   "status": "active"
+  },
+  {
+   "id": "q-intent-02",
+   "category": "agent",
+   "question": "LLM 抽错字段怎么办？",
+   "tips": "讲三层兜底，而不是无限重试。",
+   "answer": "三层兜底：第一层 Schema 校验；第二层业务字典/枚举校验，例如 region 必须能映射到合法区域 ID；第三层低置信或冲突时向用户澄清。不要靠“再问一次模型”无限重试。",
+   "weight": 4,
+   "status": "active"
+  },
+  {
+   "id": "q-intent-03",
+   "category": "agent",
+   "question": "Prompt Engineering 你具体做了什么？",
+   "tips": "用真实场景讲：把 Prompt 当接口协议，而不是写更长的提示词。",
+   "answer": "不是写更长 Prompt，而是把 Prompt 当接口协议：明确角色、任务、输入字段、允许输出格式、边界条件、正反例和失败策略。结构化任务里，好的 Prompt 更像“接口协议”而不是作文提示词。",
+   "weight": 4,
+   "status": "active"
+  },
+  {
+   "id": "q-rag-01",
+   "category": "rag",
+   "question": "RAG 和 Agent 的关系是什么？",
+   "tips": "区分“获取知识的能力”与“多步行动的框架”。",
+   "answer": "RAG 是一种“获取外部知识”的能力，Agent 是“根据目标决定并执行多步行动”的框架。RAG 可以是 Agent 的一个 Tool，也可以单独存在。",
+   "weight": 4,
+   "status": "active"
+  },
+  {
+   "id": "q-rag-02",
+   "category": "rag",
+   "question": "RAG 的 Chunk Size 怎么定？",
+   "tips": "强调没有魔法值，靠实验；制度文档要保条款完整。",
+   "answer": "没有固定魔法值。按文档结构、模型上下文和问题粒度调，通过 Recall@K + 最终 QA 指标做实验。制度文档通常要保持条款完整，并保留标题/父段 metadata。",
+   "weight": 3,
+   "status": "active"
+  },
+  {
+   "id": "q-rag-03",
+   "category": "rag",
+   "question": "Embedding 和 Reranker 有什么区别？",
+   "tips": "讲召回与精排的分工：一个快一个准。",
+   "answer": "Embedding 适合大规模快速召回，一次把 query/doc 各自编码；Reranker 对 query-doc 成对深度打分，更准但慢，所以只处理召回后的少量候选。",
+   "weight": 4,
+   "status": "active"
+  },
+  {
+   "id": "q-rag-04",
+   "category": "rag",
+   "question": "BM25 已经有了，为什么还要向量检索？",
+   "tips": "从字面匹配 vs 语义匹配讲，落到企业场景的混合检索。",
+   "answer": "BM25 依赖字面匹配，对同义改写弱；向量检索能匹配语义。企业场景既有口语化表达，又有编号/专有名词，所以混合检索互补。",
+   "weight": 4,
+   "status": "active"
+  },
+  {
+   "id": "q-rag-05",
+   "category": "rag",
+   "question": "什么是 RRF？为什么用它融合？",
+   "tips": "讲分数不可比的问题与排名融合的鲁棒性。",
+   "answer": "Reciprocal Rank Fusion：忽略不同检索器的原始分数，只根据排名累加 1/(k+rank)，适合融合 BM25 和向量这种分数量纲不同的结果，简单鲁棒。",
+   "weight": 3,
+   "status": "active"
+  },
+  {
+   "id": "q-rag-06",
+   "category": "rag",
+   "question": "如果 RAG 找到多个互相冲突的制度怎么办？",
+   "tips": "讲冲突消解的确定性规则，不让模型自己选。",
+   "answer": "用生效时间、版本、来源权威度和业务范围做冲突消解；无法确定时把冲突明确呈现，不让模型自行选一条“看起来合理”的。",
+   "weight": 3,
+   "status": "active"
+  },
+  {
+   "id": "q-sql-01",
+   "category": "sql",
+   "question": "为什么不用大模型直接连接数据库随便生成 SQL？",
+   "tips": "按风险分层讲：字段歧义、越权、性能、破坏。",
+   "answer": "风险太高。生产上要做 Schema Retrieval、只读账号、表字段白名单、SQL AST/规则校验、超时、行数限制、审计；复杂指标最好调用预定义数据服务而不是任意 SQL。",
+   "weight": 5,
+   "status": "active"
+  },
+  {
+   "id": "q-sql-02",
+   "category": "sql",
+   "question": "Text-to-SQL 最大风险是什么？",
+   "tips": "讲四类风险 + 生产防护手段。",
+   "answer": "一是生成错误 SQL 导致结论错；二是越权读取敏感表；三是生成高成本查询拖垮数据库；四是如果给写权限还可能造成破坏。因此生产上要只读账号、表/字段白名单、SQL 解析校验、超时、行数限制、审计。",
+   "weight": 5,
+   "status": "active"
+  },
+  {
+   "id": "q-sql-03",
+   "category": "sql",
+   "question": "为什么不让 LLM 直接算排名和同比？",
+   "tips": "讲长上下文中概率计算的不可靠，确定性计算交给代码。",
+   "answer": "数据库返回 37 家门店的数据，LLM 很可能在长上下文里加错、抄错或漏行。正确做法是让 Python/SQL 计算 sum/avg/rank/同比，最后把已经算好的结果交给 LLM 解释。",
+   "weight": 4,
+   "status": "active"
+  },
+  {
+   "id": "q-sql-04",
+   "category": "sql",
+   "question": "用户问了数据库里没有的字段怎么办？",
+   "tips": "讲 Schema 检索阶段发现缺失，不能编 SQL。",
+   "answer": "Schema 检索阶段会发现没有对应字段。此时不要编 SQL，返回“缺少数据字段/需要澄清指标口径”，或者路由到知识库查指标定义。",
+   "weight": 3,
+   "status": "active"
+  },
+  {
+   "id": "q-agent-01",
+   "category": "agent",
+   "question": "你的项目为什么一定要用 Agent？普通 RAG 不够吗？",
+   "tips": "用场景差异讲：查库、调工具、依赖中间结果、失败重试。",
+   "answer": "普通 RAG 适合“问一个问题 → 找文档 → 回答”。我的场景还包括查数据库、调用分析工具、根据前一步结果决定下一步、失败重试，所以需要 Tool Calling 和状态编排。简单问答仍然走普通 RAG，不强行 Agent 化。",
+   "weight": 5,
+   "status": "active"
+  },
+  {
+   "id": "q-agent-02",
+   "category": "agent",
+   "question": "Agent 为什么会死循环？怎么解决？",
+   "tips": "讲根因（重复调用、无终止条件）+ 工程手段。",
+   "answer": "模型可能反复调用同一工具或无法判断结束。设置最大步数、重复调用检测、明确终止条件、工具错误码、失败计数和人工兜底。",
+   "weight": 4,
+   "status": "active"
+  },
+  {
+   "id": "q-agent-03",
+   "category": "agent",
+   "question": "ReAct 和 LangGraph 有什么区别？",
+   "tips": "用“决策 vs 运行时”一句话讲清，再举场景。",
+   "answer": "ReAct 是决策策略，解决“看到当前状态后下一步调用什么 Tool”；LangGraph/StateGraph 是运行时编排，负责节点、条件边、重试、Checkpoint、人工审批。ReAct 可以运行在 LangGraph 的 agent_node 里，两者不是替代关系。",
+   "weight": 5,
+   "status": "active"
+  },
+  {
+   "id": "q-agent-04",
+   "category": "agent",
+   "question": "为什么要 Checkpoint？",
+   "tips": "讲长任务跑到一半服务重启不能从头来。",
+   "answer": "复杂 Agent 跑到第 6 步失败，不应该从第 1 步全部重来。把关键状态持久化：用户问题、已完成节点、Tool Result、审批状态。恢复时从断点继续。",
+   "weight": 3,
+   "status": "active"
+  },
+  {
+   "id": "q-agent-05",
+   "category": "agent",
+   "question": "Multi-Agent 一定比单 Agent 好吗？",
+   "tips": "讲通信成本、错误传播，任务边界清晰才拆。",
+   "answer": "不一定。多个 Agent 增加通信成本、上下文同步、错误传播和可观测难度。任务边界非常清晰、需要独立角色时才值得拆；否则单 Agent + 多 Tool 更简单。",
+   "weight": 3,
+   "status": "active"
+  },
+  {
+   "id": "q-memory-01",
+   "category": "agent",
+   "question": "Memory 和 RAG 是一回事吗？",
+   "tips": "从语义和生命周期区分。",
+   "answer": "不是。RAG 通常检索企业知识；Memory 更多保存与当前用户/会话相关的历史状态和偏好。实现上都可能用向量检索，但语义和生命周期不同。",
+   "weight": 4,
+   "status": "active"
+  },
+  {
+   "id": "q-memory-02",
+   "category": "agent",
+   "question": "Memory 和 State 有什么区别？",
+   "tips": "当前任务确定状态 vs 跨轮辅助上下文。",
+   "answer": "State 是当前任务确定状态（当前节点、工具结果、对象 ID），保证流程可恢复；Memory 是跨轮/跨会话辅助上下文（短期摘要、长期偏好），用于指代消解和个性化。",
+   "weight": 3,
+   "status": "active"
+  },
+  {
+   "id": "q-memory-03",
+   "category": "agent",
+   "question": "为什么不把所有聊天记录都给模型？",
+   "tips": "讲 Token、延迟、噪声三个问题。",
+   "answer": "成本高、延迟高，而且噪声会增加。常见策略：最近 N 轮保留原文；更早历史做摘要；只检索和当前问题相关的历史；工具大结果不直接全塞，先结构化/聚合。",
+   "weight": 4,
+   "status": "active"
+  },
+  {
+   "id": "q-hallucination-01",
+   "category": "hallucination",
+   "question": "你怎么减少幻觉？",
+   "tips": "先分幻觉类型，再逐类治理；不要只说 Prompt。",
+   "answer": "先分幻觉类型。知识靠 RAG + 引用；数据靠工具结果；计算靠代码；工具靠 Schema；最终用结构化输出、事实核查、置信度和人工兜底。不是只在 Prompt 里写一句“不要幻觉”。",
+   "weight": 5,
+   "status": "active"
+  },
+  {
+   "id": "q-hallucination-02",
+   "category": "hallucination",
+   "question": "Self-Reflection 能替代确定性校验吗？",
+   "tips": "讲概率自评的局限 + 后端真实结果约束。",
+   "answer": "Self-Reflection 本身仍是概率模型，不能替代确定性检查。数字一致性、权限、版本、SQL 执行状态都应该由后端真实结果约束（关键数字从 Tool Result 注入、引用绑定 Evidence ID）。",
+   "weight": 4,
+   "status": "active"
+  },
+  {
+   "id": "q-general-01",
+   "category": "general",
+   "question": "你项目里最难的问题是什么？",
+   "tips": "建议选“可靠性”而不是单个框架，用一个 Trace 展开。",
+   "answer": "建议选“可靠性”而不是单个框架：如何让模型调用正确工具、拿到真实数据、找对知识、失败可恢复、结果可验证。然后用一个具体 Trace 展开（如“朝阳门店转化率异常分析”链路）。",
+   "weight": 5,
+   "status": "active"
+  },
+  {
+   "id": "q-general-02",
+   "category": "evals",
+   "question": "为什么要做 Evals，人工看看不行吗？",
+   "tips": "讲自动回归的必要性：改一处不坏另一处。",
+   "answer": "人工抽查适合早期，但模型/Prompt/知识库更新频繁，没有自动回归就不知道改一个地方是否把另一个场景搞坏。Evals 是 AI 工程里的单元测试 + 集成测试。",
+   "weight": 4,
+   "status": "active"
+  },
+  {
+   "id": "q-general-03",
+   "category": "evals",
+   "question": "你这些提升数字怎么来的？",
+   "tips": "只讲真实测过的数字：固定 Gold、跑 baseline、做 ablation。",
+   "answer": "只讲自己真实测过的数字。做法是固定同一批 Gold 数据，先跑 baseline，再逐步增加模块做 ablation；检索看 Recall/MRR/nDCG，Agent 看 Tool Accuracy/Task Success，生成看 Faithfulness，并记录模型和参数版本保证可复现。",
+   "weight": 5,
+   "status": "active"
+  },
+  {
+   "id": "q-general-04",
+   "category": "evals",
+   "question": "如果模型接口挂了怎么办？",
+   "tips": "按场景讲降级：重试退避、备用模型、非 AI 入口。",
+   "answer": "按场景做降级：重试要指数退避；可切备用模型；关键业务可以保留非 AI 的传统查询入口；不能因为模型不可用就让核心业务完全不可用。",
+   "weight": 4,
+   "status": "active"
+  },
+  {
+   "id": "q-general-05",
+   "category": "general",
+   "question": "如果让你重新做一次，你会改什么？",
+   "tips": "讲更早建评测、减少自由 Agent 路径、权限前置。",
+   "answer": "更早建立分层评测集和 Trace；减少自由 Agent 路径，更多采用固定主流程 + 局部决策；把权限和数据口径前置，而不是功能做完再补。",
+   "weight": 3,
+   "status": "active"
+  },
+  {
+   "id": "q-general-06",
+   "category": "rag",
+   "question": "ACL Filter 和普通 Metadata Filter 有什么区别？",
+   "tips": "讲安全边界 vs 业务相关性，ACL 必须来自可信登录态。",
+   "answer": "实现上都可能是 metadata 条件，但语义不同：Metadata Filter 主要提升业务相关性/时效性，ACL Filter 是安全边界。ACL 条件必须来自可信登录态和 AuthZ，不能让 LLM 自己生成“我应该有什么权限”。",
+   "weight": 3,
+   "status": "active"
+  },
+  {
+   "id": "q-evals-01",
+   "category": "evals",
+   "question": "Trace 和普通日志有什么区别？",
+   "tips": "讲一次 Agent 请求内部有多次模型与 Tool 调用，需要 request_id 串联多段 Trace。",
+   "answer": "普通日志只有最终错误码，看不出是哪一步失败。Trace 以 request_id 串联模型、Prompt 版本、检索参数、Tool I/O、SQL、错误码、Token 与耗时，按节点统计 P50/P95 与错误类型，才能定位“是 SQL 错、RAG 漏召回还是 LLM 解释错”。",
+   "weight": 3,
+   "status": "active"
+  },
+  {
+   "id": "q-evals-02",
+   "category": "evals",
+   "question": "P95 延迟 5.2s 降到 3.8s，具体怎么做的？",
+   "tips": "先量后改，按节点统计耗时，从缓存、上下文裁剪、动态 TopK 三个方向讲。",
+   "answer": "先把一次请求按节点拆开量 P50/P95，发现热点在重复 Schema/RAG 查询和超长上下文。于是加了 Redis 热点缓存、上下文裁剪（只保留相关历史与检索段落）和动态 TopK（简单问题少召回），三个方向叠加把示例复杂任务 P95 从 5.2s 压到 3.8s，平均 Prompt Token 下降约 28%。",
+   "weight": 3,
+   "status": "active"
+  }
+ ]
+}

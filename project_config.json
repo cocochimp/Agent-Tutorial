@@ -1,0 +1,26 @@
+{
+  "max_tool_calls": 12,
+  "max_model_calls": 18,
+  "max_prompt_chars": 30000,
+  "max_total_tokens": 40000,
+  "request_timeout_seconds": 180,
+  "retrieval": {
+    "backend": "hybrid",
+    "embedding_model": "BAAI/bge-small-zh-v1.5",
+    "reranker_model": "ms-marco-MultiBERT-L-12",
+    "candidate_k": 20,
+    "top_k": 5,
+    "min_rerank_score": 0.05,
+    "mmr_lambda": 0.75,
+    "hyde_on_empty": true
+  },
+  "cache": {
+    "backend": "sqlite",
+    "redis_url": "redis://127.0.0.1:6379/0",
+    "ttl_seconds": 300
+  },
+  "max_workers": 2,
+  "max_pending_tasks": 8,
+  "session_ttl_seconds": 86400,
+  "long_memory_ttl_seconds": 2592000
+}

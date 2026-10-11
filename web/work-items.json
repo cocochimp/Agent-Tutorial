@@ -1,0 +1,680 @@
+{
+ "version": "2.0",
+ "workItems": [
+  {
+   "id": "work-1",
+   "title": "工作一 · Agent Runtime / 工作流",
+   "short": "Agent Runtime / 工作流",
+   "summary": "把知识检索、SQL 查询、异常分析、指标计算、报表生成封装为 6 类 Function Calling Tools，用 LangGraph StateGraph 管理状态、条件边、重试、Checkpoint 与人工审批，在动态决策节点用 ReAct。",
+   "resume": {
+    "label": "Agent Runtime / 工作流",
+    "text": "将知识检索、SQL 查询、异常分析、指标计算、报表生成等能力封装为 6 类 Function Calling Tools，以 LangGraph StateGraph 管理状态、条件边、重试、Checkpoint 与 Human-in-the-loop，在动态决策节点使用 ReAct。",
+    "metrics": "Tool Selection Accuracy 86.8%→94.1% · Task Success Rate 73.5%→89.2% · 重复 Tool Call 7.6%→2.1%",
+    "metricDetails": [
+     {
+      "title": "Tool Selection Accuracy 86.8%→94.1%",
+      "design": "衡量模型在动态决策节点选 Tool 是否选对：以人工标注的「该问题应调用哪个工具」为金标准，对比模型实际 next_action，一致即命中。",
+      "source": "500 条分层回归任务（覆盖 6 类 Tool + 边界场景），标注集来自真实 Trace 抽样与人工补充。"
+     },
+     {
+      "title": "Task Success Rate 73.5%→89.2%",
+      "design": "端到端任务成功率：一次提问从意图理解到报告生成，最终「报告生成→校验→人工审批」全链路成功且无重复调用、无超时兜底，才算成功。",
+      "source": "与 Tool Selection Accuracy 同一批 500 条回归任务，按完整链路结果统计。"
+     },
+     {
+      "title": "重复 Tool Call 7.6%→2.1%",
+      "design": "统计单任务内同一 Tool 被连续重复调用的占比（加入重复调用检测与最大步数约束后）。Tool 返回空结果/超时时容易原地重试，这是该指标下降的直接来源。",
+      "source": "线上 Trace 日志抽样统计（1000 条任务），对比加入检测前后两版。"
+     }
+    ]
+   },
+   "subTopics": [
+    {
+     "title": "意图理解与结构化输出",
+     "node": "understand",
+     "story": {
+      "scene": "业务人员习惯直接说：“帮我看看朝阳这个片区最近 7 天带看转成交率为什么掉了，和上周同期比一下，再给个结论。”他们不会按系统字段逐项填写 region、metric、date、compare_to。",
+      "problem": "第一版直接把整句自然语言传给下游 Agent。结果不同 Tool 对“最近 7 天”“带看转成交率”“朝阳”的理解不一致：SQL Tool 按自然周取数，分析 Tool 却按滚动 7 天；“转化率”有时被映射成咨询转带看，有时被映射成带看转成交，导致同一请求前后口径打架。",
+      "locate": "我把失败请求按 Trace 拆开看，发现很多错误不是 SQL 算错，而是在最前面的 Query Understanding 已经把时间窗口、经营指标或比较基线抽错，后面模块只是沿用错误参数。",
+      "action": "我负责把自然语言入口改成结构化 Task Spec：用 JSON Schema/Pydantic 约束 intent、region、metric、date、compare_to、tasks；补了时间归一化和业务字典映射；对“转化率”这类多义指标加冲突检测，低置信度时触发澄清，而不是让后面的 Tool 自己猜。",
+      "why": "因为问题本质是“模块边界不稳定”，不是模型知识不够。结构化以后，每个 Tool 只消费固定字段，才能做类型校验、权限判断、重试和回归测试。",
+      "result": "把 Intent Accuracy、Slot F1、JSON Parse Rate 纳入 Query 层评测；同时观察后续 Tool 参数错误是否下降。面试时重点说明：先修入口参数，才能避免错误一路放大到 SQL、RAG 和报告生成。",
+      "qa": [
+       "问：“Prompt Engineering 你具体做了什么？”\n答：就讲这个场景：不是写更长 Prompt，而是把 Prompt 当接口协议，规定字段、枚举、正反例和失败策略。",
+       "问：“为什么要结构化输出？”\n答：继续讲不同 Tool 对时间和指标理解不一致的真实故障。"
+      ]
+     },
+     "html": "<div class=\"story\"><div class=\"story-head\">🎯 场景复盘 · 一句话同时包含查数、对比、分析、写结论 <small>Query Understanding / Structured Output</small></div><div class=\"story-body\"><div class=\"story-step\"><div class=\"badge\">业务现场</div><div>业务人员习惯直接说：“帮我看看朝阳这个片区最近 7 天带看转成交率为什么掉了，和上周同期比一下，再给个结论。”他们不会按系统字段逐项填写 region、metric、date、compare_to。</div></div><div class=\"story-step problem\"><div class=\"badge\">遇到问题</div><div>第一版直接把整句自然语言传给下游 Agent。结果不同 Tool 对“最近 7 天”“带看转成交率”“朝阳”的理解不一致：SQL Tool 按自然周取数，分析 Tool 却按滚动 7 天；“转化率”有时被映射成咨询转带看，有时被映射成带看转成交，导致同一请求前后口径打架。</div></div><div class=\"story-step\"><div class=\"badge\">怎么定位</div><div>我把失败请求按 Trace 拆开看，发现很多错误不是 SQL 算错，而是在最前面的 Query Understanding 已经把时间窗口、经营指标或比较基线抽错，后面模块只是沿用错误参数。</div></div><div class=\"story-step action\"><div class=\"badge\">我做了什么</div><div>我负责把自然语言入口改成结构化 Task Spec：用 JSON Schema/Pydantic 约束 intent、region、metric、date、compare_to、tasks；补了时间归一化和业务字典映射；对“转化率”这类多义指标加冲突检测，低置信度时触发澄清，而不是让后面的 Tool 自己猜。</div></div><div class=\"story-step\"><div class=\"badge\">为什么这样选</div><div>因为问题本质是“模块边界不稳定”，不是模型知识不够。结构化以后，每个 Tool 只消费固定字段，才能做类型校验、权限判断、重试和回归测试。</div></div><div class=\"story-step result\"><div class=\"badge\">结果怎么讲</div><div>把 Intent Accuracy、Slot F1、JSON Parse Rate 纳入 Query 层评测；同时观察后续 Tool 参数错误是否下降。面试时重点说明：先修入口参数，才能避免错误一路放大到 SQL、RAG 和报告生成。</div></div><div class=\"story-step interview\"><div class=\"badge\">被追问时</div><div><strong>“Prompt Engineering 你具体做了什么？”</strong>就讲这个场景：不是写更长 Prompt，而是把 Prompt 当接口协议，规定字段、枚举、正反例和失败策略。<br><strong>“为什么要结构化输出？”</strong>继续讲不同 Tool 对时间和指标理解不一致的真实故障。</div></div><div class=\"story-script\"><strong>1 分钟话术：</strong>“我们最开始把用户原话直接往后传，后来 Trace 里发现很多 SQL/RAG 错误其实源头是第一步把时间或指标理解错了。我负责把入口改成结构化 Task Spec，用 Schema、时间归一化、业务字典和低置信澄清把参数固定下来。这样后面的 Tool 不再各自猜用户意思，问题定位和回归测试也简单很多。”</div></div></div><div class=\"callout good\"><strong>🎯 场景：</strong>用户说：“帮我看看朝阳某片区最近 7 天带看转成交率为什么下降，顺便和上周同期比一下，再给我写个简短结论。”一句话里其实包含：查数据、同比/环比、异常原因分析、生成结论四件事。</div><div class=\"flow\"><span>自然语言</span><b>→</b><span>意图识别</span><b>→</b><span>实体抽取</span><b>→</b><span>任务拆解</span><b>→</b><span>结构化 JSON</span></div><h3>为什么第一步必须结构化</h3><p>如果把整句话直接丢给后面所有模块，每个模块都要重新猜“最近 7 天到底是哪段时间、朝阳对应哪个业务区域编码、转化率到底是哪一层漏斗指标”。结构化之后，后面的工具只接固定字段，系统会稳定很多。</p><h4>示例结构化输出</h4><pre>{ \"intent\": \"business_anomaly_analysis\", \"entities\": { \"region\": \"北京-朝阳\", \"metric\": \"showing_to_deal_rate\", \"date_range\": \"last_7_days\", \"compare_to\": \"previous_7_days\" }, \"tasks\": [ \"query_metric\", \"compare_baseline\", \"anomaly_reasoning\", \"generate_summary\" ], \"need_clarification\": false, \"confidence\": 0.94\n}</pre><h3>实现要点</h3><div class=\"grid-3\"><div class=\"mini\"><strong>Schema 约束</strong><br>用 JSON Schema / Pydantic 约束字段类型、枚举和值域。解析失败就重试或回退。</div><div class=\"mini\"><strong>时间归一化</strong><br>“昨天、上周一、最近三个月”统一转换成绝对日期范围，避免不同工具理解不一致。</div><div class=\"mini\"><strong>歧义澄清</strong><br>如果用户说“转化率”但系统里有“咨询转带看率/带看转成交率/客源转成交率”，不能瞎猜，必须追问或根据上下文消歧。</div></div><h3>面试追问</h3><div class=\"qa\"><details open=\"\"><summary>为什么一定要结构化输出？直接自然语言传给下一个 Agent 不行吗？</summary><div class=\"answer\">自然语言很难做类型校验、权限判断和失败重试；结构化 JSON 可以做 Schema 校验，也方便日志、Trace 和工具路由。我的原则是：模型内部可以自然语言推理，但模块边界尽量结构化。</div></details><details><summary>LLM 抽错字段怎么办？</summary><div class=\"answer\">三层兜底：第一层 Schema 校验；第二层业务字典/枚举校验，例如 region 必须能映射到合法区域 ID；第三层低置信或冲突时向用户澄清。不要靠“再问一次模型”无限重试。</div></details><details><summary>Prompt Engineering 主要做了什么？</summary><div class=\"answer\">不是堆很多“请认真思考”，而是明确角色、任务、输入字段、允许输出格式、边界条件、正反例和失败策略。结构化任务里，好的 Prompt 更像“接口协议”而不是作文提示词。</div></details></div>"
+    },
+    {
+     "title": "Context 与 Memory",
+     "node": "finish",
+     "story": {
+      "scene": "上一轮问“朝阳最近 7 天哪家门店带看转成交率下降最大？”，系统回答“望京A店”；下一轮用户直接说“那它上个月也这样吗？”——业务人员不会重新把门店、指标和异常类型说一遍。",
+      "problem": "早期做法把最近很多轮对话原文全部塞进 Prompt。短对话还能工作，长会话后 Token 越来越高、延迟增加，而且模型偶尔把更早一轮的部门当成“它”的指代对象。",
+      "locate": "我对长会话错误样本做回放，发现“聊天历史多”并不等于“上下文好”：真正需要的是当前对象、当前指标、时间范围、上轮 Tool Result 这些结构化状态，而不是所有原文。",
+      "action": "我负责把上下文拆成 State、短期对话摘要和可选长期记忆三层；当前业务对象和 Tool Result 存结构化 State；最近 N 轮保留原文，更早历史做摘要；只在需要时检索相关历史，并对 Memory 设置作用域、TTL 和权限约束。",
+      "why": "Memory 不是“把聊天记录全存起来”。Agent 恢复、指代消解需要的是结构化且可控的上下文；过量历史会增加成本和噪声。",
+      "result": "结合 Context 命中率、指代消解准确率、平均 Prompt Token 和 P95 延迟观察效果。项目整体通过上下文裁剪、缓存和 Dynamic TopK，使平均 Prompt Token 下降约 28%，复杂任务 P95 延迟从 5.2s 降到 3.8s。",
+      "qa": [
+       "问：“Memory 和 State 区别？”\n答：State 是当前任务确定状态，Memory 是跨轮/跨会话辅助上下文。",
+       "问：“为什么不把所有历史都给模型？”\n答：讲 Token、延迟和错误指代三个问题。"
+      ]
+     },
+     "html": "<div class=\"story\"><div class=\"story-head\">🎯 场景复盘 · 第二句话只有“它”和“这样”，系统却要知道用户在说什么 <small>Context / Memory</small></div><div class=\"story-body\"><div class=\"story-step\"><div class=\"badge\">业务现场</div><div>上一轮问“朝阳最近 7 天哪家门店带看转成交率下降最大？”，系统回答“望京A店”；下一轮用户直接说“那它上个月也这样吗？”——业务人员不会重新把门店、指标和异常类型说一遍。</div></div><div class=\"story-step problem\"><div class=\"badge\">遇到问题</div><div>早期做法把最近很多轮对话原文全部塞进 Prompt。短对话还能工作，长会话后 Token 越来越高、延迟增加，而且模型偶尔把更早一轮的部门当成“它”的指代对象。</div></div><div class=\"story-step\"><div class=\"badge\">怎么定位</div><div>我对长会话错误样本做回放，发现“聊天历史多”并不等于“上下文好”：真正需要的是当前对象、当前指标、时间范围、上轮 Tool Result 这些结构化状态，而不是所有原文。</div></div><div class=\"story-step action\"><div class=\"badge\">我做了什么</div><div>我负责把上下文拆成 State、短期对话摘要和可选长期记忆三层；当前业务对象和 Tool Result 存结构化 State；最近 N 轮保留原文，更早历史做摘要；只在需要时检索相关历史，并对 Memory 设置作用域、TTL 和权限约束。</div></div><div class=\"story-step\"><div class=\"badge\">为什么这样选</div><div>Memory 不是“把聊天记录全存起来”。Agent 恢复、指代消解需要的是结构化且可控的上下文；过量历史会增加成本和噪声。</div></div><div class=\"story-step result\"><div class=\"badge\">结果怎么讲</div><div>结合 Context 命中率、指代消解准确率、平均 Prompt Token 和 P95 延迟观察效果。项目整体通过上下文裁剪、缓存和 Dynamic TopK，使平均 Prompt Token 下降约 28%，复杂任务 P95 延迟从 5.2s 降到 3.8s。</div></div><div class=\"story-step interview\"><div class=\"badge\">被追问时</div><div><strong>“Memory 和 State 区别？”</strong>State 是当前任务确定状态，Memory 是跨轮/跨会话辅助上下文。<br><strong>“为什么不把所有历史都给模型？”</strong>讲 Token、延迟和错误指代三个问题。</div></div></div></div><div class=\"callout good\"><strong>🎯 场景：</strong>用户先问“朝阳最近 7 天哪家门店带看转成交率下降最大？”系统答“望京A店”。下一句用户只说“那它上个月也这样吗？”——“它”指望京A店，“这样”指同类转化率下滑。</div><h3>三种“记忆”要分清</h3><table><thead><tr><th>类型</th><th>存什么</th><th>典型存储</th><th>用途</th></tr></thead><tbody><tr><td>会话状态 State</td><td>当前任务节点、工具结果、对象 ID</td><td>内存 / Redis / Checkpoint</td><td>保证流程可恢复</td></tr><tr><td>短期对话记忆</td><td>最近几轮关键上下文、摘要</td><td>Redis / DB</td><td>指代消解、多轮追问</td></tr><tr><td>长期记忆</td><td>长期偏好、常用报表、权限内画像</td><td>DB / 向量库</td><td>个性化，但必须谨慎</td></tr></tbody></table><h3>为什么不能把所有聊天记录都塞进去</h3><p>成本高、延迟高，而且噪声会增加。常见策略是：</p><ol><li>最近 N 轮原文；</li><li>更早历史做摘要；</li><li>只检索和当前问题相关的历史；</li><li>工具大结果不直接全塞，先结构化/聚合。</li></ol><h3>Context Engineering 是什么</h3><p>可以把它理解成：<strong>在模型有限的上下文窗口里，决定“这一轮到底给模型看什么”</strong>。包括系统提示、用户问题、历史摘要、检索证据、工具结果、可用工具描述，甚至不同部分的 Token 预算。</p><div class=\"callout\"><strong>面试区分：</strong>Prompt Engineering 更偏“怎么写指令”；Context Engineering 更偏“这一轮给模型装配哪些信息”。</div>"
+    }
+   ],
+   "nodes": [
+    "understand",
+    "clarify",
+    "agent_node",
+    "checkpoint_gate",
+    "retry_node",
+    "execute_action",
+    "finish"
+   ],
+   "intro": {
+    "scene": "用户要求“找出昨天成本异常最大的部门，解释原因，查相关制度，再生成一页汇报”。只有第一步 SQL 跑完后，系统才知道下一步应该围绕哪家门店、哪一段经营漏斗继续查。",
+    "problem": "第一版用一个大 Prompt 让模型一次性规划全部步骤，工具一旦返回空结果/超时，模型容易重复调用同一个 Tool；服务重启后任务从头开始；某些“发通知/创建工单”类动作还存在重复执行风险。",
+    "locate": "我通过 Trace 统计失败任务的 Tool Sequence，发现主要问题不是模型不会选 Tool，而是状态没有显式管理：不知道上一步到底成功、空结果、超时还是权限拒绝，也没有统一终止条件。",
+    "action": "我负责用 LangGraph/StateGraph 把 understand、agent_node、query_sql、rag_search、analyze、validate、human_approval 等做成节点；State 显式保存 tool_results、retry_count、tool_call_count、risk_level；ReAct 只负责动态 next_action；补了重复调用检测、最大步数、错误码路由、Checkpoint 和高风险 Interrupt。",
+    "why": "ReAct 解决“下一步做什么”，LangGraph 解决“怎么可靠地跑”；固定 Workflow 对确定任务更稳，只有路径依赖中间结果时才让 Agent 动态决策。",
+    "result": "260 条多步任务评测中 Tool Selection Accuracy 86.8%→94.1%，Task Success 73.5%→89.2%，重复 Tool Call 7.6%→2.1%；回答时把提升归因到 Tool Description、Schema、条件路由、错误码与验证节点，而不是笼统说“模型变聪明了”。",
+    "qa": [
+     "问：“ReAct 和 LangGraph 区别？”\n答：直接用这个场景说明决策与运行时。",
+     "问：“为什么要 Checkpoint？”\n答：讲任务跑到第六步/人工审批时服务重启不能从头来。",
+     "问：“什么时候不用 Agent？”\n答：强调固定步骤用 Workflow 更便宜稳定。"
+    ]
+   },
+   "io": [
+    {
+     "node": "understand",
+     "input": {
+      "question": "分析朝阳最近7天带看转成交率下降的门店，给出原因和跟进建议"
+     },
+     "output": {
+      "intent": "business_anomaly_analysis",
+      "entities": {
+       "region": "北京-朝阳",
+       "metric": "showing_to_deal_rate",
+       "date_range": "last_7_days",
+       "compare_to": "previous_7_days"
+      },
+      "tasks": [
+       "query_metric",
+       "compare_baseline",
+       "anomaly_reasoning",
+       "generate_summary"
+      ],
+      "need_clarification": false,
+      "confidence": 0.94
+     },
+     "note": "Pydantic 验证、绝对日期归一化、权限硬校验（runtime.py trace 原文）"
+    },
+    {
+     "node": "agent_node",
+     "input": {
+      "observations": {
+       "query_metrics": {
+        "rows": [
+         {
+          "store_id": "望京A店",
+          "delta_pp": -0.06
+         }
+        ]
+       }
+      }
+     },
+     "output": {
+      "name": "analyze_funnel",
+      "arguments": {
+       "store_id": "望京A店"
+      }
+     },
+     "note": "规则模式决策：根据实际下降情况选择漏斗分析（offline_action 原文）"
+    },
+    {
+     "node": "understand",
+     "input": {
+      "question": "那它上个月也这样吗？",
+      "session_id": "learning-01"
+     },
+     "output": {
+      "task": {
+       "intent": "analysis",
+       "entities": {
+        "store": "望京A店",
+        "metric": "showing_to_deal_rate",
+        "date_range": "last_month"
+       }
+      }
+     },
+     "note": "读取会话上下文与长期偏好后理解问题（runtime.py 原文）"
+    },
+    {
+     "node": "finish",
+     "input": {
+      "session_id": "learning-01",
+      "report": {
+       "summary": "望京A店转化率下滑……"
+      }
+     },
+     "output": {
+      "status": "completed"
+     },
+     "note": "remember_turn 保存本轮，供下一轮指代消解（runtime.py 原文）"
+    }
+   ],
+   "codeRefs": [
+    {
+     "path": "estate_agent/runtime.py",
+     "start": 293,
+     "end": 346,
+     "note": "图的装配：节点与条件边"
+    },
+    {
+     "path": "estate_agent/state.py",
+     "start": 5,
+     "end": 49,
+     "note": "共享状态 AgentState"
+    },
+    {
+     "path": "estate_agent/runtime.py",
+     "start": 116,
+     "end": 149,
+     "note": "规划节点：ReAct 决策"
+    },
+    {
+     "path": "estate_agent/runtime.py",
+     "start": 211,
+     "end": 214,
+     "note": "有限重试"
+    },
+    {
+     "path": "estate_agent/intent.py",
+     "start": 94,
+     "end": 114,
+     "note": "理解入口：Task Spec 生成"
+    }
+   ],
+   "introHtml": "<div class=\"story\"><div class=\"story-head\">🎯 场景复盘 · 多步分析不是固定流水线，中间结果会决定下一步 <small>ReAct / LangGraph / State</small></div><div class=\"story-body\"><div class=\"story-step\"><div class=\"badge\">业务现场</div><div>用户要求“找出昨天成本异常最大的部门，解释原因，查相关制度，再生成一页汇报”。只有第一步 SQL 跑完后，系统才知道下一步应该围绕哪家门店、哪一段经营漏斗继续查。</div></div><div class=\"story-step problem\"><div class=\"badge\">遇到问题</div><div>第一版用一个大 Prompt 让模型一次性规划全部步骤，工具一旦返回空结果/超时，模型容易重复调用同一个 Tool；服务重启后任务从头开始；某些“发通知/创建工单”类动作还存在重复执行风险。</div></div><div class=\"story-step\"><div class=\"badge\">怎么定位</div><div>我通过 Trace 统计失败任务的 Tool Sequence，发现主要问题不是模型不会选 Tool，而是状态没有显式管理：不知道上一步到底成功、空结果、超时还是权限拒绝，也没有统一终止条件。</div></div><div class=\"story-step action\"><div class=\"badge\">我做了什么</div><div>我负责用 LangGraph/StateGraph 把 understand、agent_node、query_sql、rag_search、analyze、validate、human_approval 等做成节点；State 显式保存 tool_results、retry_count、tool_call_count、risk_level；ReAct 只负责动态 next_action；补了重复调用检测、最大步数、错误码路由、Checkpoint 和高风险 Interrupt。</div></div><div class=\"story-step\"><div class=\"badge\">为什么这样选</div><div>ReAct 解决“下一步做什么”，LangGraph 解决“怎么可靠地跑”；固定 Workflow 对确定任务更稳，只有路径依赖中间结果时才让 Agent 动态决策。</div></div><div class=\"story-step result\"><div class=\"badge\">结果怎么讲</div><div>260 条多步任务评测中 Tool Selection Accuracy 86.8%→94.1%，Task Success 73.5%→89.2%，重复 Tool Call 7.6%→2.1%；回答时把提升归因到 Tool Description、Schema、条件路由、错误码与验证节点，而不是笼统说“模型变聪明了”。</div></div><div class=\"story-step interview\"><div class=\"badge\">被追问时</div><div><strong>“ReAct 和 LangGraph 区别？”</strong>直接用这个场景说明决策与运行时。<br><strong>“为什么要 Checkpoint？”</strong>讲任务跑到第六步/人工审批时服务重启不能从头来。<br><strong>“什么时候不用 Agent？”</strong>强调固定步骤用 Workflow 更便宜稳定。</div></div><div class=\"story-script\"><strong>1 分钟话术：</strong>“这个场景最典型的地方是，下一步依赖上一步结果，所以不能一开始把流程完全写死。我们早期的大 Prompt 版本容易循环、超时后重复调用。我负责把状态显式化，用 LangGraph 管节点、条件边、重试、Checkpoint，ReAct 只在 agent_node 决定下一步。这样把端到端 Task Success 从 73.5% 提到了 89.2%，重复 Tool Call 也明显下降。”</div></div></div><div class=\"callout good\"><strong>🎯 场景：</strong>用户问“找出最近 7 天带看转成交率下降最大的门店，解释原因，查相关运营规范，再生成一页复盘。”路径不是一次就能写死：查完 SQL 后才知道查哪家门店；RAG 可能证据不足；工具会超时；高风险动作可能需要人工审批。这就是为什么既需要 Agent 的动态决策，也需要工程化的状态编排。</div><h3>一、先把两个概念彻底分开</h3><div class=\"grid-2\"><div class=\"mini\"><strong>ReAct：决策策略</strong><br>Reason/Plan → Action → Observation → 再 Reason。解决“看到当前状态后，下一步调用什么 Tool”。它关心的是<strong>Agent 如何决定下一步</strong>。</div><div class=\"mini\"><strong>LangGraph / StateGraph：运行时编排</strong><br>用 Node、Edge、Conditional Edge 和 Shared State 组织步骤，负责重试、循环上限、Checkpoint、人工审批和恢复。它关心的是<strong>程序如何可靠地跑完整个过程</strong>。</div></div><div class=\"callout\"><strong>一句话：</strong>ReAct 可以运行在 LangGraph 的 <code>agent_node</code> 里；Tool 执行结果写回 State，再回到 agent_node 继续决策。两者不是替代关系。</div><h3>二、ReAct Loop 到底长什么样</h3><pre>用户目标：找异常门店 → 拆经营漏斗 → 查运营规范 → 写复盘 Reason / Plan: 先查最近 7 天各门店带看转成交率和历史基线\nAction: query_metric(date_range=last_7_days, group_by=store)\nObservation: 望京A店带看转成交率 -18.6%，下降最大 Reason / Plan: 已经知道对象，继续拆客源→带看→成交漏斗及经纪人人效\nAction: analyze_conversion(store=\"望京A店\")\nObservation: 有效带看 -21.4%，带看后 24h 跟进率 -17.2% Reason / Plan: 数据说明“发生了什么”，还要查“运营上应该怎么跟进”\nAction: retrieve_knowledge(query=\"望京A店 带看转成交率下降 跟进规范\")\nObservation: 命中《门店转化异常诊断与跟进规范 V3》4.2、4.3 Reason / Plan: 证据齐全 → 进入验证与汇报生成</pre><p>上面是“逻辑层”的 ReAct：<strong>每一步根据 Observation 再决定下一步</strong>。</p><h3>三、同一件事放进 LangGraph 是什么关系</h3><pre> ┌──────────── LangGraph / StateGraph ────────────┐\nSTART → understand → agent_node │ │ │ │ ReAct 决定 next_action │ ├────→ query_sql ─────┐ │ ├────→ rag_search ────┤ │ ├────→ analyze ───────┤ │ └────→ ask_user ──────┘ │ │ │ ▼ Tool Result 写入 State │ agent_node ←───────────────────┘ │ should_continue? / | \\ tool validate fail ↑ │ │ └─────────┘ fallback │ validate / | \\ pass retryable high_risk │ │ │ generate_report retry_node human_approval │ │ END resume / END</pre><p>所以你之前看到的“Plan → Tool → Observation → Next Plan”确实是 <strong>ReAct 流程图</strong>；LangGraph 图应该再多出：<strong>State、条件边、错误分支、Retry、Human Approval、Checkpoint</strong>。</p><h3>四、State 里到底存什么</h3><pre>{ \"request_id\": \"req_8f12\", \"user_query\": \"分析最近7天带看转成交率下降...\", \"task_spec\": {...}, \"current_node\": \"agent_node\", \"messages\": [...], \"tool_results\": { \"query_metric\": {...}, \"analyze_cost\": {...} }, \"retrieved_evidence\": [...], \"retry_count\": 1, \"tool_call_count\": 4, \"risk_level\": \"low\", \"need_human\": false\n}</pre><p><strong>为什么 State 不能只是一串聊天记录？</strong>因为恢复、重试、校验都需要明确字段。比如 SQL 是“空结果”还是“调用失败”，必须用 status/error_code 区分。</p><h3>五、Node、Edge、Conditional Edge 怎么理解</h3><table><thead><tr><th>概念</th><th>白话</th><th>本项目例子</th></tr></thead><tbody><tr><td>Node</td><td>一个可执行步骤</td><td>understand、agent_node、query_sql、rag_search、validate</td></tr><tr><td>Edge</td><td>固定下一步</td><td>understand → agent_node</td></tr><tr><td>Conditional Edge</td><td>根据 State 决定走哪条边</td><td>agent_node → SQL/RAG/ask_user/finish</td></tr><tr><td>Checkpoint</td><td>把 State 持久化</td><td>人工审批前保存，服务重启后继续</td></tr><tr><td>Interrupt / HITL</td><td>暂停自动执行等人工</td><td>发正式报告、写库、修改配置前审批</td></tr></tbody></table><h3>六、为什么不是“完全自由 Agent”</h3><p>生产系统通常用<strong>固定主干 + 局部自主决策</strong>：理解、鉴权、验证、审批这些关键关卡是确定性 Node；在“下一步需要查 SQL 还是 RAG、要不要补分析”这类开放节点才让 LLM 决策。</p><table><thead><tr><th>方式</th><th>可控性</th><th>灵活性</th><th>适用</th></tr></thead><tbody><tr><td>固定 Workflow</td><td>高</td><td>低</td><td>步骤确定、规则稳定</td></tr><tr><td>自由 ReAct Loop</td><td>低</td><td>高</td><td>探索型任务、低风险场景</td></tr><tr><td><strong>混合式 LangGraph + ReAct</strong></td><td>高</td><td>中高</td><td>企业 Agent 主流工程思路</td></tr></tbody></table><h3>七、怎么防止 Agent 死循环和成本失控</h3><ol><li><strong>最大 Tool Call：</strong>示例设为 10 次；超过直接进入 fallback。</li><li><strong>重复调用检测：</strong>同一 Tool + 相同 canonical arguments 连续出现 2 次，阻断并要求重新规划。</li><li><strong>错误码驱动：</strong><code>TIMEOUT / EMPTY_RESULT / INVALID_ARGUMENT / PERMISSION_DENIED</code> 分开处理，不把所有失败都丢回 LLM 猜。</li><li><strong>预算控制：</strong>State 记录 token_budget / tool_budget；低价值循环到阈值后终止。</li><li><strong>高风险操作 Interrupt：</strong>写数据库、发通知、执行配置修改等必须暂停等待审批。</li></ol><h3>八、定量指标怎么体现“真的做过”</h3><div class=\"callout warn\">建立 200~300 条 Agent Task 测试集，每条标注 Gold Tool Sequence 或至少标注最终任务是否成功。</div><table><thead><tr><th>指标</th><th>Baseline</th><th>优化后</th><th>怎么测</th></tr></thead><tbody><tr><td>Tool Selection Accuracy</td><td>86.8%</td><td><strong>94.1%</strong></td><td>首个/关键 Tool 是否与 Gold Tool 一致</td></tr><tr><td>Argument Exact Match</td><td>82.4%</td><td><strong>92.7%</strong></td><td>核心参数字段完全匹配</td></tr><tr><td>Task Success Rate</td><td>73.5%</td><td><strong>89.2%</strong></td><td>端到端是否满足验收条件</td></tr><tr><td>平均 Tool Call</td><td>6.8</td><td><strong>4.9</strong></td><td>减少无效循环</td></tr><tr><td>Loop Abort Rate</td><td>4.6%</td><td><strong>0.8%</strong></td><td>因达到最大步数而失败的比例</td></tr></tbody></table><p>优化来源可以讲：<strong>更清晰 Tool Description + JSON Schema + 条件路由 + 重复调用检测 + 错误码 + 固定验证节点</strong>，而不是简单说“换了更大的模型”。</p><h3>九、高频面试追问</h3><div class=\"qa\"><details open=\"\"><summary>ReAct 和 LangGraph 是一个东西吗？</summary><div class=\"answer\">不是。ReAct 是 Agent 的决策范式；LangGraph 是有状态的运行时编排。我的实现里 agent_node 用 ReAct 决定 next_action，LangGraph 负责 State、Tool Node、条件边、重试、Checkpoint 和人工审批。</div></details><details open=\"\"><summary>为什么不用一个超级 Prompt 一次生成？</summary><div class=\"answer\">因为任务依赖外部世界：只有 SQL 返回后才知道下一步查哪个部门；RAG 可能找不到证据；Tool 会失败；审批需要暂停。一次生成不能可靠表达这些状态迁移，也无法做精确错误恢复。</div></details><details open=\"\"><summary>什么时候不用 Agent？</summary><div class=\"answer\">如果步骤完全确定，例如“上传文档→解析→入库”，固定 Workflow 更稳定便宜；如果只是“问文档→回答”，普通 RAG 足够。只有路径依赖中间结果、需要动态选 Tool 时才让 Agent 决策。</div></details><details open=\"\"><summary>Checkpoint 有什么价值？</summary><div class=\"answer\">复杂任务跑到第 6 步或停在人工审批时，不应该服务重启就全部丢失。Checkpoint 保存 State，可以从断点恢复，也便于审计当时模型和工具看到了什么。</div></details><details open=\"\"><summary>为什么 Tool Result 要结构化？</summary><div class=\"answer\">Agent 需要区分空结果、调用失败、权限拒绝、超时等状态；如果 Tool 只返回一句自然语言，很难做条件路由、重试和监控。统一 status/data/source/latency/error_code 更适合工程编排。</div></details></div>"
+  },
+  {
+   "id": "work-2",
+   "title": "工作二 · 企业知识库 RAG",
+   "short": "企业知识库 RAG",
+   "summary": "从 Dense 单路召回升级为 Query Rewrite → ACL/Metadata 预过滤 → Dense+BM25 → RRF → Reranker → MMR → Dynamic TopK 的混合检索链路，让制度、指标口径从“能搜到”到“搜得准、搜得安全”。",
+   "resume": {
+    "label": "企业 RAG / 检索优化",
+    "text": "构建 Parent-Child Chunk + Metadata/ACL 文档体系，在线采用 Query Rewrite → ACL/Metadata Pre-Filter → Dense + BM25 → RRF → Cross-Encoder Reranker → Authority/Validity → MMR → Dynamic TopK。",
+    "metrics": "Recall@20 79.0%→94.0% · MRR 0.61→0.78 · nDCG@10 0.69→0.84（420 条标注 Query）",
+    "metricDetails": [
+     {
+      "title": "Recall@20 79.0%→94.0%",
+      "design": "Top-20 召回命中率：人工标注 Query 对应的 ground-truth 文档是否出现在检索结果前 20 条内。体现「漏召回」问题的改善。",
+      "source": "420 条人工标注 Query；Dense Only 79.0% → Dense+BM25 89.3% → +RRF+Rewrite 94.0%，分阶段对比。"
+     },
+     {
+      "title": "MRR 0.61→0.78",
+      "design": "平均倒数排名：第一个相关文档排名越靠前 MRR 越高，衡量排序把真正有用的条款/制度放在多靠前。",
+      "source": "同一 420 条标注 Query，加入 Cross-Encoder Reranker 后提升明显。"
+     },
+     {
+      "title": "nDCG@10 0.69→0.84",
+      "design": "归一化折损累计增益：相关文档越靠前得分越高、位置越后增益折损越大，衡量 Top-10 整体排序质量。",
+      "source": "同一 420 条标注 Query 计算。"
+     }
+    ]
+   },
+   "subTopics": [],
+   "nodes": [
+    "rag_search"
+   ],
+   "intro": {
+    "scene": "区域经理发现某门店带看转成交率异常后，会继续问“按照运营规范应该怎么跟进、哪些动作要检查、指标口径怎么定义”。这些信息不在数据库，而是在制度、手册和历史案例里。",
+    "problem": "第一版只做 Dense 向量检索。线上/测试里出现三类典型错误：① 用户问SOP 编号或指标编码时向量检索漏掉精确编号；② 旧版运营规范和新版规范语义几乎一样，旧版反而排前；③ TopK 经常是同一章节的重复 Chunk，真正的审批条款被挤掉。",
+    "locate": "我整理错误 Query，把失败分成“漏召回”和“排序错误”两类，再看 Recall@20、MRR、nDCG。发现SOP 编号/指标编码主要是漏召回问题；新旧版本和适用范围主要是排序与元数据问题。",
+    "action": "我负责把检索链路从 Dense Only 改成 Dense + BM25 双路召回，用 RRF 融合；文档切分改为标题感知 + Parent-Child；Chunk 入库补 department、version、valid_time、ACL 等 Metadata；召回后用 Cross-Encoder Reranker 精排，再做 Validity/Authority 与 MMR 去重，最后 Dynamic TopK 控制注入证据数。",
+    "why": "BM25解决制度号、指标编码等精确 token；Dense 解决“预算超了怎么办”这类语义改写；Reranker 负责候选内部精排；Validity/ACL 是确定性业务约束，不能交给相似度；MMR 用来避免 Context 被重复段落占满。",
+    "result": "420 条人工标注 Query 上，Dense Only 的 Recall@20 为 79.0%，Dense+BM25 后 89.3%，再加 RRF + Rewrite 到 94.0%；加入 Cross-Encoder 后 Recall 基本不变，但 MRR/nDCG 明显提升。这个结果正好能说明“召回”和“排序”是两层问题。",
+    "qa": [
+     "问：“为什么用 BM25？”\n答：讲制度编号漏召回。",
+     "问：“为什么要 Reranker？”\n答：讲旧版/不适用制度排前。",
+     "问：“为什么 Parent-Child？”\n答：讲 Child 命中了条款半句话但缺条件。",
+     "问：“为什么 MMR？”\n答：讲 Top10 七条来自同一章节。",
+     "问：“ACL 放哪？”\n答：讲财务机密附件不能先检索再靠 Prompt 隐藏。"
+    ]
+   },
+   "io": [
+    {
+     "node": "rag_search",
+     "input": {
+      "query": "带看转成交率下降 有效带看 24小时跟进 核查规范",
+      "region": "北京-朝阳"
+     },
+     "output": {
+      "evidence": [
+       {
+        "id": "DOC-42",
+        "title": "门店转化异常诊断与跟进规范 V3",
+        "section": "4.2",
+        "text": "对连续两周转化率下降门店，核查有效带看量与带看后24小时跟进率……"
+       },
+       {
+        "id": "DOC-43",
+        "title": "带看后跟进作业规范",
+        "section": "2.1",
+        "text": "带看结束后24小时内完成首次跟进回访……"
+       }
+      ],
+      "stages": {
+       "recall": {
+        "dense": 60,
+        "bm25": 60
+       },
+       "fusion": 40,
+       "rerank": 10,
+       "topk": 3
+      }
+     },
+     "note": "RAG 返回 evidence（引用原文）与 stages（检索过程），一起进入 Trace（runtime.py 原文）"
+    }
+   ],
+   "codeRefs": [
+    {
+     "path": "estate_agent/retrieval.py",
+     "start": 132,
+     "end": 220,
+     "note": "完整检索链路：混合召回→融合→精排→过滤"
+    },
+    {
+     "path": "estate_agent/retrieval.py",
+     "start": 39,
+     "end": 52,
+     "note": "权限与版本过滤"
+    },
+    {
+     "path": "estate_agent/retrieval.py",
+     "start": 62,
+     "end": 76,
+     "note": "BM25 词法召回"
+    },
+    {
+     "path": "estate_agent/retrieval.py",
+     "start": 94,
+     "end": 117,
+     "note": "Dense 向量召回"
+    }
+   ],
+   "introHtml": "<div class=\"story\"><div class=\"story-head\">🎯 场景复盘 · 搜到了“相关文档”，却不是“当前真正能用的制度” <small>RAG / Hybrid Retrieval / Reranker / ACL</small></div><div class=\"story-body\"><div class=\"story-step\"><div class=\"badge\">业务现场</div><div>区域经理发现某门店带看转成交率异常后，会继续问“按照运营规范应该怎么跟进、哪些动作要检查、指标口径怎么定义”。这些信息不在数据库，而是在制度、手册和历史案例里。</div></div><div class=\"story-step problem\"><div class=\"badge\">遇到问题</div><div>第一版只做 Dense 向量检索。线上/测试里出现三类典型错误：① 用户问SOP 编号或指标编码时向量检索漏掉精确编号；② 旧版运营规范和新版规范语义几乎一样，旧版反而排前；③ TopK 经常是同一章节的重复 Chunk，真正的审批条款被挤掉。</div></div><div class=\"story-step\"><div class=\"badge\">怎么定位</div><div>我整理错误 Query，把失败分成“漏召回”和“排序错误”两类，再看 Recall@20、MRR、nDCG。发现SOP 编号/指标编码主要是漏召回问题；新旧版本和适用范围主要是排序与元数据问题。</div></div><div class=\"story-step action\"><div class=\"badge\">我做了什么</div><div>我负责把检索链路从 Dense Only 改成 Dense + BM25 双路召回，用 RRF 融合；文档切分改为标题感知 + Parent-Child；Chunk 入库补 department、version、valid_time、ACL 等 Metadata；召回后用 Cross-Encoder Reranker 精排，再做 Validity/Authority 与 MMR 去重，最后 Dynamic TopK 控制注入证据数。</div></div><div class=\"story-step\"><div class=\"badge\">为什么这样选</div><div>BM25解决制度号、指标编码等精确 token；Dense 解决“预算超了怎么办”这类语义改写；Reranker 负责候选内部精排；Validity/ACL 是确定性业务约束，不能交给相似度；MMR 用来避免 Context 被重复段落占满。</div></div><div class=\"story-step result\"><div class=\"badge\">结果怎么讲</div><div>420 条人工标注 Query 上，Dense Only 的 Recall@20 为 79.0%，Dense+BM25 后 89.3%，再加 RRF + Rewrite 到 94.0%；加入 Cross-Encoder 后 Recall 基本不变，但 MRR/nDCG 明显提升。这个结果正好能说明“召回”和“排序”是两层问题。</div></div><div class=\"story-step interview\"><div class=\"badge\">被追问时</div><div><strong>“为什么用 BM25？”</strong>讲制度编号漏召回。<br><strong>“为什么要 Reranker？”</strong>讲旧版/不适用制度排前。<br><strong>“为什么 Parent-Child？”</strong>讲 Child 命中了条款半句话但缺条件。<br><strong>“为什么 MMR？”</strong>讲 Top10 七条来自同一章节。<br><strong>“ACL 放哪？”</strong>讲财务机密附件不能先检索再靠 Prompt 隐藏。</div></div><div class=\"story-script\"><strong>1 分钟话术：</strong>“我们第一版只用向量检索，语义问题能搜到，但制度编号、旧版制度、重复 Chunk 很容易出错。我当时先做错误分类，发现既有 Recall 问题也有 Ranking 问题，所以不是简单换 Embedding。我把链路改成 Dense+BM25→RRF→Reranker，再把版本、有效期、ACL 做成 Metadata 硬过滤，最后用 MMR 和 Dynamic TopK 控 Context。420 条 Gold Query 上 Recall@20 从 79% 做到 94%，排序指标也明显提升。”</div></div></div><div class=\"callout good\"><strong>🎯 真实业务型场景：</strong>用户问“朝阳某门店带看转成交率连续下降，按照运营规范应该怎么跟进？”SQL 只能给出现象和数值；“怎么处理、适用哪些条件、谁审批”存在制度和手册里。RAG 的目标不是“把最像的文档搜出来”这么简单，而是<strong>在权限、时效、版本都正确的前提下，把真正能支撑结论的证据召回并排到前面</strong>。</div><h3>一、先背住完整 RAG 漏斗</h3><pre>离线知识入库\nPDF / Word / Wiki / 历史案例 ↓\n解析清洗（页眉页脚、乱码、表格、重复段） ↓\nParent-Child Chunk ↓\nMetadata：source / department / version / valid_time / ACL ↓\nEmbedding Index + BM25 Index 在线检索\nUser Query ↓\n① Query Understanding / Rewrite / Decompose ↓\n② ACL + Metadata Pre-Filter ↓\n③ Dense Recall Top-60 + BM25 Recall Top-60 ↓\n④ RRF Fusion &amp; Dedup → Top-40 ↓\n⑤ Cross-Encoder Reranker → Top-10 ↓\n⑥ Authority + Validity + Business Metadata Re-score ↓\n⑦ MMR / Near-Duplicate Removal → Top-5 ↓\n⑧ Dynamic TopK → 注入 2~5 条 Evidence ↓\n⑨ LLM Grounded Answer + Citation</pre><div class=\"callout\"><strong>一句话记忆：</strong>先解决“<strong>别漏</strong>”（Recall），再解决“<strong>排准</strong>”（Ranking），最后解决“<strong>别塞太多重复/低质量证据</strong>”（Context）。权限和有效期不是相关性问题，而是<strong>确定性过滤条件</strong>。</div><h3>二、Chunk：不是固定 500 字切一刀</h3><div class=\"grid-3\"><div class=\"mini\"><strong>Child Chunk</strong><br>较短，负责向量召回，主题更集中；例如制度第 4.2.1 条单独作为 250~450 tokens 的检索块。</div><div class=\"mini\"><strong>Parent Chunk</strong><br>保留完整条款/章节上下文。Child 命中后回表取 Parent，避免只拿到半句话导致条件缺失。</div><div class=\"mini\"><strong>Overlap</strong><br>只在跨段逻辑明显时保留少量重叠，不是越大越好。Overlap 太大会制造大量近重复候选。</div></div><p><strong>怎么选 Chunk Size？</strong>不是背 512。先按“用户问题粒度”和“制度条款完整性”设初值，再用 Recall@K + 最终 QA 做实验。项目中，固定 800-token 粗切的 Recall@20 为 <strong>82.1%</strong>，改成标题感知 + Parent-Child 后为 <strong>89.5%</strong>。</p><h3>三、Query Understanding：检索前先决定“怎么搜”</h3><div class=\"grid-3\"><div class=\"mini\"><strong>Rewrite</strong><br>“这个要怎么跟进？”结合上一轮补成“朝阳某门店带看转成交率下降的运营跟进流程”，解决指代和残缺 Query。</div><div class=\"mini\"><strong>Decompose</strong><br>“为什么异常、制度怎么处理、谁审批”拆成数据子任务 + 知识子 Query，避免一个 Query 同时承担多个目标。</div><div class=\"mini\"><strong>Metadata Extraction</strong><br>抽取部门、制度类型、业务对象、生效日期等结构化字段，交给 Filter 而不是让向量相似度猜。</div></div><div class=\"callout good\"><strong>可选增强：</strong>HyDE / Step-back 可以作为“长尾召回补救”，而不是默认每个 Query 都跑。只有口语和文档术语差距很大、基础混合检索仍漏召时再开启，否则会增加延迟和语义漂移风险。</div><h3>四、ACL / Metadata Filter：权限必须先于内容注入</h3><p>文档入库时给每个 Chunk 标记 <code>department</code>、<code>allowed_roles</code>、<code>security_level</code>、<code>valid_from</code>、<code>valid_to</code>、<code>version</code>。查询时后端从真实登录态得到用户权限，并构造过滤条件：</p><pre>user.roles = [\"region_manager\"]\nuser.department = \"beijing_chaoyang\" retrieval_filter = { \"allowed_roles\": {\"$contains_any\": user.roles}, \"department\": {\"$in\": [user.department, \"public\"]}, \"valid_from\": {\"$lte\": query_date}, \"$or\": [ {\"valid_to\": null}, {\"valid_to\": {\"$gte\": query_date}} ]\n}</pre><p><strong>为什么不只做 Post-Filter？</strong>如果先 TopK 再删无权文档，可能 20 条里 18 条都被过滤，最后只剩 2 条，召回会塌。更合理的是尽量做 Pre-Filter / 原生 metadata filter；向量库能力有限时再“扩大候选 + Post-Filter”兜底。</p><h3>五、Dense + BM25：两路召回互补</h3><div class=\"grid-2\"><div class=\"mini\"><strong>Dense / Embedding</strong><br>解决语义改写：“带看后客户没成交怎么办”可以召回“带看后跟进与转化提升规范”。双塔可离线编码文档，在线只编码 Query，ANN 检索速度快。</div><div class=\"mini\"><strong>BM25 / Sparse</strong><br>解决精确 token：SOP 编号、指标编码、门店编码、业务缩写。向量有时会把“意思像但编号错”的文档推上来，BM25 可以补精确匹配。</div></div><h4>为什么用 RRF 融合</h4><p>Dense 相似度和 BM25 分数不是同一个尺度，直接相加很危险。RRF 只看排名：<code>score(d)=Σ 1/(k+rank_i(d))</code>，常用 k≈60，对不同检索器的分数尺度更鲁棒。需要根据 Query 类型动态偏向某一路时，再考虑归一化加权。</p><h3>六、Reranker：召回负责“别漏”，精排负责“排准”</h3><p>Embedding 是 <strong>Bi-Encoder</strong>：Query 和 Doc 分开编码再算距离，快但交互浅；Reranker 常用 <strong>Cross-Encoder</strong>：把 <code>[Query, Doc]</code> 一起输入，让模型做深度交互，因此更准但更慢，只适合几十条候选。</p><table><thead><tr><th>阶段</th><th>候选数（示例）</th><th>目标</th><th>主要指标</th></tr></thead><tbody><tr><td>Dense / BM25</td><td>各 Top-60</td><td>尽可能不漏正确证据</td><td>Recall@K / Hit@K</td></tr><tr><td>RRF</td><td>Top-40</td><td>融合双路并去重</td><td>Recall@40</td></tr><tr><td>Cross-Encoder</td><td>Top-10</td><td>把真正适用制度排到前面</td><td>MRR / nDCG@10</td></tr><tr><td>MMR + Dynamic TopK</td><td>2~5</td><td>减少重复和上下文噪声</td><td>Faithfulness / Token / Latency</td></tr></tbody></table><h3>七、为什么还要 Authority / Validity / MMR</h3><div class=\"grid-3\"><div class=\"mini\"><strong>Authority</strong><br>同样相关时，公司正式制度 &gt; 部门操作手册 &gt; 历史经验。权威度是业务先验，不完全交给语义分数决定。</div><div class=\"mini\"><strong>Validity</strong><br>旧制度即使语义再像，只要已失效就不能给当前问题作证据。生效时间和版本是硬约束。</div><div class=\"mini\"><strong>MMR / Dedup</strong><br>Top-10 可能 7 条都是同一制度的近重复段。MMR 在相关性和多样性之间取平衡，避免 Context 全被重复内容占满。</div></div><p><strong>Dynamic TopK：</strong>不是永远 Top-5。比如要求 Reranker 分数 ≥0.62，最多 5 条、至少 2 条；高置信时只给 2~3 条，低置信时宁可触发“证据不足/澄清”也不硬塞低相关文档。</p><h3>八、一个完整 RAG Case：为什么这条制度最后能排第一</h3><div class=\"case\"><div class=\"case-title\">Case · “朝阳某门店带看转成交率下降，按什么运营规范跟进？” <small>Query → ACL → Hybrid → Rerank → Evidence</small></div><div class=\"case-body\"><div class=\"row\"><div class=\"lbl\">Rewrite</div><div>结合会话补成“朝阳某门店带看转成交率下降的跟进流程、责任人与核查步骤”。</div></div><div class=\"row\"><div class=\"lbl\">ACL</div><div>当前用户是区域经理，只允许 public + beijing_chaoyang + region_manager 可见文档；其他城市内部运营材料在召回前被过滤。</div></div><div class=\"row\"><div class=\"lbl\">召回</div><div>Dense 命中“门店转化率异常诊断流程”，BM25 命中“经纪运营规范 BK-OPS-17”；两路各 Top-60。</div></div><div class=\"row\"><div class=\"lbl\">融合</div><div>RRF 后“BK-OPS-17 v3”进入 Top-3，“v2”虽然相关但 valid_to 已过期。</div></div><div class=\"row\"><div class=\"lbl\">精排</div><div>Cross-Encoder 判断 v3 第 4.2 节与“带看转成交率下降 + 门店 + 跟进”高度匹配，排到第 1。</div></div><div class=\"row\"><div class=\"lbl\">去重</div><div>其余同章节近重复片段被 MMR 去掉，最终注入 v3 §4.2、§4.3 和一条历史案例。</div></div><div class=\"row\"><div class=\"lbl warn\">兜底</div><div>如果 ACL 后没有足够证据，回答“当前权限范围内未检索到适用制度”，而不是绕过权限扩大检索。</div></div></div></div><h3>九、怎么用数据证明 RAG 真的做过</h3><div class=\"callout warn\"><strong>下面是</strong>整理 300~500 条 Query，人工标注 Gold Evidence，再跑 baseline 和各阶段 ablation的结果。</div><table><thead><tr><th>方案</th><th>Recall@20</th><th>MRR</th><th>nDCG@10</th><th>说明</th></tr></thead><tbody><tr><td>Dense Only</td><td>79.0%</td><td>0.61</td><td>0.65</td><td>口语语义不错，但制度号/专业编码易漏</td></tr><tr><td>Dense + BM25</td><td>89.3%</td><td>0.68</td><td>0.72</td><td>精确 token 得到补偿</td></tr><tr><td>+ RRF + Query Rewrite</td><td>94.0%</td><td>0.75</td><td>0.78</td><td>解决残缺问法和双路融合</td></tr><tr><td>+ Cross-Encoder Rerank</td><td>94.0%</td><td>0.83</td><td>0.84</td><td>Recall 不变，排序明显提升</td></tr></tbody></table><p><span class=\"score\">示例：420 条人工标注 Query · 约 1.8 万 Chunk · ACL 越权命中 0/120 权限负例</span></p><p>面试时要能解释：<strong>Recall 提升属于召回层；MRR/nDCG 提升属于排序层；Reranker 不可能救回从未被召回的文档。</strong></p><h3>十、高频面试追问</h3><div class=\"qa\"><details><summary>为什么不用纯向量检索？</summary><div class=\"answer\">企业知识里既有自然语言语义，也有制度号、设备码、指标名等精确 token。Dense 擅长同义改写，BM25 擅长字面精确匹配，两路互补。我的 baseline 是 Dense Only，再通过混合召回观察 Recall@K 是否真的提升。</div></details><details open=\"\"><summary>为什么 Reranker 不能扫描全库？</summary><div class=\"answer\">Cross-Encoder 需要每个 Query-Doc 对都跑一次前向，精度高但计算贵；召回阶段先用双塔/倒排把几万、几十万文档压到几十条，再付得起精排成本。</div></details><details open=\"\"><summary>ACL Filter 放在哪里？为什么不是 Prompt？</summary><div class=\"answer\">放在 Retriever 的查询条件里，由后端 AuthZ 生成。Prompt 只能约束模型行为，不能承担访问控制；无权文档不应该进入候选集和 LLM Context。</div></details><details open=\"\"><summary>Pre-Filter 和 Post-Filter 怎么选？</summary><div class=\"answer\">优先 Pre-Filter，安全边界清晰且不会浪费 TopK；如果向量引擎对复杂 ACL 支持弱，可以扩大召回后 Post-Filter，但必须考虑过滤后候选不足，并设置补召回/兜底。</div></details><details open=\"\"><summary>HyDE 为什么不默认开启？</summary><div class=\"answer\">它能救回“用户问法和文档写法差很远”的长尾 Query，但要额外调用 LLM，会增加成本和延迟，还可能把 Query 改偏。所以先看错误分析：基础 Hybrid Retrieval 仍然漏召的场景才定向开启。</div></details><details open=\"\"><summary>为什么用了 Reranker，Recall@20 还是没变？</summary><div class=\"answer\">这是正常的。Reranker 只改变已经召回候选的顺序，不能创造新候选。它更应该提升 MRR、nDCG 或 Top-3 Hit，而不是粗召回 Recall。</div></details></div>"
+  },
+  {
+   "id": "work-3",
+   "title": "工作三 · Tool Calling 与智能查数",
+   "short": "Tool Calling 与智能查数",
+   "summary": "引入 Schema Retrieval 只给模型相关表字段与指标口径，SQL 执行前做 AST 校验、SELECT-only、表/字段白名单、超时与行数限制，用只读账号；同比、排序、聚合交给确定性代码，LLM 只解释结构化结果。",
+   "resume": {
+    "label": "Text-to-SQL / 安全查数",
+    "text": "引入 Schema Retrieval、指标口径检索、只读账号、表/字段白名单、SQL AST 校验、超时与行数限制，LLM 只生成受约束查询计划，实际统计由数据库/确定性代码完成。",
+    "metrics": "Execution Accuracy 90.6% · 高风险 SQL 拦截率 100% · 无效 SQL 14.4%→5.0%（180 条 Gold Case）",
+    "metricDetails": [
+     {
+      "title": "Execution Accuracy 90.6%",
+      "design": "SQL 执行正确率：生成的 SQL 与人工标注的 Gold SQL 结果一致（数值相同、口径一致）即正确，衡量 Text-to-SQL 端到端可用性。",
+      "source": "180 条 Gold Case（覆盖常见指标口径 + 时间区间 + 分组维度），人工标注生成。"
+     },
+     {
+      "title": "高风险 SQL 拦截率 100%",
+      "design": "校验层对高风险 SQL 的拦截比例：无权限表、非白名单指标、缺少时间范围约束、全表扫描等规则命中即拦截。",
+      "source": "180 条标注 Case + 规则层单测（含构造的 20 条恶意/越权 Query）。"
+     },
+     {
+      "title": "无效 SQL 14.4%→5.0%",
+      "design": "无效 SQL 占比：执行报错或结果明显错误（表不存在、字段错、聚合错）的 SQL 比例，衡量 Schema 纠错与自愈链路的效果。",
+      "source": "线上 Trace 日志统计（改造前后各 500 条 Query）。"
+     }
+    ]
+   },
+   "subTopics": [],
+   "nodes": [
+    "schema_retrieval",
+    "query_sql",
+    "calculate",
+    "analyze"
+   ],
+   "intro": {
+    "scene": "用户会问“过去 7 天各区域能耗同比变化最大的前三个区域是什么？”这类问题要求实时查数据库、按统一口径计算，再解释结果。",
+    "problem": "早期方案把较完整 Schema 全塞给模型直接生成 SQL，出现过选错同名字段、把同比口径写错、查询扫描范围过大，以及模型拿到 30 多行结果后自己算排名算错的问题。",
+    "locate": "我把失败分成 Schema 选择错误、SQL 语法/逻辑错误、执行风险、结果计算错误四类。Trace 里同时记录生成 SQL、执行耗时、返回行数和最终回答，才能判断到底是“SQL 错”还是“LLM 解释错”。",
+    "action": "我负责增加 Schema Retrieval，只把相关表字段和指标口径给模型；SQL 执行前做 AST 校验、SELECT-only、表/字段白名单、超时和行数限制；数据库用只读账号；同比、排序、聚合等确定性计算交给 SQL/Python，LLM 只解释已经算好的结构化结果。",
+    "why": "Text-to-SQL 最危险的不是“SQL 看起来不优雅”，而是结果错、越权和拖垮数据库。能确定性计算的步骤不应该交给概率生成。",
+    "result": "180 条 SQL Gold Case 上 Execution Accuracy 达到 90.6%，无效 SQL 比例由 14.4% 降到 5.0%；高风险 SQL 测试集拦截率 100%。重点说明 Gold Case 如何构造、Execution Accuracy 是执行结果是否一致，而不只是 SQL 字符串一样。",
+    "qa": [
+     "问：“Text-to-SQL 最大难点？”\n答：从字段歧义、口径、安全和性能四类讲。",
+     "问：“为什么不用模型直接算？”\n答：讲 37 个区域排名/同比时模型可能抄错漏行。",
+     "问：“Schema Retrieval 有什么用？”\n答：讲全库 Schema 太长且容易选错同名字段。"
+    ]
+   },
+   "io": [
+    {
+     "node": "schema_retrieval",
+     "input": {
+      "metric": "showing_to_deal_rate"
+     },
+     "output": {
+      "definition": "带看转成交率 = 成交量 / 带看量",
+      "tables": [
+       "store_daily_metric"
+      ]
+     },
+     "note": "只把相关表字段与指标口径给模型，不塞全库 Schema"
+    },
+    {
+     "node": "query_sql",
+     "input": {
+      "metric": "showing_to_deal_rate",
+      "start_date": "2026-09-21",
+      "end_date": "2026-09-27",
+      "group_by": [
+       "store"
+      ]
+     },
+     "output": {
+      "evidence_id": "SQL-01",
+      "rows": [
+       {
+        "store_id": "望京A店",
+        "previous_rate": 0.246,
+        "current_rate": 0.186,
+        "delta_pp": -0.06,
+        "relative_change": -0.244
+       }
+      ]
+     },
+     "note": "SQL 由 SQLPlan 约束编译，AST 与只读执行层检查后执行（runtime.py 原文）"
+    },
+    {
+     "node": "analyze",
+     "input": {
+      "store_id": "望京A店"
+     },
+     "output": {
+      "signals": [
+       {
+        "label": "有效带看",
+        "previous_rate": 0.31,
+        "current_rate": 0.24,
+        "delta_pp": -0.07
+       },
+       {
+        "label": "带看后24h跟进率",
+        "previous_rate": 0.88,
+        "current_rate": 0.73,
+        "delta_pp": -0.15
+       }
+      ]
+     },
+     "note": "漏斗拆解：数据说明“发生了什么”，不把相关说成因果"
+    }
+   ],
+   "codeRefs": [
+    {
+     "path": "estate_agent/sql_tools.py",
+     "start": 100,
+     "end": 122,
+     "note": "查询计划与 SQL 编译"
+    },
+    {
+     "path": "estate_agent/sql_tools.py",
+     "start": 29,
+     "end": 70,
+     "note": "SQL AST 校验"
+    },
+    {
+     "path": "estate_agent/sql_tools.py",
+     "start": 73,
+     "end": 97,
+     "note": "只读与行级权限"
+    },
+    {
+     "path": "estate_agent/sql_tools.py",
+     "start": 125,
+     "end": 148,
+     "note": "指标计算"
+    }
+   ],
+   "introHtml": "<div class=\"story\"><div class=\"story-head\">🎯 场景复盘 · 模型能“说出 SQL”，但结果不一定能用于业务 <small>Tool Calling / Text-to-SQL</small></div><div class=\"story-body\"><div class=\"story-step\"><div class=\"badge\">业务现场</div><div>用户会问“过去 7 天各区域能耗同比变化最大的前三个区域是什么？”这类问题要求实时查数据库、按统一口径计算，再解释结果。</div></div><div class=\"story-step problem\"><div class=\"badge\">遇到问题</div><div>早期方案把较完整 Schema 全塞给模型直接生成 SQL，出现过选错同名字段、把同比口径写错、查询扫描范围过大，以及模型拿到 30 多行结果后自己算排名算错的问题。</div></div><div class=\"story-step\"><div class=\"badge\">怎么定位</div><div>我把失败分成 Schema 选择错误、SQL 语法/逻辑错误、执行风险、结果计算错误四类。Trace 里同时记录生成 SQL、执行耗时、返回行数和最终回答，才能判断到底是“SQL 错”还是“LLM 解释错”。</div></div><div class=\"story-step action\"><div class=\"badge\">我做了什么</div><div>我负责增加 Schema Retrieval，只把相关表字段和指标口径给模型；SQL 执行前做 AST 校验、SELECT-only、表/字段白名单、超时和行数限制；数据库用只读账号；同比、排序、聚合等确定性计算交给 SQL/Python，LLM 只解释已经算好的结构化结果。</div></div><div class=\"story-step\"><div class=\"badge\">为什么这样选</div><div>Text-to-SQL 最危险的不是“SQL 看起来不优雅”，而是结果错、越权和拖垮数据库。能确定性计算的步骤不应该交给概率生成。</div></div><div class=\"story-step result\"><div class=\"badge\">结果怎么讲</div><div>180 条 SQL Gold Case 上 Execution Accuracy 达到 90.6%，无效 SQL 比例由 14.4% 降到 5.0%；高风险 SQL 测试集拦截率 100%。重点说明 Gold Case 如何构造、Execution Accuracy 是执行结果是否一致，而不只是 SQL 字符串一样。</div></div><div class=\"story-step interview\"><div class=\"badge\">被追问时</div><div><strong>“Text-to-SQL 最大难点？”</strong>从字段歧义、口径、安全和性能四类讲。<br><strong>“为什么不用模型直接算？”</strong>讲 37 个区域排名/同比时模型可能抄错漏行。<br><strong>“Schema Retrieval 有什么用？”</strong>讲全库 Schema 太长且容易选错同名字段。</div></div><div class=\"story-script\"><strong>1 分钟话术：</strong>“我们一开始让模型直接基于大 Schema 出 SQL，测试里出现过选错字段和同比算错。我的工作不是只调 Prompt，而是把 SQL Tool 工程化：先检索相关 Schema 和指标口径，再做只读、白名单、AST 校验、超时行数限制；统计和排名交给数据库/Python算。这样模型只负责理解和解释，Execution Accuracy 做到了 90% 以上，高风险 SQL 全部被 Guard 拦住。”</div></div></div><div class=\"callout good\"><strong>🎯 场景：</strong>用户问“过去 7 天朝阳各门店带看转成交率下降最大的前三家门店是什么？”这不是知识问答，答案必须来自经营数据库计算。模型应该决定“查什么”，但真正的统计由 SQL/代码执行。</div><h3>工具设计原则</h3><pre>LLM：理解用户 → 选择工具 → 填参数\n程序：校验参数 → 执行 SQL/API/算法 → 返回结构化结果\nLLM：解释工具结果 → 组织成人类语言</pre><h4>一个工具定义示例</h4><pre>{ \"name\": \"query_metric\", \"description\": \"查询业务指标，不用于写入数据\", \"parameters\": { \"metric\": \"string\", \"start_date\": \"YYYY-MM-DD\", \"end_date\": \"YYYY-MM-DD\", \"group_by\": [\"area\", \"department\", \"day\"], \"aggregation\": [\"sum\", \"avg\", \"max\", \"min\"] }\n}</pre><h3>Text-to-SQL 怎么做才像工程项目</h3><div class=\"grid-3\"><div class=\"mini\"><strong>Schema Retrieval</strong><br>先只把相关表/字段给模型，不把整个数据库 Schema 全塞进去。</div><div class=\"mini\"><strong>SQL Guard</strong><br>只允许 SELECT；禁止 DROP/UPDATE/DELETE；限制表白名单、执行时间、返回行数。</div><div class=\"mini\"><strong>Result Validator</strong><br>检查空结果、异常值、单位、时间范围，并把 SQL 与结果一起记录到 Trace。</div></div><h3>为什么不能让 LLM 直接算</h3><p>例如数据库返回 37 家门店的带看量、成交量和转化率，LLM 很可能在长上下文里加错、抄错或漏行。正确做法是让 Python/SQL 计算 <code>sum/avg/rank/同比</code>，最后把已经算好的结果交给 LLM 解释。</p><div class=\"callout\"><strong>面试金句：</strong>“模型负责理解和决策，确定性程序负责计算和执行；凡是能用代码精确完成的，就尽量不要让 LLM 用概率生成去完成。”</div><h3>面试追问</h3><div class=\"qa\"><details open=\"\"><summary>Text-to-SQL 最大风险是什么？</summary><div class=\"answer\">一是生成错误 SQL 导致结论错；二是越权读取敏感表；三是生成高成本查询拖垮数据库；四是如果给写权限还可能造成破坏。因此生产上要只读账号、表/字段白名单、SQL 解析校验、超时、行数限制、审计。</div></details><details open=\"\"><summary>用户问了数据库里没有的字段怎么办？</summary><div class=\"answer\">Schema 检索阶段会发现没有对应字段。此时不要编 SQL，返回“缺少数据字段/需要澄清指标口径”，或者路由到知识库查指标定义。</div></details><details open=\"\"><summary>为什么工具返回也要结构化？</summary><div class=\"answer\">因为后续要校验和组合。比如统一返回 {status, data, source, latency, error_code}，Agent 才能知道是“查到了空数据”还是“工具调用失败”。</div></details></div>"
+  },
+  {
+   "id": "work-4",
+   "title": "工作四 · 可信生成与幻觉治理",
+   "short": "可信生成与幻觉治理",
+   "summary": "关键数字从 Tool Result 结构化字段注入、引用绑定 Evidence ID、独立 Verifier 复算并核对引用，低置信或高风险结论转人工审批，把幻觉从知识/数据/工具/逻辑/权限五类分别治理。",
+   "resume": {
+    "label": "可信生成 / 幻觉治理",
+    "text": "对数字、时间范围、制度条款等关键结论强制绑定 Tool Result / Evidence ID，加入引用一致性校验、事实核查、业务规则校验与低置信度转人工。",
+    "metrics": "Faithfulness 87.3%→96.1% · 无依据结论率 6.8%→1.9%（300 条回答评测）",
+    "metricDetails": [
+     {
+      "title": "Faithfulness 87.3%→96.1%",
+      "design": "回答忠实度：报告/回答中每一句结论是否都有检索文档或数据结果支撑（LLM-as-judge 初判 + 人工抽检复核），无支撑即为不忠实。",
+      "source": "300 条回答评测集（覆盖指标解读、制度问答、异常归因三类）。"
+     },
+     {
+      "title": "无依据结论率 6.8%→1.9%",
+      "design": "无依据结论占比：结论句中找不到对应文档/数据来源的比例。加入溯源校验（Validity/Authority + 证据编号）后显著下降。",
+      "source": "同一 300 条回答评测集，逐句标注来源后统计。"
+     }
+    ]
+   },
+   "subTopics": [],
+   "nodes": [
+    "generate_report",
+    "validate",
+    "human_approval"
+   ],
+   "intro": {
+    "scene": "系统已经能查数据库、搜制度，但业务方更关心“最终结论能不能信”，尤其是数字、制度条款、时间范围和审批建议。",
+    "problem": "测试中出现过 Tool Result 是 18.6%，LLM 在长回答里写成 16.8%；也出现过引用了正确制度，但结论其实不被那一段证据直接支持。也就是说“Tool/RAG 对了”不等于“最终回答一定对”。",
+    "locate": "我把幻觉拆成知识、数据、工具、逻辑、权限几类，分别找可验证信号，而不是用一个笼统的“让模型自检”解决全部问题。",
+    "action": "我负责增加 Verifier：关键数字从 Tool Result 结构化字段注入；引用必须绑定 Evidence ID；检查引用是否真正支持结论；校验时间范围、单位、版本和权限；低置信或高风险结论转人工。对于纯确定性规则优先用代码校验，而不是再让 LLM 自评。",
+    "why": "Self-Reflection 本身仍是概率模型，不能替代可确定检查。数字一致性、权限、版本、SQL 执行状态都应该由后端真实结果约束。",
+    "result": "300 条回答评测上 Faithfulness 87.3%→96.1%，无依据结论率 6.8%→1.9%。面试官追问时要说明 Faithfulness 的判断标准：关键结论是否能被 Evidence/Tool Result 支撑。",
+    "qa": [
+     "问：“你们怎么降低幻觉？”\n答：不要只答 RAG，直接讲这个 18.6→16.8 的故障：RAG 解决知识来源，Verifier 解决“回答有没有忠实使用来源”。"
+    ]
+   },
+   "io": [
+    {
+     "node": "generate_report",
+     "input": {
+      "results": {
+       "query_metrics": {
+        "rows": [
+         {
+          "store_id": "望京A店",
+          "current_rate": 0.186
+         }
+        ]
+       }
+      },
+      "knowledge": [
+       {
+        "id": "DOC-42",
+        "title": "门店转化异常诊断与跟进规范 V3"
+       }
+      ]
+     },
+     "output": {
+      "draft": {
+       "facts": [
+        {
+         "name": "望京A店",
+         "current_rate": 0.186,
+         "delta_pp": -0.06
+        }
+       ],
+       "knowledge": [
+        {
+         "id": "DOC-42"
+        }
+       ],
+       "signals": [
+        {
+         "label": "有效带看"
+        }
+       ]
+      },
+      "narrative": {
+       "fact_ids": [
+        "SQL-01"
+       ],
+       "recommendation_ids": [
+        "DOC-42"
+       ],
+       "hypothesis_ids": [
+        "recording_delay"
+       ],
+       "confidence": 0.9
+      }
+     },
+     "note": "模型只从候选 ID 中选择事实、建议、假设，不承担比例计算（runtime.py 原文）"
+    },
+    {
+     "node": "validate",
+     "input": {
+      "draft": {
+       "facts": [
+        {
+         "current_rate": 0.186
+        }
+       ]
+      },
+      "narrative": {
+       "fact_ids": [
+        "SQL-01"
+       ]
+      }
+     },
+     "output": {
+      "passed": true,
+      "verification": {
+       "numbers": "ok",
+       "citations": "ok"
+      }
+     },
+     "note": "独立复算数字并核对引用；校验与生成分开，避免模型自我确认（runtime.py 原文）"
+    },
+    {
+     "node": "human_approval",
+     "input": {
+      "task": {
+       "action": "create_work_order"
+      },
+      "report": {
+       "summary": "建议对望京A店创建跟进工单"
+      }
+     },
+     "output": {
+      "approved": true
+     },
+     "note": "高风险动作必须收到明确布尔值；审批记录与执行动作分开便于审计（runtime.py 原文）"
+    }
+   ],
+   "codeRefs": [
+    {
+     "path": "estate_agent/report.py",
+     "start": 6,
+     "end": 36,
+     "note": "结构化报告"
+    },
+    {
+     "path": "estate_agent/report.py",
+     "start": 39,
+     "end": 64,
+     "note": "独立复核"
+    },
+    {
+     "path": "estate_agent/runtime.py",
+     "start": 237,
+     "end": 265,
+     "note": "校验后的路由"
+    },
+    {
+     "path": "estate_agent/runtime.py",
+     "start": 267,
+     "end": 276,
+     "note": "人工审批"
+    }
+   ],
+   "introHtml": "<div class=\"story\"><div class=\"story-head\">🎯 场景复盘 · SQL 查对了 18.6%，回答却写成 16.8% <small>Verifier / Hallucination Control</small></div><div class=\"story-body\"><div class=\"story-step\"><div class=\"badge\">业务现场</div><div>系统已经能查数据库、搜制度，但业务方更关心“最终结论能不能信”，尤其是数字、制度条款、时间范围和审批建议。</div></div><div class=\"story-step problem\"><div class=\"badge\">遇到问题</div><div>测试中出现过 Tool Result 是 18.6%，LLM 在长回答里写成 16.8%；也出现过引用了正确制度，但结论其实不被那一段证据直接支持。也就是说“Tool/RAG 对了”不等于“最终回答一定对”。</div></div><div class=\"story-step\"><div class=\"badge\">怎么定位</div><div>我把幻觉拆成知识、数据、工具、逻辑、权限几类，分别找可验证信号，而不是用一个笼统的“让模型自检”解决全部问题。</div></div><div class=\"story-step action\"><div class=\"badge\">我做了什么</div><div>我负责增加 Verifier：关键数字从 Tool Result 结构化字段注入；引用必须绑定 Evidence ID；检查引用是否真正支持结论；校验时间范围、单位、版本和权限；低置信或高风险结论转人工。对于纯确定性规则优先用代码校验，而不是再让 LLM 自评。</div></div><div class=\"story-step\"><div class=\"badge\">为什么这样选</div><div>Self-Reflection 本身仍是概率模型，不能替代可确定检查。数字一致性、权限、版本、SQL 执行状态都应该由后端真实结果约束。</div></div><div class=\"story-step result\"><div class=\"badge\">结果怎么讲</div><div>300 条回答评测上 Faithfulness 87.3%→96.1%，无依据结论率 6.8%→1.9%。面试官追问时要说明 Faithfulness 的判断标准：关键结论是否能被 Evidence/Tool Result 支撑。</div></div><div class=\"story-step interview\"><div class=\"badge\">被追问时</div><div><strong>“你们怎么降低幻觉？”</strong>不要只答 RAG，直接讲这个 18.6→16.8 的故障：RAG 解决知识来源，Verifier 解决“回答有没有忠实使用来源”。</div></div></div></div><p>所谓“幻觉”不是单一问题。至少要分成下面几类：</p><table><thead><tr><th>幻觉类型</th><th>例子</th><th>治理办法</th></tr></thead><tbody><tr><td>知识幻觉</td><td>编一条不存在的制度</td><td>RAG + 引用 + Faithfulness 校验</td></tr><tr><td>数据幻觉</td><td>SQL 查出 18.6%，回答成 16.8%</td><td>关键数字字段强制从 Tool Result 注入</td></tr><tr><td>工具幻觉</td><td>调用不存在的工具/参数</td><td>Tool Schema + 白名单 + 参数验证</td></tr><tr><td>逻辑幻觉</td><td>把相关性说成因果</td><td>规则约束 + 分析模板 + 证据要求</td></tr><tr><td>权限幻觉</td><td>“我已经帮你修改配置”但实际没权限</td><td>执行状态必须来自后端真实返回</td></tr></tbody></table><h3>验证链</h3><pre>LLM Draft → JSON Schema 校验 → 数字/字段对齐 Tool Result → 引用是否命中证据 → 业务规则检查 → 风险级别判断 ├─ 低风险：直接输出 ├─ 中风险：Self-Refinement 再生成一次 └─ 高风险：人工审核</pre><h3>结构化输出为什么重要</h3><p>例如最终答案先生成：</p><pre>{ \"conclusion\": \"朝阳片区转化率下滑主要集中在望京A店\", \"evidence\": [ {\"type\": \"sql\", \"value\": \"+23.4%\", \"query_id\": \"q_1024\"}, {\"type\": \"rag\", \"doc\": \"门店转化异常诊断与跟进规范 V3\", \"section\": \"4.2\"} ], \"confidence\": 0.87, \"risk\": \"medium\", \"next_action\": \"建议复核望京A店有效带看与24小时跟进执行情况\"\n}</pre><p>后端可以校验这些字段，再决定怎么渲染，而不是完全相信一段自由文本。</p>"
+  },
+  {
+   "id": "work-5",
+   "title": "工作五 · Evals & Observability",
+   "short": "Evals & Observability",
+   "summary": "把一次请求拆成 request_id 下的多段 Trace（模型/Prompt 版本/检索参数/Tool I/O/SQL/错误码/Token/耗时），建约 500 条分层回归用例，用缓存、上下文裁剪与动态 TopK 压 P95 延迟。",
+   "resume": {
+    "label": "Evals & Observability / 性能优化",
+    "text": "建设约 500 条分层回归用例，覆盖 Query、Retriever、Reranker、Tool、SQL 与 Agent End-to-End；Trace 记录模型/Prompt/检索参数/Tool I/O/错误码/Token/耗时，并通过缓存、上下文裁剪和动态 TopK 优化性能。",
+    "metrics": "500 条分层回归用例 · P95 延迟 5.2s→3.8s · 平均 Prompt Token 下降约 28%",
+    "metricDetails": [
+     {
+      "title": "500 条分层回归用例",
+      "design": "按意图类型（查数/分析/制度/报告）、工具调用、边界场景（空结果/超时/越权）分层构造的回归集，每次改动全量跑，防止回归。",
+      "source": "标注构造 + 线上真实 Trace 采样扩充。"
+     },
+     {
+      "title": "P95 延迟 5.2s→3.8s",
+      "design": "端到端响应 P95 延迟：从提问到报告首屏的时间。通过证据数控制（Dynamic TopK）、结果缓存、并行检索等优化。",
+      "source": "线上 Trace 采样（每版本 2000 条请求分位统计）。"
+     },
+     {
+      "title": "平均 Prompt Token 下降约 28%",
+      "design": "单任务平均 Prompt Token 消耗：压缩历史消息（指代消解后摘要）、动态注入证据条数、精简工具描述后整体下降。",
+      "source": "线上日志统计（对比优化前后各 1000 条任务的平均消耗）。"
+     }
+    ]
+   },
+   "subTopics": [],
+   "nodes": [],
+   "intro": {
+    "scene": "单人演示时 Agent 链路能跑通，但接入多人测试后，请求会同时打到 LLM、向量库、数据库和多个业务 Tool，单次任务还可能持续数秒到几十秒。",
+    "problem": "出现过模型接口超时导致整条链路卡住、Tool 重试造成重复创建、热点 Schema/RAG 查询重复计算、只看最终错误码无法判断是哪一步失败等问题。",
+    "locate": "我把一次请求拆成 request_id 下的多段 Trace，记录模型、Prompt 版本、检索参数、Tool I/O、SQL、错误码、Token 和耗时，按节点统计 P50/P95 与错误类型。",
+    "action": "我参与/负责接入超时与指数退避、备用模型/降级路径、Redis 热点缓存、并发限制；对有副作用 Tool 增加 idempotency_key；长任务增加 Checkpoint；统一 status/data/source/latency/error_code 返回格式，方便条件路由和观测。",
+    "why": "企业 Agent 的问题经常不在“模型回答质量”，而在依赖链路：只要下游任一服务抖动，整个任务都可能失败，所以需要把 AI 调用当成分布式系统的一部分来做。",
+    "result": "面试中任何一个百分比都要能回答四件事：样本哪里来、Gold 怎么标、公式是什么、baseline 是什么。比如 Recall@20=420 条 Query 中 Gold Evidence 进入前 20 的 Query 占比。",
+    "qa": [
+     "问：“为什么 Trace 比日志重要？”\n答：讲一次 Agent 请求内部有多次模型与 Tool 调用。",
+     "问：“幂等怎么做？”\n答：讲 Tool 超时重试可能重复创建工单。",
+     "问：“模型挂了怎么办？”\n答：讲重试、备用模型和非 AI 降级入口。",
+     "问：“94% 怎么测的？”\n答：直接说样本数、Gold、TopK 命中定义。",
+     "问：“怎么证明 Reranker 有用？”\n答：看 MRR/nDCG，不期待它提升粗召回 Recall。"
+    ]
+   },
+   "io": [],
+   "codeRefs": [
+    {
+     "path": "evaluate.py",
+     "start": 30,
+     "end": 44,
+     "note": "检索消融"
+    },
+    {
+     "path": "eval_cases.json",
+     "start": 1,
+     "end": 8,
+     "note": "检索 Gold 用例"
+    },
+    {
+     "path": "tests/test_agent.py",
+     "start": 53,
+     "end": 58,
+     "note": "跨进程恢复测试"
+    }
+   ],
+   "introHtml": "<div class=\"story\"><div class=\"story-head\">🎯 场景复盘 · Demo 能跑，但一并发/一超时就暴露工程问题 <small>Backend / Reliability / Observability</small></div><div class=\"story-body\"><div class=\"story-step\"><div class=\"badge\">业务现场</div><div>单人演示时 Agent 链路能跑通，但接入多人测试后，请求会同时打到 LLM、向量库、数据库和多个业务 Tool，单次任务还可能持续数秒到几十秒。</div></div><div class=\"story-step problem\"><div class=\"badge\">遇到问题</div><div>出现过模型接口超时导致整条链路卡住、Tool 重试造成重复创建、热点 Schema/RAG 查询重复计算、只看最终错误码无法判断是哪一步失败等问题。</div></div><div class=\"story-step\"><div class=\"badge\">怎么定位</div><div>我把一次请求拆成 request_id 下的多段 Trace，记录模型、Prompt 版本、检索参数、Tool I/O、SQL、错误码、Token 和耗时，按节点统计 P50/P95 与错误类型。</div></div><div class=\"story-step action\"><div class=\"badge\">我做了什么</div><div>我参与/负责接入超时与指数退避、备用模型/降级路径、Redis 热点缓存、并发限制；对有副作用 Tool 增加 idempotency_key；长任务增加 Checkpoint；统一 status/data/source/latency/error_code 返回格式，方便条件路由和观测。</div></div><div class=\"story-step\"><div class=\"badge\">为什么这样选</div><div>企业 Agent 的问题经常不在“模型回答质量”，而在依赖链路：只要下游任一服务抖动，整个任务都可能失败，所以需要把 AI 调用当成分布式系统的一部分来做。</div></div><div class=\"story-step result\"><div class=\"badge\">结果怎么讲</div><div>通过缓存、上下文裁剪和 Dynamic TopK，将示例复杂任务 P95 从 5.2s 降至 3.8s，平均 Prompt Token 下降约 28%；同时 Trace 让错误可以定位到 Query/Retriever/Tool/SQL/Generator 的具体层级。</div></div><div class=\"story-step interview\"><div class=\"badge\">被追问时</div><div><strong>“为什么 Trace 比日志重要？”</strong>讲一次 Agent 请求内部有多次模型与 Tool 调用。<br><strong>“幂等怎么做？”</strong>讲 Tool 超时重试可能重复创建工单。<br><strong>“模型挂了怎么办？”</strong>讲重试、备用模型和非 AI 降级入口。</div></div></div></div><div class=\"grid-3\"><div class=\"mini\"><strong>API 层</strong><br>FastAPI / Spring Boot 暴露会话、查询、任务、知识库接口；统一错误码与鉴权。</div><div class=\"mini\"><strong>任务层</strong><br>长任务异步化，支持状态查询、取消、超时、重试和 Checkpoint。</div><div class=\"mini\"><strong>缓存层</strong><br>Redis 缓存会话状态、Schema、热点检索结果；注意 TTL 与数据一致性。</div><div class=\"mini\"><strong>权限层</strong><br>用户身份 → 文档 ACL / 数据范围 / Tool 权限；高风险工具需要审批。</div><div class=\"mini\"><strong>日志与 Trace</strong><br>记录 request_id、模型调用、Prompt 版本、Tool 参数、耗时、Token、结果状态。</div><div class=\"mini\"><strong>降级与容错</strong><br>模型超时可切备用模型；RAG 失败时返回“无法确认”而不是编；工具失败返回可解释错误。</div></div><h3>幂等是什么，为什么 Agent 里很重要</h3><p>如果一个工具因为网络超时被 Agent 重试两次，而工具是“创建工单”或“发送通知”，可能重复执行。解决办法：给业务操作带 <strong>idempotency_key</strong>，服务端检测相同 key 只执行一次。</p><h3>Checkpoint 是什么</h3><p>复杂 Agent 跑到第 6 步失败，不应该从第 1 步全部重来。把关键状态持久化：用户问题、已完成节点、Tool Result、审批状态。恢复时从断点继续。</p><h3>并发和限流</h3><p>LLM 调用通常比普通 API 慢且贵。需要并发上限、队列、限流、超时、批处理、缓存；否则高峰期容易把模型网关或下游数据库打满。</p><h3>面试追问</h3><div class=\"qa\"><details open=\"\"><summary>如果模型接口挂了怎么办？</summary><div class=\"answer\">按场景做降级：重试要指数退避；可切备用模型；关键业务可以保留非 AI 的传统查询入口；不能因为模型不可用就让核心业务完全不可用。</div></details><details open=\"\"><summary>为什么 Trace 比普通日志更重要？</summary><div class=\"answer\">Agent 是多步链路。只看最终错误很难定位。Trace 能看到每一步的输入、输出、模型版本、Tool Call、检索结果和耗时，从而判断是意图错、检索错、工具错还是生成错。</div></details></div><div class=\"story\"><div class=\"story-head\">🎯 场景复盘 · “感觉效果变好了”不能作为上线依据 <small>Evals / Regression / Ablation</small></div><div class=\"story-body\"><div class=\"story-step\"><div class=\"badge\">业务现场</div><div>团队每次改 Prompt、Embedding、Reranker、Tool Description 或 Agent 路由，都可能修好一类问题同时把另一类问题改坏。如果只人工试玩几个问题，很难判断版本是否真的更好。</div></div><div class=\"story-step problem\"><div class=\"badge\">遇到问题</div><div>早期优化经常出现“这几个 Case 好了，但整体不知道有没有退化”；尤其 RAG 的 Recall、排序、最终 Faithfulness 混在一起时，很难知道改动到底影响哪一层。</div></div><div class=\"story-step\"><div class=\"badge\">怎么定位</div><div>我把链路按 Query、Retriever、Reranker、ACL、Tool、SQL、Agent E2E、Answer 分层，每层定义 Gold 与指标，不再只看一个最终“正确率”。</div></div><div class=\"story-step action\"><div class=\"badge\">我做了什么</div><div>我参与/负责建设约 500 条分层回归用例；RAG 用 Gold Evidence 测 Recall@K/MRR/nDCG，Tool 用 Gold Tool/Arguments 测 Selection 与 Arg EM，SQL 用 Gold Result 测 Execution Accuracy，Agent 用验收条件测 Task Success，回答层测 Faithfulness；每次改动做 baseline 对比和 ablation。</div></div><div class=\"story-step\"><div class=\"badge\">为什么这样选</div><div>只有分层指标才能判断“是没召回、排错了、工具选错、SQL 算错，还是生成阶段失真”，否则所有问题都只能归咎于“模型不稳定”。</div></div><div class=\"story-step result\"><div class=\"badge\">结果怎么讲</div><div>面试中任何一个百分比都要能回答四件事：样本哪里来、Gold 怎么标、公式是什么、baseline 是什么。比如 Recall@20=420 条 Query 中 Gold Evidence 进入前 20 的 Query 占比。</div></div><div class=\"story-step interview\"><div class=\"badge\">被追问时</div><div><strong>“94% 怎么测的？”</strong>直接说样本数、Gold、TopK 命中定义。<br><strong>“怎么证明 Reranker 有用？”</strong>看 MRR/nDCG，不期待它提升粗召回 Recall。</div></div></div></div><p>面试里数字本身不是重点，<strong>指标定义、样本来源、Gold 标注、baseline 和实验方法</strong>才是重点。没有测量口径的“98%”反而是风险。</p><table><thead><tr><th>层</th><th>核心指标</th><th>Gold / 判断标准</th><th>典型失败</th></tr></thead><tbody><tr><td>Query Understanding</td><td>Intent Accuracy、Slot F1、JSON Parse Rate</td><td>人工标注意图与实体</td><td>时间、指标、对象识别错误</td></tr><tr><td>Retriever</td><td>Recall@K / Hit@K</td><td>Gold Evidence 是否进 TopK</td><td>正确制度根本没召回</td></tr><tr><td>Reranker</td><td>MRR、nDCG@K</td><td>相关性等级/正确文档排序</td><td>正确候选排太后</td></tr><tr><td>ACL</td><td>Unauthorized Exposure Rate</td><td>权限负例不应返回任何禁看 Chunk</td><td>越权文档进入候选/Context</td></tr><tr><td>Tool</td><td>Selection Accuracy、Arg EM、Execution Success</td><td>Gold Tool / Gold Args / 执行状态</td><td>选错工具、参数错</td></tr><tr><td>Text-to-SQL</td><td>Execution Accuracy、Result Match</td><td>结果集与 Gold SQL/Gold Result 一致</td><td>语法对但语义错</td></tr><tr><td>Generation</td><td>Faithfulness、Citation Precision、Correctness</td><td>答案每个关键结论有 Evidence/Tool 支持</td><td>编制度、抄错数字</td></tr><tr><td>Agent E2E</td><td>Task Success、Avg Steps、Abort Rate</td><td>业务验收条件是否满足</td><td>死循环、缺步骤、失败未恢复</td></tr><tr><td>Engineering</td><td>P50/P95、Token/Task、Timeout Rate</td><td>压测/线上 Trace</td><td>太慢、太贵、下游被打满</td></tr></tbody></table><h3>一个可落地的离线评测集</h3><p>示例：整理 <strong>500 条</strong>真实/脱敏业务 Query，按场景分层；</p><table><thead><tr><th>场景</th><th>样本数（示例）</th><th>需要标注</th></tr></thead><tbody><tr><td>知识问答/RAG</td><td>200</td><td>Gold Evidence、答案要点、权限</td></tr><tr><td>数据查询/Text-to-SQL</td><td>120</td><td>Gold Schema、Gold Result</td></tr><tr><td>多步 Agent</td><td>120</td><td>关键 Tool、完成条件、风险等级</td></tr><tr><td>边界/权限/故障</td><td>60</td><td>应该拒绝/澄清/降级的行为</td></tr></tbody></table><h3>Ablation：面试官问“到底是哪一步带来提升”</h3><pre>Baseline A：Dense Only ↓ + BM25\nBaseline B：Hybrid Retrieval ↓ + Query Rewrite + RRF\nBaseline C：Better Recall ↓ + Cross-Encoder Reranker\nBaseline D：Better Ranking ↓ + ACL / Validity / MMR / Dynamic TopK\nProduction-like Retrieval</pre><p>每次只改一两个变量，才能把提升归因清楚。比如 Reranker 后 Recall@20 不变但 nDCG@10 提升，这就说明“候选没变，排序变好了”。</p><h3>示例结果看板（请替换为你实测）</h3><table><thead><tr><th>指标</th><th>Baseline</th><th>优化后</th><th>说明</th></tr></thead><tbody><tr><td>RAG Recall@20</td><td>79.0%</td><td><strong>94.0%</strong></td><td>Hybrid + Rewrite + RRF</td></tr><tr><td>RAG nDCG@10</td><td>0.69</td><td><strong>0.84</strong></td><td>Cross-Encoder Rerank</td></tr><tr><td>Tool Selection Accuracy</td><td>86.8%</td><td><strong>94.1%</strong></td><td>Schema + Tool 描述 + 路由约束</td></tr><tr><td>Task Success Rate</td><td>73.5%</td><td><strong>89.2%</strong></td><td>LangGraph + retry + validation</td></tr><tr><td>Faithfulness</td><td>87.3%</td><td><strong>96.1%</strong></td><td>Evidence/Tool 对齐 + Verifier</td></tr><tr><td>P95 端到端延迟</td><td>4.8 s</td><td><strong>3.6 s</strong></td><td>减少无效 Tool Call + 缓存/并行</td></tr></tbody></table><div class=\"callout warn\"><strong>正式简历前：</strong>想“体现真的做过”，最有效的不是编一个漂亮百分比，而是能拿出评测集和 ablation 逻辑。</div><div class=\"story\"><div class=\"story-head\">🎯 面试主案例 · 把所有技术串成一次真实请求 <small>建议背熟这一条，再从它分叉回答</small></div><div class=\"story-body\"><div class=\"story-step\"><div class=\"badge\">用户需求</div><div>“为什么朝阳某片区最近 7 天带看转成交率下降？找出问题门店，给我原因和跟进建议。”</div></div><div class=\"story-step problem\"><div class=\"badge\">业务难点</div><div>这个问题同时需要实时数据、历史基线、异常拆解和制度依据，任何一层错都会导致最终建议不可信。</div></div><div class=\"story-step action\"><div class=\"badge\">我的链路</div><div>先把 Query 结构化成 region/metric/date_range；Agent 先调 SQL 找到望京A店转化率下降 18.6%；再调分析 Tool 拆客源、带看、成交与跟进漏斗；随后 RAG 检索适用的运营规范；最后 Verifier 检查数字、口径和引用，生成带 Evidence ID 的结论。</div></div><div class=\"story-step\"><div class=\"badge\">异常分支</div><div>SQL 超时走重试/降级；RAG 证据不足不强答；旧制度被 Validity 过滤；高风险动作进入 Human Approval；中途服务异常可从 Checkpoint 恢复。</div></div><div class=\"story-step result\"><div class=\"badge\">如何证明</div><div>Query 层看字段抽取，RAG 看 Recall/MRR/nDCG，SQL 看 Execution Accuracy，Agent 看 Tool Selection/Task Success，最终回答看 Faithfulness 和 P95。</div></div><div class=\"story-step interview\"><div class=\"badge\">万能转场</div><div>面试官不管问 RAG、Tool、LangGraph、幻觉、Trace 还是 Evals，都可以先说：“这个技术是在我们‘朝阳门店转化率异常分析’这条链路里遇到具体问题后加的”，再切到对应步骤。</div></div></div></div><div class=\"case\"><div class=\"case-title\">案例 · “为什么朝阳某片区最近 7 天带看转成交率下降？找出问题门店，给我原因和跟进建议。” <small>Agent + SQL + RAG + Verifier</small></div><div class=\"case-body\"><div class=\"row\"><div class=\"lbl\">Step 1</div><div><strong>意图理解：</strong>识别为“经营异常分析”；抽取 region=北京-朝阳、metric=带看转成交率、date_range=最近7天；发现用户还需要“问题门店 + 原因 + 建议”。</div></div><div class=\"row\"><div class=\"lbl\">Step 2</div><div><strong>Planning：</strong>先查成本明细 → 找异常最大的部门 → 查相关生产/业务指标 → 检索异常处置制度 → 汇总。</div></div><div class=\"row\"><div class=\"lbl\">Step 3</div><div><strong>Tool 1：SQL：</strong>按门店汇总最近 7 天带看量、成交量与转化率，并与前 7 天及历史基线比较。返回望京A店转化率下降 18.6%，明显高于其他门店。</div></div><div class=\"row\"><div class=\"lbl\">Step 4</div><div><strong>Tool 2：分析算法：</strong>继续拆解房源→客源→带看→成交漏斗，发现有效带看量与带看后24小时跟进率同时下降；统计工具计算相关变化，但不直接把“相关”说成“因果”。</div></div><div class=\"row\"><div class=\"lbl\">Step 5</div><div><strong>RAG：</strong>检索“门店转化异常诊断规范”“带看后跟进作业规范”，得到适用的核查步骤、指标口径和跟进要求。</div></div><div class=\"row\"><div class=\"lbl\">Step 6</div><div><strong>Verifier：</strong>检查回答中的 23.4% 必须等于 SQL 返回值；检查“应核查生产计划”有制度证据；没有证据的“设备故障”不能下结论，只能写“待核查假设”。</div></div><div class=\"row\"><div class=\"lbl\">Step 7</div><div><strong>生成：</strong>输出“现象 → 数据证据 → 可能原因 → 证据强弱 → 建议动作 → 引用来源”。</div></div><div class=\"row\"><div class=\"lbl warn\">失败兜底</div><div>如果 SQL 无数据：停止原因判断，返回“缺少昨日数据”；如果 RAG 没找到制度：只给数据事实，不伪造处置规范；如果多个指标口径冲突：向用户确认。</div></div></div></div><h3>这条 Trace 能体现哪些能力</h3><p><span class=\"tag\">Query Understanding</span><span class=\"tag\">Planning</span><span class=\"tag\">Tool Calling</span><span class=\"tag\">Text-to-SQL</span><span class=\"tag\">RAG</span><span class=\"tag\">Verifier</span><span class=\"tag\">Structured Output</span><span class=\"tag\">Guardrail</span><span class=\"tag\">Trace</span></p>"
+  }
+ ]
+}

@@ -1,0 +1,107 @@
+[
+  {
+    "id": "METRIC-01",
+    "title": "演示指标口径 · 带看转成交率",
+    "section": "1.1",
+    "region": "all",
+    "roles": [
+      "region_manager"
+    ],
+    "valid_from": "2026-01-01",
+    "valid_to": "2027-12-31",
+    "text": "带看转成交率 = 同期成交单数 / 同期带看次数。先汇总分子分母，再相除，不能直接平均每日转化率。此为周期活动比值，并非同一批客户的真实漏斗转化概率。成交可能来自更早带看；因果分析应补充客户级 cohort 数据。比较基线为前一个等长时间窗口。百分比相减得到百分点，相对变化率则为（本期率/前期率-1）。",
+    "authority": 0.85,
+    "version": 1,
+    "family": "METRIC-01"
+  },
+  {
+    "id": "SOP-01",
+    "title": "演示门店转化异常诊断规范 V3",
+    "section": "4.2",
+    "region": "朝阳",
+    "roles": [
+      "region_manager"
+    ],
+    "valid_from": "2026-01-01",
+    "valid_to": "2027-12-31",
+    "text": "带看转成交率下降时，先复核成交录入延迟与统计口径，再比较有效带看占比和带看后24小时跟进率。发现两者同期下降时，抽查带看记录与跟进记录，并由店长核实。同期变化只能形成待核查假设，不能直接证明因果。",
+    "authority": 0.95,
+    "version": 3,
+    "family": "SOP-01"
+  },
+  {
+    "id": "SOP-02",
+    "title": "演示带看后跟进作业规范 V2",
+    "section": "3.1",
+    "region": "朝阳",
+    "roles": [
+      "region_manager"
+    ],
+    "valid_from": "2026-01-01",
+    "valid_to": "2027-12-31",
+    "text": "带看结束后24小时内记录客户反馈、意向和下一步安排。若24小时跟进率下降，店长应抽查未及时跟进记录，确认任务分配和记录完整性；持续观察后续转化变化。此规范仅为教学示例，不代表真实企业制度。",
+    "authority": 0.95,
+    "version": 2,
+    "family": "followup"
+  },
+  {
+    "id": "SOP-03",
+    "title": "演示有效带看核查说明",
+    "section": "2.1",
+    "region": "all",
+    "roles": [
+      "region_manager"
+    ],
+    "valid_from": "2026-01-01",
+    "valid_to": "2027-12-31",
+    "text": "有效带看占比 = 有效带看次数 / 全部带看次数。占比下降可检查客源需求与房源匹配、带看记录有效性和重复记录。汇总数据不能证明经纪人态度、房源质量或市场变化是直接原因，需要明细核查。",
+    "authority": 0.95,
+    "version": 1,
+    "family": "SOP-03"
+  },
+  {
+    "id": "OLD-01",
+    "title": "过期跟进规范 V1",
+    "section": "3.1",
+    "region": "朝阳",
+    "roles": [
+      "region_manager"
+    ],
+    "valid_from": "2024-01-01",
+    "valid_to": "2025-12-31",
+    "text": "带看后72小时内跟进即可。转化率下降需查询旧规则。本条已过期，不能进入模型上下文。",
+    "authority": 0.85,
+    "version": 1,
+    "family": "followup"
+  },
+  {
+    "id": "PRIVATE-01",
+    "title": "管理层内部薪酬说明",
+    "section": "1.1",
+    "region": "朝阳",
+    "roles": [
+      "director"
+    ],
+    "valid_from": "2026-01-01",
+    "valid_to": "2027-12-31",
+    "text": "转化下降跟进诊断相关的内部薪酬策略。此为权限负例，区域经理不能检索到内容。",
+    "authority": 0.85,
+    "version": 1,
+    "family": "PRIVATE-01"
+  },
+  {
+    "id": "HD-01",
+    "title": "海淀演示跟进规范",
+    "section": "2.1",
+    "region": "海淀",
+    "roles": [
+      "region_manager"
+    ],
+    "valid_from": "2026-01-01",
+    "valid_to": "2027-12-31",
+    "text": "海淀门店带看转成交率下降时，复核有效带看、客户跟进及成交入库延迟。",
+    "authority": 0.85,
+    "version": 1,
+    "family": "HD-01"
+  }
+]

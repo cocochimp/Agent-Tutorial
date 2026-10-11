@@ -1,0 +1,14 @@
+{
+  "nodes": [
+    {"id":"conversion","keywords":["转化","转成交","卖不动"]},
+    {"id":"followup","keywords":["跟进","回访"]},
+    {"id":"viewing","keywords":["有效带看","房源匹配"]},
+    {"id":"recording","keywords":["录入","口径"]}
+  ],
+  "edges": [
+    {"from":"conversion","to":"followup","relation":"需核查关联环节","document":"SOP-01"},
+    {"from":"conversion","to":"viewing","relation":"需核查关联环节","document":"SOP-03"},
+    {"from":"conversion","to":"recording","relation":"先复核统计口径","document":"METRIC-01"},
+    {"from":"followup","to":"recording","relation":"核查记录要求","document":"SOP-02"}
+  ]
+}

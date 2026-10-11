@@ -1,0 +1,6 @@
+{"messages":[{"role":"user","content":"带看转成交率怎么算？"},{"role":"assistant","content":"先汇总成交单数和带看次数，再相除。分母为零时不可计算。"}]}
+{"messages":[{"role":"user","content":"汇总数据能证明原因吗？"},{"role":"assistant","content":"不能。同期变化仅形成待核查假设，需要明细证据验证。"}]}
+{"messages":[{"role":"user","content":"没有找到适用规范怎么办？"},{"role":"assistant","content":"报告证据不足，不编造制度要求。"}]}
+{"messages":[{"role":"user","content":"什么时候可以创建工单？"},{"role":"assistant","content":"身份有权限、报告通过校验并且用户明确批准后。"}]}
+{"messages":[{"role":"user","content":"用户要查询无权限区域怎么办？"},{"role":"assistant","content":"拒绝越权查询，权限由服务端校验。"}]}
+{"messages":[{"role":"user","content":"比例相减的结果叫什么？"},{"role":"assistant","content":"百分比数值之差称为百分点，不能与相对变化率混淆。"}]}

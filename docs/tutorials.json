@@ -1,0 +1,605 @@
+[
+  {
+    "id": "overview",
+    "title": "从一个问题到一份报告",
+    "category": "从这里开始",
+    "summary": "沿着一次请求，认识页面、Python 服务、任务状态和分析工具之间的关系。",
+    "tags": [
+      "入门",
+      "FastAPI",
+      "SSE",
+      "整体流程"
+    ],
+    "chapter": 1,
+    "flow": [
+      "网页提交问题",
+      "创建后台任务",
+      "StateGraph 执行",
+      "SSE 推送状态",
+      "展示报告"
+    ],
+    "steps": [
+      "点击“运行分析”后，前端把问题、决策模式、会话 ID 等参数发到 /api/tasks。",
+      "create_task() 校验登录身份，再把任务交给后台线程。浏览器拿到任务 ID 后，使用 EventSource 接收执行状态。",
+      "run() 创建或恢复图状态。节点逐步产出工具结果、Trace 和报告，页面按收到的状态刷新。"
+    ],
+    "observe": "先在工作台运行默认问题，再看 Trace 的节点名称。它们可以与 runtime.py 中注册的节点逐一对应。",
+    "pitfall": "页面中的图表示可执行的路径；一次任务的实际顺序要看 Trace。前端不会直接调用 DeepSeek 或数据库。",
+    "refs": [
+      {
+        "path": "app.py",
+        "symbol": "create_task",
+        "label": "请求入口",
+        "note": "问题从这里进入服务端，身份由登录会话决定。"
+      },
+      {
+        "path": "app.py",
+        "symbol": "task_events",
+        "label": "状态推送",
+        "note": "服务通过 SSE 推送任务快照，前端不必等待整个分析完成。"
+      },
+      {
+        "path": "estate_agent/runtime.py",
+        "symbol": "run",
+        "label": "任务运行入口",
+        "note": "跟踪 initial、thread_id 与 graph.stream，理解任务如何开始和恢复。"
+      },
+      {
+        "path": "web/app.js",
+        "label": "页面交互",
+        "note": "搜索 watch、render 和 EventSource，查看网页如何显示任务状态。"
+      },
+      {
+        "path": "web/workspace.js",
+        "label": "工作台与指标图表",
+        "note": "页签、任务概览与对比图只读取当前任务状态；不会自行生成业务数据。"
+      }
+    ]
+  },
+  {
+    "id": "graph",
+    "title": "LangGraph 怎样编排任务",
+    "category": "理解与决策",
+    "summary": "State 保存进度，节点负责工作，条件边决定去向；把决策与执行连接起来。",
+    "tags": [
+      "StateGraph",
+      "ReAct",
+      "条件路由",
+      "State"
+    ],
+    "chapter": 6,
+    "flow": [
+      "AgentState",
+      "注册节点",
+      "连接条件边",
+      "compile",
+      "执行 / 循环"
+    ],
+    "steps": [
+      "AgentState 定义 task、results、action、next_node、trace 等字段。每个节点返回需要更新的部分状态。",
+      "build_graph() 用 add_node 注册工作函数，再用 add_edge 和 add_conditional_edges 连接节点。路由函数读取 next_node。",
+      "工具执行后通常经过 checkpoint_gate 回到 agent_node。模型或规则再根据已有结果选择下一步，直到报告通过校验。"
+    ],
+    "observe": "运行“带看转成交率怎么算”，再运行默认经营分析。比较两条 Trace：前者可跳过 SQL，后者需要查数与计算。",
+    "pitfall": "StateGraph 负责按图运行和保存状态。模型负责选择工具；规则模式下，同样的图由 offline_action() 提供决策。",
+    "refs": [
+      {
+        "path": "estate_agent/runtime.py",
+        "symbol": "build_graph",
+        "start_marker": "    builder = StateGraph(AgentState)",
+        "label": "节点与连线",
+        "note": "从 StateGraph(AgentState) 开始，重点看条件边返回的节点名称和最后的 compile。"
+      },
+      {
+        "path": "estate_agent/state.py",
+        "symbol": "AgentState",
+        "label": "共享状态",
+        "note": "results 保存工具结果，next_node 控制下一步，seen 用于重复调用检测。"
+      },
+      {
+        "path": "estate_agent/runtime.py",
+        "symbol": "build_graph.plan_node",
+        "label": "规划节点",
+        "note": "client 决定走模型决策还是规则决策；两者最终都产生 name 与 arguments。"
+      },
+      {
+        "path": "estate_agent/runtime.py",
+        "symbol": "offline_action",
+        "label": "规则决策",
+        "note": "没有 API Key 时，用这段规则观察完整执行链路。"
+      }
+    ]
+  },
+  {
+    "id": "intent",
+    "title": "把自然语言变成任务参数",
+    "category": "理解与决策",
+    "summary": "提取地区、指标和时间，再做结构校验、日期归一化与权限检查。",
+    "tags": [
+      "Pydantic",
+      "Schema",
+      "意图",
+      "权限",
+      "澄清"
+    ],
+    "chapter": 3,
+    "flow": [
+      "用户问题",
+      "Intent",
+      "日期归一化",
+      "权限检查",
+      "TaskSpec"
+    ],
+    "steps": [
+      "understand() 根据运行模式调用规则解析或模型结构化输出，得到候选意图。",
+      "normalize() 将“最近7天”等表达转换成绝对日期，解析指标和门店，并对地区、动作权限做硬校验。",
+      "信息不足时返回 NEED_CLARIFICATION。clarify_node 通过 interrupt 暂停，收到补充信息后重新理解问题。"
+    ],
+    "observe": "用朝阳区域经理询问海淀指标，观察权限拦截；输入“最近7天转化率下降了”，观察澄清分支。",
+    "pitfall": "模型返回了合法 JSON，不代表业务参数就合法。用户权限由服务端身份决定，不能由模型修改。",
+    "refs": [
+      {
+        "path": "estate_agent/intent.py",
+        "symbol": "understand",
+        "label": "理解入口",
+        "note": "对比 client 存在与不存在时的处理方式。"
+      },
+      {
+        "path": "estate_agent/contracts.py",
+        "label": "参数契约",
+        "note": "Intent、TaskSpec、SQLPlan 与 Narrative 分别约束不同阶段的输入输出。"
+      },
+      {
+        "path": "estate_agent/intent.py",
+        "symbol": "normalize",
+        "label": "归一化与鉴权",
+        "note": "注意日期、门店所属区域和动作权限的检查。"
+      },
+      {
+        "path": "estate_agent/runtime.py",
+        "symbol": "build_graph.clarify_node",
+        "label": "澄清中断",
+        "note": "interrupt 返回的回答会拼回问题，再进入理解节点。"
+      }
+    ]
+  },
+  {
+    "id": "tools",
+    "title": "模型怎样选择和调用工具",
+    "category": "理解与决策",
+    "summary": "工具名称与参数 Schema 发给模型，Python 校验后分发执行，再把观察结果交回下一轮。",
+    "tags": [
+      "DeepSeek",
+      "Function Calling",
+      "ReAct",
+      "工具"
+    ],
+    "chapter": 5,
+    "flow": [
+      "工具 Schema",
+      "模型选择",
+      "参数校验",
+      "执行工具",
+      "结果回传"
+    ],
+    "steps": [
+      "llm.py 的 TOOLS 定义六类工具。ModelClient.decide() 把上下文和工具定义发给兼容 Chat Completions 的模型服务。",
+      "plan_node 每轮只接受一个工具调用，检查工具是否存在、参数是否符合 Schema，以及是否已经执行过相同调用。",
+      "execute_tool() 分发 SQL、计算、漏斗与检索工具。context_messages() 把最新结果压缩成 observations，供下一轮决策使用。"
+    ],
+    "observe": "在模型模式的“规划下一步”记录中查看 output.name、output.arguments；接着看下一条工具记录是否对应。",
+    "pitfall": "工具调用是结构化请求。真正访问数据库、加载模型、计算指标的是本地 Python 函数。",
+    "refs": [
+      {
+        "path": "estate_agent/llm.py",
+        "label": "模型客户端与工具定义",
+        "note": "文件顶部的 TOOLS 是工具菜单，decide() 发起模型决策请求。"
+      },
+      {
+        "path": "estate_agent/runtime.py",
+        "symbol": "build_graph.plan_node",
+        "label": "调用校验",
+        "note": "查找 validate_json、signature 与 seen，理解参数约束与重复检测。"
+      },
+      {
+        "path": "estate_agent/runtime.py",
+        "symbol": "build_graph.execute_tool",
+        "label": "工具分发",
+        "note": "按 name 执行不同分支；统一记录成功结果与错误码。"
+      },
+      {
+        "path": "estate_agent/runtime.py",
+        "symbol": "context_messages",
+        "label": "观察结果回传",
+        "note": "知识证据的 id、title、text 会放进下一轮模型上下文。"
+      }
+    ]
+  },
+  {
+    "id": "sql",
+    "title": "SQL 查询与指标计算",
+    "category": "数据与知识",
+    "summary": "受约束的查询计划生成 SQL，先聚合分子分母，再计算比例和变化幅度。",
+    "tags": [
+      "Text-to-SQL",
+      "SQLite",
+      "AST",
+      "指标",
+      "漏斗"
+    ],
+    "chapter": 5,
+    "flow": [
+      "检索表结构",
+      "查询计划",
+      "SQL 校验",
+      "只读执行",
+      "计算 / 排序"
+    ],
+    "steps": [
+      "retrieve_schema() 给出指标口径、允许的表与字段。query_metrics() 将任务和查询计划编译成带参数的 SQL。",
+      "guard_sql() 检查 SQL AST。execute_readonly() 使用只读连接与授权视图，限制可以访问的数据。",
+      "calculate_metrics() 根据聚合值计算本期、前期、百分点和相对变化。analyze_funnel() 再检查重点门店的有效带看与跟进指标。"
+    ],
+    "observe": "默认问题中，望京A店从 64/310 变为 29/312。对照 SQL 的 raw_rows 和报告数值，区分百分点与相对变化。",
+    "pitfall": "不能对每天的转化率直接求平均。这里先对分子分母求和；分母为零返回空值，缺失日期会阻止不完整比较。",
+    "refs": [
+      {
+        "path": "estate_agent/sql_tools.py",
+        "symbol": "query_metrics",
+        "label": "查询计划与 SQL",
+        "note": "跟踪 params 与 SQL 编译，注意日期和区域来自已校验的任务。"
+      },
+      {
+        "path": "estate_agent/sql_tools.py",
+        "symbol": "guard_sql",
+        "label": "SQL 检查",
+        "note": "AST 白名单阻止未经允许的语句、表、函数和组合。"
+      },
+      {
+        "path": "estate_agent/sql_tools.py",
+        "symbol": "execute_readonly",
+        "label": "只读与行级权限",
+        "note": "即使 SQL 不写 WHERE，授权视图也会限制可见数据。"
+      },
+      {
+        "path": "estate_agent/sql_tools.py",
+        "symbol": "calculate_metrics",
+        "label": "指标计算",
+        "note": "比较 current_rate、previous_rate、delta_pp 与 relative_change 的公式。"
+      },
+      {
+        "path": "estate_agent/business.py",
+        "symbol": "analyze_funnel",
+        "label": "漏斗拆解",
+        "note": "同期变化提供核查线索，不构成因果证明。"
+      }
+    ]
+  },
+  {
+    "id": "rag",
+    "title": "RAG：从制度中找到依据",
+    "category": "数据与知识",
+    "summary": "权限过滤后做词法与向量召回，融合、精排，再把可追溯的原文交给报告。",
+    "tags": [
+      "RAG",
+      "BM25",
+      "Embedding",
+      "Qdrant",
+      "RRF",
+      "精排"
+    ],
+    "chapter": 4,
+    "flow": [
+      "权限 / 版本过滤",
+      "查询改写",
+      "BM25 + Dense",
+      "RRF / 精排",
+      "父文档证据"
+    ],
+    "steps": [
+      "allowed_documents() 先筛地区、角色、有效期与文档版本，chunks() 把条款拆成便于召回的子段。",
+      "BM25 根据词项匹配召回，dense_rank() 用本地 Embedding 和 Qdrant 查向量。search_knowledge() 融合两路排名，再用 Cross-Encoder 精排。",
+      "去重和相关性筛选后，返回父条款原文、文档 ID、命中片段与排序分数。context_messages() 把证据给模型，报告继续引用同一来源。"
+    ],
+    "observe": "展开 Trace 的“RAG 混合检索”：input.query 是问题；output.data.stages 是检索过程；output.data.evidence 是最终证据。缓存命中时请同时看 cache_hit。",
+    "pitfall": "DeepSeek、Embedding、精排模型分工不同。精排分数用于排序，不是事实正确率；HyDE 生成的文本也不能直接作为证据。",
+    "refs": [
+      {
+        "path": "estate_agent/retrieval.py",
+        "symbol": "search_knowledge",
+        "label": "完整检索链路",
+        "note": "沿 stages 阅读每个阶段；最终的 evidence 保存可引用的原文。"
+      },
+      {
+        "path": "estate_agent/retrieval.py",
+        "symbol": "allowed_documents",
+        "label": "权限与版本",
+        "note": "权限过滤在召回前执行，旧版本与不适用文档不会进入证据。"
+      },
+      {
+        "path": "estate_agent/retrieval.py",
+        "symbol": "dense_rank",
+        "label": "向量召回",
+        "note": "Qdrant 查询使用允许的 chunk ID 过滤条件。"
+      },
+      {
+        "path": "estate_agent/retrieval.py",
+        "symbol": "bm25",
+        "label": "词法召回",
+        "note": "词频、文档频率与长度归一化共同决定 BM25 分数。"
+      },
+      {
+        "path": "estate_agent/runtime.py",
+        "symbol": "context_messages",
+        "label": "证据进入上下文",
+        "note": "在 retrieve_knowledge 分支，看 evidence 怎样成为 observations。"
+      },
+      {
+        "path": "data/knowledge.json",
+        "label": "制度样例",
+        "note": "对照 id、region、roles、version 与正文，理解元数据过滤。"
+      }
+    ]
+  },
+  {
+    "id": "report",
+    "title": "报告生成与数字复核",
+    "category": "结果与可靠性",
+    "summary": "从已有事实和引用构造报告，独立复算指标，并拦截不存在的证据。",
+    "tags": [
+      "Verifier",
+      "幻觉治理",
+      "引用",
+      "Self-refinement"
+    ],
+    "chapter": 8,
+    "flow": [
+      "工具事实",
+      "构造报告",
+      "选择证据 ID",
+      "数字 / 引用校验",
+      "报告或修正"
+    ],
+    "steps": [
+      "build_report() 用工具结果生成结构化报告，事实和制度条款都有来源 ID。",
+      "模型只在给定候选中选择事实、建议和假设 ID。validate_node() 检查这些 ID 是否存在，并调用 verify_report() 复算数字、核对原文。",
+      "模型引用错误时最多修正一次；低置信报告或业务动作进入人工审批。报告中的推测保留为待核查假设。"
+    ],
+    "observe": "对比生成报告与结果校验两个 Trace 节点。报告区的制度引用应与 RAG 返回的原文一致。",
+    "pitfall": "这里校验结构化数字、时间和引用的一致性，不是对任意开放文本做通用事实核查。",
+    "refs": [
+      {
+        "path": "estate_agent/report.py",
+        "symbol": "build_report",
+        "label": "结构化报告",
+        "note": "数字来自查询和计算结果，制度依据来自检索证据。"
+      },
+      {
+        "path": "estate_agent/report.py",
+        "symbol": "verify_report",
+        "label": "独立复核",
+        "note": "关注重算值与报告值、授权原文与引用文本之间的比较。"
+      },
+      {
+        "path": "estate_agent/runtime.py",
+        "symbol": "build_graph.validate_node",
+        "label": "校验后的路由",
+        "note": "成功、一次修正、转人工和停止分别对应不同 next_node。"
+      }
+    ]
+  },
+  {
+    "id": "memory",
+    "title": "多轮对话与会话记忆",
+    "category": "结果与可靠性",
+    "summary": "把当前任务状态、短期会话和长期偏好分开保存，让“它”能指向刚才的门店。",
+    "tags": [
+      "Memory",
+      "Context",
+      "会话",
+      "TTL"
+    ],
+    "chapter": 7,
+    "flow": [
+      "用户 + 会话 ID",
+      "读取上下文",
+      "解析指代",
+      "装配模型输入",
+      "保存本轮"
+    ],
+    "steps": [
+      "understand_node 按用户与会话读取历史上下文，并读取当前账号的长期偏好。",
+      "规则解析从 focus 找到“它”所指的门店；模型上下文包含任务、压缩后的历史和工具观察结果。",
+      "finish() 保存本轮摘要和关注门店。短期会话带 TTL，长期偏好由页面上的保存按钮显式写入。"
+    ],
+    "observe": "默认分析完成后，保持会话 ID 不变，问“它最近14天带看转成交率怎样”，再点击“查看记忆”。",
+    "pitfall": "LangGraph 检查点用于恢复同一任务，会话记忆用于下一轮问题。长期偏好在模型模式中进入上下文，规则报告仍使用固定模板。",
+    "refs": [
+      {
+        "path": "estate_agent/storage.py",
+        "symbol": "Store.context",
+        "label": "读取短期会话",
+        "note": "检查用户、会话与过期时间如何限定查询范围。"
+      },
+      {
+        "path": "estate_agent/storage.py",
+        "symbol": "Store.remember_turn",
+        "label": "保存本轮",
+        "note": "观察 focus、摘要与历史轮次如何持久化。"
+      },
+      {
+        "path": "estate_agent/runtime.py",
+        "symbol": "context_messages",
+        "label": "上下文装配",
+        "note": "控制送给模型的信息量，避免无限累积原始结果。"
+      },
+      {
+        "path": "estate_agent/storage.py",
+        "symbol": "Store.set_memory",
+        "label": "长期偏好",
+        "note": "长期记忆按用户隔离，不与其他账号共享。"
+      }
+    ]
+  },
+  {
+    "id": "recovery",
+    "title": "检查点、审批与幂等执行",
+    "category": "结果与可靠性",
+    "summary": "任务可以暂停和恢复；人工批准后创建本地工单，同一个动作不会重复落库。",
+    "tags": [
+      "Checkpoint",
+      "interrupt",
+      "resume",
+      "审批",
+      "幂等",
+      "重试"
+    ],
+    "chapter": 6,
+    "flow": [
+      "保存检查点",
+      "interrupt 暂停",
+      "人工输入",
+      "Command 恢复",
+      "幂等动作"
+    ],
+    "steps": [
+      "run() 使用 SqliteSaver，并将任务 ID 作为 thread_id。恢复时读取原状态，而不是从头新建任务。",
+      "审批节点通过 interrupt 等待布尔决定，使用 Command(resume=...) 继续。只有明确批准且拥有权限才能执行动作。",
+      "Store.action() 用任务 ID 与动作类型生成幂等键，配合数据库唯一约束与 INSERT OR IGNORE 防止重复创建。"
+    ],
+    "observe": "运行“分析朝阳最近7天带看转成交率并创建工单”，在审批区选择批准或拒绝，对比工单收件箱与 Trace。",
+    "pitfall": "当前动作只写本地收件箱。接入外部工单平台后，也需要把幂等键传给外部服务。",
+    "refs": [
+      {
+        "path": "estate_agent/runtime.py",
+        "symbol": "run",
+        "label": "检查点与恢复",
+        "note": "查看 SqliteSaver、thread_id、get_state 和 Command 的配合。"
+      },
+      {
+        "path": "estate_agent/runtime.py",
+        "symbol": "build_graph.approval_node",
+        "label": "人工审批",
+        "note": "interrupt 的返回值必须是明确的 true 或 false。"
+      },
+      {
+        "path": "estate_agent/storage.py",
+        "symbol": "Store.action",
+        "label": "幂等落库",
+        "note": "唯一键保证重复请求返回已有动作，不重复插入。"
+      },
+      {
+        "path": "estate_agent/runtime.py",
+        "symbol": "build_graph.retry_node",
+        "label": "有限重试",
+        "note": "工具错误先分类，只有可重试错误才走此节点。"
+      }
+    ]
+  },
+  {
+    "id": "evaluation",
+    "title": "测试怎样验证这些能力",
+    "category": "继续探索",
+    "summary": "用数值对照、权限负例、报告篡改和跨进程恢复，检查系统行为。",
+    "tags": [
+      "pytest",
+      "评测",
+      "消融",
+      "回归"
+    ],
+    "chapter": 10,
+    "flow": [
+      "准备样例",
+      "执行任务",
+      "独立对照",
+      "负例检查",
+      "输出指标"
+    ],
+    "steps": [
+      "tests/ 覆盖单项行为，例如 SQL 越权、分母为零、报告数字篡改、审批幂等和跨进程恢复。",
+      "evaluate.py 把意图、SQL、任务、Verifier、安全和检索分层统计。参数化样例用于回归，检索 Gold 用于对照召回与排序。",
+      "检索的四种消融复用同一组 Gold。需要同时看样本量、质量指标和耗时，不能只看通过率。"
+    ],
+    "observe": "在项目目录运行 .venv\\Scripts\\python.exe -m pytest -q。完整检索评测会占用 Qdrant 目录，运行前先停止网页服务。",
+    "pitfall": "500 条检查项包含 6 条手写检索 Gold 和 494 条合成回归项；它们不能证明生产场景中的模型准确率。",
+    "refs": [
+      {
+        "path": "tests/test_agent.py",
+        "symbol": "test_cross_process_resume",
+        "label": "跨进程恢复测试",
+        "note": "旧进程退出后，由新进程读取同一任务的检查点继续执行。"
+      },
+      {
+        "path": "tests/test_agent.py",
+        "symbol": "test_row_security_without_where",
+        "label": "权限负例",
+        "note": "即使不带 WHERE 条件，也不能查询未授权门店。"
+      },
+      {
+        "path": "evaluate.py",
+        "symbol": "retrieval_eval",
+        "label": "检索消融",
+        "note": "比较 BM25、Dense、无精排和完整 Hybrid 的排序表现。"
+      },
+      {
+        "path": "eval_cases.json",
+        "label": "检索 Gold",
+        "note": "查看问题与目标文档之间的人工标注。"
+      }
+    ]
+  },
+  {
+    "id": "extensions",
+    "title": "多专家、关系检索与 MCP",
+    "category": "继续探索",
+    "summary": "在主流程之外，查看专家子图、实体关系检索和工具协议的实现入口。",
+    "tags": [
+      "Multi-Agent",
+      "GraphRAG",
+      "MCP",
+      "LoRA"
+    ],
+    "chapter": 11,
+    "flow": [
+      "共享任务状态",
+      "专家子图",
+      "关系补充",
+      "工具协议",
+      "训练扩展"
+    ],
+    "steps": [
+      "三专家模式把数据、知识和报告工作放进三个 StateGraph 子图，由共享规划节点选择去向。",
+      "关系检索读取人工维护的实体关系，两跳遍历得到相关文档；相关文档仍需经过权限过滤。",
+      "mcp_server.py 提供只读工具与 Schema 资源。extras/train_lora.py 提供训练入口，领域效果需要另行验证。"
+    ],
+    "observe": "在工作台选择“三专家子图”，勾选关系检索，再查看图中的专家节点和 RAG 检索结果。",
+    "pitfall": "关系检索不包含社区发现和社区摘要；多专家共用规划模型。LoRA 冒烟训练仅验证训练、保存和重载流程。",
+    "refs": [
+      {
+        "path": "estate_agent/runtime.py",
+        "symbol": "build_graph",
+        "start_marker": "    builder = StateGraph(AgentState)",
+        "label": "专家子图",
+        "note": "阅读 strategy == multi 分支：子图编译后作为父图节点注册。"
+      },
+      {
+        "path": "estate_agent/graph_rag.py",
+        "symbol": "graph_lookup",
+        "label": "两跳关系检索",
+        "note": "关系命中的文档如何参与后续检索，可继续阅读 retrieval.py。"
+      },
+      {
+        "path": "mcp_server.py",
+        "symbol": "create_server",
+        "label": "MCP 服务",
+        "note": "服务启动时绑定身份，通过协议暴露三个只读工具。"
+      },
+      {
+        "path": "extras/train_lora.py",
+        "symbol": "main",
+        "label": "训练入口",
+        "note": "查看 smoke 与指定领域基座两条路径，以及验证集和 adapter 保存。"
+      }
+    ]
+  }
+]

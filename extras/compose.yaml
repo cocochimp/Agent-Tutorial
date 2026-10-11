@@ -1,0 +1,15 @@
+services:
+  redis:
+    image: redis:7.4-alpine
+    ports: ["127.0.0.1:6379:6379"]
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: ["redis-data:/data"]
+  vllm:
+    image: vllm/vllm-openai:latest
+    profiles: ["gpu"]
+    gpus: all
+    ports: ["127.0.0.1:8000:8000"]
+    volumes: ["${BASE_MODEL_DIR:-./base-model}:/model:ro"]
+    command: ["--model", "/model", "--served-model-name", "estate-local", "--max-model-len", "8192", "--enable-auto-tool-choice", "--tool-call-parser", "hermes"]
+volumes:
+  redis-data:
