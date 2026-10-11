@@ -73,14 +73,26 @@
     el('metric-dialog').showModal();
   }
 
-  /* 模块2：分析执行图（后端 /api/graph 的 SVG 全图，压缩高度 + 横向滚动） */
+  /* 模块2：分析执行图（静态 graph.json 的 SVG 全图；静态文件缺失时回退后端 /api/graph） */
   async function renderExecGraph() {
     const host = el('exec-graph');
     if (svgCache) { host.replaceChildren(svgCache); return; }
+    let data = null;
     try {
-      const r = await fetch('/api/graph?strategy=single', {cache: 'no-cache'});
-      if (!r.ok) throw new Error('接口返回 ' + r.status);
-      const data = await r.json();
+      const r = await fetch('static/graph.json', {cache: 'no-cache'});
+      if (r.ok) data = await r.json();
+    } catch (e) { /* 静态文件不可用时回退后端 */ }
+    if (!data) {
+      try {
+        const r = await fetch('/api/graph?strategy=single', {cache: 'no-cache'});
+        if (!r.ok) throw new Error('接口返回 ' + r.status);
+        data = await r.json();
+      } catch (e) {
+        host.replaceChildren(make('p', '执行图加载失败：' + e.message, 'graph-fallback'));
+        return;
+      }
+    }
+    try {
       const holder = make('div');
       holder.innerHTML = data.svg || '';
       const svg = holder.querySelector('svg');
@@ -89,10 +101,10 @@
         svgCache = svg;
         host.replaceChildren(svg);
       } else {
-        host.replaceChildren(make('p', '后端未返回图形，请确认 /api/graph 可用。', 'graph-fallback'));
+        host.replaceChildren(make('p', '执行图数据缺失，请确认 graph.json 或 /api/graph 可用。', 'graph-fallback'));
       }
     } catch (e) {
-      host.replaceChildren(make('p', '执行图加载失败：' + e.message, 'graph-fallback'));
+      host.replaceChildren(make('p', '执行图渲染失败：' + e.message, 'graph-fallback'));
     }
     highlightGraph(currentItem());
   }

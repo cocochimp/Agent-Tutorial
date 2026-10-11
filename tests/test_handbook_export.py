@@ -14,3 +14,14 @@ def test_handbook_present_and_complete():
     for m in re.finditer(r'(?:src|href)="([^"]+)"', h):
         u = m.group(1)
         assert u.startswith('#') or u.startswith('javascript') or u == '', u
+
+"""V5.1：执行图静态数据 graph.json（Pages 无后端也能渲染分析执行图）。"""
+import json
+from pathlib import Path
+
+
+def test_graph_json_present_and_valid():
+    d = json.loads(Path('web/graph.json').read_text(encoding='utf-8'))
+    assert 'svg' in d and len(d['svg']) > 5000
+    assert d['svg'].count('data-node') >= 15
+    assert '<svg' in d['svg'] and 'data-node' in d['svg']
