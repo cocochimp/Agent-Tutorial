@@ -163,3 +163,20 @@ P1 = 当前导出（项目导读页「导出 HTML」产物，简化 hero+13 章�
 ### 验证
 - pytest 全量 75 passed（无回归）；本地 FastAPI 资源全 200。
 - 线上浏览器冒烟：登录卡 → chaoyang/demo-chaoyang 进入 → 项目导读 / 实习项目（5 工作项）/ 面试题库（54/22/22/22）全部渲染正常。
+
+---
+
+## V5.1 分析执行图静态化（2026-10-11，已完成）
+
+### 问题（截图确认）
+线上 Pages 版「分析执行图」显示「执行图加载失败：接口返回 404」——执行图原依赖后端 `/api/graph`，Pages 无后端。
+
+### 改动
+- `web/graph.json`（新增）：后端 `/api/graph?strategy=single` 生成的 SVG 全图静态化（18 个 data-node 节点，9.4KB）。
+- `web/teaching.js`：`renderExecGraph()` 优先加载 `static/graph.json`（相对路径，本地/Pages 均兼容），缺失时回退 `/api/graph`（保留后端兜底）。
+- 新增 `test_graph_json_present_and_valid`：断言 svg 有效、≥15 节点。全量 **76 passed**。
+- script src 版本 `?v=20261011r`。
+
+### 验证
+- 本地静态模拟（http.server 8899）：登录后执行图渲染 18 节点、当前工作项 7 节点高亮，无 fallback 错误。
+- 线上 https://cocochimp.github.io/Agent-Tutorial/：登录后 `hasSvg=true, nodeCount=18, fb=null`——执行图正常显示。
