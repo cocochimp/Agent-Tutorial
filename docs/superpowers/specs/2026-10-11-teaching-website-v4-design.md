@@ -136,3 +136,30 @@ P1 = 当前导出（项目导读页「导出 HTML」产物，简化 hero+13 章�
 ### 验证
 - pytest 全量 75 passed（无回归）。
 - 浏览器冒烟：面试题库页点「导出面试题 HTML」→ 下载 `项目面试题_练习清单.html`（163KB）：54 题、5 个分组标题（工作一~工作五）、324 个六段式小节（54×6）、总量标签「共 54 题（5 个工作项）」。
+
+---
+
+## V5 GitHub 上传 + Pages 公开部署（2026-10-11，已完成）
+
+### 用户需求
+把项目上传到 `git@github.com:cocochimp/Agent-Tutorial.git`，部署在 GitHub 公开网络，让其他人（学员）也能访问。
+
+### 交付结果
+- 仓库：https://github.com/cocochimp/Agent-Tutorial（PUBLIC，main 分支，111+ 文件）
+- 线上站点：https://cocochimp.github.io/Agent-Tutorial/（GitHub Pages，push 自动构建部署）
+- 登录：Pages 无后端，自动降级为前端校验（账号 chaoyang / demo-chaoyang，与本地一致）；未登录只显示登录卡
+- 敏感文件不入库：accounts.json、*.sqlite3、deepseek_config.json、state/、output/、.venv（README 说明）
+
+### 关键改造
+- `web/app.js`：双模式登录——`/api/session` 404 时判定静态模式，登录改前端比对 + localStorage 标记；本地 FastAPI 后端模式不变。
+- `scripts/build_pages_site.py`（新增）：把 web/ 构建为 Pages 兼容目录 site_pages/（index.html 在根、其余文件进 static/）。
+- `.github/workflows/pages.yml`（新增）：push main → 构建 site_pages → upload-pages-artifact → deploy-pages。
+- 路径修复：HTML/JS 中 `/static/` 绝对路径统一改为相对 `static/`（Pages 子路径 /Agent-Tutorial/ 下绝对路径指向域名根会 404；相对路径在本地 FastAPI（页面在 /）与 Pages 均兼容）。
+
+### 过程要点
+- 系统代理 127.0.0.1:7897 未注入 shell 环境导致直连 github.com 不稳定；`HTTPS_PROXY`/`git -c http.proxy` 后推送稳定。
+- gh token 需 `workflow` scope 才能推送 `.github/workflows/`（两次设备码授权完成）。
+
+### 验证
+- pytest 全量 75 passed（无回归）；本地 FastAPI 资源全 200。
+- 线上浏览器冒烟：登录卡 → chaoyang/demo-chaoyang 进入 → 项目导读 / 实习项目（5 工作项）/ 面试题库（54/22/22/22）全部渲染正常。

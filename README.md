@@ -15,6 +15,8 @@
 
 首次使用可按“快速启动 → 完成一次分析 → 项目阅读顺序”操作。查找某项功能的实现位置，可直接打开[能力对照说明书](docs/能力对照说明书.html)。
 
+> **教学站（学员端）**：`web/` 为学员教学中心（项目导读 / 实习项目 / 面试题库，支持完整手册与面试题导出）。本地访问 `http://127.0.0.1:8765`，默认账号见 `accounts.json`（未配置时回退内置演示账号）。线上公开版部署在 GitHub Pages（`https://cocochimp.github.io/Agent-Tutorial/`）：GitHub Pages 无法运行后端，自动降级为前端校验登录，账号与本地一致；`scripts/build_pages_site.py` 构建 Pages 兼容目录，`.github/workflows/pages.yml` 在 push 到 main 时自动构建部署。
+
 <a id="start"></a>
 
 ## 快速启动
