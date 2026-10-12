@@ -520,7 +520,7 @@
     {
       "id": "work-4",
       "title": "工作四 · 可信生成 / 幻觉治理",
-      "short": "可信生成与幻觉治理",
+      "short": "可信生成 / 幻觉治理",
       "summary": "关键数字从 Tool Result 结构化字段注入、引用绑定 Evidence ID、独立 Verifier 复算并核对引用，低置信或高风险结论转人工审批，把幻觉从知识/数据/工具/逻辑/权限五类分别治理。",
       "resume": {
         "label": "可信生成 / 幻觉治理",
@@ -696,7 +696,7 @@
     {
       "id": "work-5",
       "title": "工作五 · Evals & Observability / 性能优化",
-      "short": "Evals & Observability",
+      "short": "Evals & Observability / 性能优化",
       "summary": "把一次请求拆成 request_id 下的多段 Trace（模型/Prompt 版本/检索参数/Tool I/O/SQL/错误码/Token/耗时），建约 500 条分层回归用例，用缓存、上下文裁剪与动态 TopK 压 P95 延迟。",
       "resume": {
         "label": "Evals & Observability / 性能优化",

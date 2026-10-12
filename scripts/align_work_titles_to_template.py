@@ -72,6 +72,9 @@ def align(pid: str, need_swap_titles: bool = True):
         if item['title'] != new_title:
             changes.append(f'{item["id"]} title: {item["title"]} -> {new_title}')
             item['title'] = new_title
+        if item.get('short', '') != tpl['title']:
+            changes.append(f'{item["id"]} short: {item.get("short", "")} -> {tpl["title"]}')
+            item['short'] = tpl['title']
         r = item.setdefault('resume', {})
         if r.get('label') != new_label:
             changes.append(f'{item["id"]} resume.label: {r.get("label")} -> {new_label}')
@@ -109,6 +112,8 @@ def verify(pid: str):
         exp_title = f'工作{CN[i]} · {tpl["title"]}'
         if w['title'] != exp_title:
             print(f'  ✗ {pid} {w["id"]} title != 模版: {w["title"]!r} vs {exp_title!r}'); ok = False
+        if w.get('short') != tpl['title']:
+            print(f'  ✗ {pid} {w["id"]} short != 模版: {w.get("short")!r} vs {tpl["title"]!r}'); ok = False
         if w['resume']['label'] != tpl['title']:
             print(f'  ✗ {pid} {w["id"]} label != 模版: {w["resume"]["label"]!r}'); ok = False
         if '🎯' in w['resume']['text'] or w['resume']['text'].strip() != tpl['text'].strip():

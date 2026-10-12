@@ -4,7 +4,7 @@
     {
       "id": "work-1",
       "title": "工作一 · ReAct 规划编排",
-      "short": "Agent 工具编排与流程规划",
+      "short": "ReAct 规划编排",
       "summary": "Agent 工具编排与流程规划",
       "resume": {
         "label": "ReAct 规划编排",
@@ -177,7 +177,7 @@
     {
       "id": "work-2",
       "title": "工作二 · 多模态/增强 Query 理解",
-      "short": "多模态解析与 Query 理解",
+      "short": "多模态/增强 Query 理解",
       "summary": "多模态解析与 Query 理解",
       "resume": {
         "label": "多模态/增强 Query 理解",
@@ -465,7 +465,7 @@
     {
       "id": "work-4",
       "title": "工作四 · 上下文与记忆系统",
-      "short": "短期会话栈 / 长期用户画像 / 上下文预算",
+      "short": "上下文与记忆系统",
       "summary": "上下文与记忆系统",
       "resume": {
         "label": "上下文与记忆系统",
@@ -583,7 +583,7 @@
     {
       "id": "work-5",
       "title": "工作五 · 解题生成与质量保障",
-      "short": "解题生成 / 唯一数据源 / Fact-Checker / Self-Refinement",
+      "short": "解题生成与质量保障",
       "summary": "解题生成、幻觉治理与质量把关",
       "resume": {
         "label": "解题生成与质量保障",

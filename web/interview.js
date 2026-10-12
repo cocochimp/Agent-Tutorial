@@ -111,13 +111,16 @@
     return wrap;
   }
 
+  const TYPE_LABEL = {A: '量化溯源', B: '方案设计', C: '其他'};
   function questionCard(q, no) {
     const card = make('article', undefined, 'iq-card');
     const summary = make('summary', undefined, 'iq-head');
     const idx = make('span', String(no).padStart(2, '0'), 'iq-no');
+    const typeTag = q.type ? make('span', TYPE_LABEL[q.type] || q.type, 'iq-type') : null;
     const text = make('span', q.q, 'iq-title');
     const caret = make('span', '展开', 'iq-toggle');
-    summary.append(idx, text, caret);
+    if (typeTag) summary.append(idx, typeTag, text, caret);
+    else summary.append(idx, text, caret);
     const body = make('div', undefined, 'iq-body');
     if (q.points && q.points.length) {
       const pBox = make('div', undefined, 'iq-section iq-points');

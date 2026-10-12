@@ -287,6 +287,19 @@ window.addEventListener('scroll', function(){
     return out.join('\n');
   }
 
+  // 八股三方向（Agent / RAG / LLM）合并导出
+  function commonBody(topics) {
+    const total = topics.reduce((s, t) => s + (t.questions ? t.questions.length : 0), 0);
+    const out = [`<p><span class="tag">八股面试题</span><span class="tag">共 ${total} 题（${topics.length} 个方向）</span></p>`];
+    let no = 0;
+    topics.forEach(t => {
+      out.push(`<h2 style="margin-top:30px">${esc(t.title)} <span class="tag" style="margin-left:6px">${t.questions ? t.questions.length : 0} 题</span></h2>`);
+      if (t.desc) out.push(`<p style="color:var(--muted);font-size:12.5px">${esc(t.desc)}</p>`);
+      if (t.questions && t.questions.length) t.questions.forEach(q => { no += 1; out.push(renderQ(q, no)); });
+    });
+    return out.join('\n');
+  }
+
   const download = (text, name) => {
     const a = document.createElement('a');
     const url = URL.createObjectURL(new Blob([text], {type: 'text/html;charset=utf-8'}));
@@ -415,13 +428,43 @@ window.addEventListener('scroll', function(){
       } else if (topic.questions && topic.questions.length) {
         download(shell(catName, interviewBody(topic.questions, catName)), (projectName() ? projectName() + '_' : '') + catName + '_练习清单.html');
       }
+    },
+    async interviewPractice() {
+      // 实战面试题：当前项目 5 个工作项全量 + 高频面试题（建设中→占位说明），合并导出为可编辑 HTML。
+      const proj = await fetch('static/projects/' + pid() + '/interview-topics.json', {cache: 'no-cache'}).then(r => r.ok ? r.json() : {topics: []});
+      const projectTopic = (proj.topics || []).find(x => x.id === 'project');
+      const recordingTopic = (proj.topics || []).find(x => x.id === 'recording');
+      const out = [];
+      let total = 0;
+      if (projectTopic && projectTopic.groups) {
+        total += projectTopic.groups.reduce((s, g) => s + g.questions.length, 0);
+        out.push(groupsBody(projectTopic.groups, projectTopic.title));
+      }
+      out.push(`<h2 style="margin-top:34px">高频面试题</h2>`);
+      if (recordingTopic && recordingTopic.questions && recordingTopic.questions.length) {
+        out.push(interviewBody(recordingTopic.questions, recordingTopic.title));
+      } else {
+        out.push(`<div class="note" style="margin:12px 0">该板块建设中：后续将基于学员真实面试录音，把真正高频的面试官问题汇总到这里，供学员练习。</div>`);
+      }
+      const title = (projectName() ? projectName() + ' · ' : '') + '实战面试题（项目面试题 + 高频面试题）';
+      download(shell(title, out.join('\n')), (projectName() ? projectName() + '_' : '') + '实战面试题_练习清单.html');
+    },
+    async interviewCommon() {
+      // 八股面试题：Agent + RAG + LLM 三个方向合并导出为可编辑 HTML。
+      const common = await fetch('static/interview-common.json', {cache: 'no-cache'}).then(r => r.ok ? r.json() : {topics: []});
+      const wanted = ['agent', 'rag', 'llm'];
+      const topics = (common.topics || []).filter(t => wanted.includes(t.id));
+      if (!topics.length) return;
+      download(shell('八股面试题（Agent / RAG / LLM）', commonBody(topics)), '八股面试题_练习清单.html');
     }
   };
   const bind = () => {
     const g = document.getElementById('export-guide');
     if (g) g.onclick = () => window.Export.guide();
-    const i = document.getElementById('export-interview');
-    if (i) i.onclick = () => window.Export.interview();
+    const p = document.getElementById('export-interview-practice');
+    if (p) p.onclick = () => window.Export.interviewPractice();
+    const c = document.getElementById('export-interview-common');
+    if (c) c.onclick = () => window.Export.interviewCommon();
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
   else bind();

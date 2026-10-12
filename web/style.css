@@ -454,6 +454,7 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.9; background: #f
 .iq-head::-webkit-details-marker { display: none; }
 .iq-head:hover { background: #f4f9fa; }
 .iq-no { font: 11px Consolas, monospace; color: var(--teal); background: #e2f2f3; border-radius: 4px; padding: 2px 6px; }
+.iq-type { flex: none; font-size: 10.5px; color: #315d84; background: #e5eef8; border: 1px solid #c6d8ea; border-radius: 99px; padding: 1px 8px; }
 .iq-title { flex: 1; font-size: 13.5px; color: var(--navy); font-weight: 600; line-height: 1.6; }
 .iq-toggle { font-size: 11px; color: var(--muted); white-space: nowrap; }
 .iq-details[open] .iq-toggle { color: var(--teal); }
