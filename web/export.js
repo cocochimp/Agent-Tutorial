@@ -105,8 +105,16 @@
   .toolbar button:hover{background:#eef6f7}
   .toolbar button.primary{background:var(--teal);color:#fff;border-color:var(--teal)}
   .toolbar button.primary:hover{background:#0a8a98}
+  .toolbar button.danger{background:#d9483b;color:#fff;border-color:#d9483b}
+  /* 编辑模式视觉反馈 */
+  [data-editable]{transition:box-shadow .15s}
+  body.editing [data-editable]{outline:2px dashed #7fb3bb;outline-offset:2px;border-radius:4px;background:rgba(127,179,187,.06)}
+  body.editing [data-editable]:focus{outline-color:var(--teal);background:rgba(127,179,187,.12)}
+  /* Toast */
+  .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 22px;border-radius:8px;font-size:13px;z-index:1000;opacity:0;transition:opacity .3s;pointer-events:none}
+  .toast.show{opacity:1}
   @media (max-width:900px){.sidebar{display:none}.layout{display:block}}
-  @media print{.page{padding:20px 8px}.sidebar,.toolbar{display:none}}
+  @media print{.page{padding:20px 8px}.sidebar,.toolbar,.toast{display:none}}
 </style>
 </head>
 <body>
@@ -123,37 +131,64 @@
 </div>
 </main>
 </div>
+<div class="toast" id="toast"></div>
 <script>
-let editing = false;
+var editing = false;
+function showToast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2000);
+}
 function toggleEdit(){
   editing = !editing;
-  document.querySelectorAll('.editable').forEach(el => { el.contentEditable = editing; });
-  document.getElementById('btn-edit').textContent = editing ? '✅ 完成编辑' : '✏️ 编辑';
-  document.getElementById('btn-edit').classList.toggle('primary', editing);
+  document.body.classList.toggle('editing', editing);
+  document.querySelectorAll('[data-editable]').forEach(function(el){ el.contentEditable = editing; });
+  var btn = document.getElementById('btn-edit');
+  btn.textContent = editing ? '✅ 完成编辑' : '✏️ 编辑';
+  btn.classList.toggle('danger', editing);
+  showToast(editing ? '已进入编辑模式，直接点击内容修改' : '已退出编辑模式');
 }
 function saveHtml(){
+  document.querySelectorAll('[data-editable]').forEach(function(el){ el.contentEditable = false; });
+  document.body.classList.remove('editing');
   editing = false;
-  document.querySelectorAll('.editable').forEach(el => { el.contentEditable = false; });
   document.getElementById('btn-edit').textContent = '✏️ 编辑';
-  const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
-  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
-  const a = document.createElement('a');
+  document.getElementById('btn-edit').classList.remove('danger');
+  var html = '<!DOCTYPE html>\\n' + document.documentElement.outerHTML;
+  var blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = document.title.replace(/[·\s]/g,'_') + '_edited.html';
+  document.body.appendChild(a);
   a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+  showToast('✅ 已导出新版本，请到下载目录查看');
 }
-// 目录高亮
-document.addEventListener('scroll', () => {
-  const links = document.querySelectorAll('.sidebar a');
-  const sections = [];
-  links.forEach(a => {
-    const t = document.querySelector(a.getAttribute('href'));
-    if (t) sections.push({a, t});
+// Ctrl+S 保存
+document.addEventListener('keydown', function(e){
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); saveHtml(); }
+});
+// 目录平滑滚动
+document.querySelectorAll('.sidebar a').forEach(function(a){
+  a.addEventListener('click', function(e){
+    e.preventDefault();
+    var t = document.querySelector(this.getAttribute('href'));
+    if (t) t.scrollIntoView({behavior:'smooth', block:'start'});
   });
-  let cur = sections[0];
-  sections.forEach(s => { if (s.t.getBoundingClientRect().top < 120) cur = s; });
-  sections.forEach(s => s.a.classList.toggle('active', s === cur));
+});
+// 目录高亮
+window.addEventListener('scroll', function(){
+  var links = document.querySelectorAll('.sidebar a');
+  var sections = [];
+  links.forEach(function(a){
+    var t = document.querySelector(a.getAttribute('href'));
+    if (t) sections.push({a:a, t:t});
+  });
+  var cur = sections[0];
+  sections.forEach(function(s){ if (s.t.getBoundingClientRect().top < 120) cur = s; });
+  sections.forEach(function(s){ s.a.classList.toggle('active', s === cur); });
 });
 </script>
 </body>
@@ -282,8 +317,8 @@ document.addEventListener('scroll', () => {
       if (guide.hero) {
         out.push(`<div class="page-head" style="margin-top:0">`);
         out.push(`<p style="font-size:11px;letter-spacing:2px;color:#7fb3bb;margin:0 0 8px">${esc(guide.hero.eyebrow || '')}</p>`);
-        out.push(`<h1 contenteditable="false" class="editable">${esc(guide.hero.title || projectName() || '')}</h1>`);
-        out.push(`<p contenteditable="false" class="editable" style="margin:10px 0 0">${esc(guide.hero.desc || '')}</p>`);
+        out.push(`<h1 data-editable="1">${esc(guide.hero.title || projectName() || '')}</h1>`);
+        out.push(`<p data-editable="1" style="margin:10px 0 0">${esc(guide.hero.desc || '')}</p>`);
         if (guide.hero.facts && guide.hero.facts.length) {
           out.push(`<div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">`);
           guide.hero.facts.forEach(f => out.push(`<div style="background:rgba(255,255,255,.12);border-radius:6px;padding:8px 14px"><div style="font-size:10px;color:#9fc4cb">${esc(f.label)}</div><div style="font-size:12px;color:#fff;font-weight:700">${esc(f.value)}</div></div>`));
@@ -296,7 +331,7 @@ document.addEventListener('scroll', () => {
       toc.push({href:'#guide', label:'📖 项目导读'});
       (guide.chapters || []).forEach((ch, idx) => {
         const cid = 'guide-' + idx;
-        out.push(`<div class="card guide-html" id="${cid}" contenteditable="false" class="editable">`);
+        out.push(`<div class="card guide-html" id="${cid}" data-editable="1">`);
         out.push(`<h3 style="margin-top:0">${esc(ch.title || ('第' + (idx+1) + '章'))}</h3>`);
         out.push(ch.html || '');
         out.push(`</div>`);
@@ -312,7 +347,7 @@ document.addEventListener('scroll', () => {
         toc.push({href:'#'+wid, label: (item.title || item.id).slice(0,20)});
         // 简历简介
         if (item.resume) {
-          out.push(`<div class="card" contenteditable="false" class="editable">`);
+          out.push(`<div class="card" data-editable="1">`);
           out.push(`<p style="margin:0;color:#2c3b46;line-height:1.85">${esc(item.resume.text || '')}</p>`);
           out.push(`</div>`);
         }
@@ -320,7 +355,7 @@ document.addEventListener('scroll', () => {
         if (item.resume && item.resume.metricDetails && item.resume.metricDetails.length) {
           out.push(`<h4 style="margin:18px 0 8px;color:var(--teal);font-size:14px">📊 量化指标详解</h4>`);
           item.resume.metricDetails.forEach(md => {
-            out.push(`<div class="card" style="border-left:3px solid var(--teal)" contenteditable="false" class="editable">`);
+            out.push(`<div class="card" style="border-left:3px solid var(--teal)" data-editable="1">`);
             out.push(`<div style="font-weight:800;color:var(--navy);margin-bottom:8px">${esc(md.title)}</div>`);
             String(md.design || '').split(/\n\n+/).filter(Boolean).forEach(p => out.push(`<p style="margin:8px 0;font-size:13px;line-height:1.85;color:#2c3b46">${esc(p)}</p>`));
             const nums = md.numbers || [];
@@ -334,12 +369,12 @@ document.addEventListener('scroll', () => {
         }
         // 内容介绍（原手册章节）
         out.push(`<h4 style="margin:18px 0 8px;color:var(--teal);font-size:14px">📝 内容介绍</h4>`);
-        out.push(`<div class="card guide-html" contenteditable="false" class="editable">${item.introHtml || ''}</div>`);
+        out.push(`<div class="card guide-html" data-editable="1">${item.introHtml || ''}</div>`);
         // 子主题
         if (item.subTopics && item.subTopics.length) {
           item.subTopics.forEach(st => {
             out.push(`<h4 style="margin:16px 0 6px;color:var(--orange);font-size:13px">📌 ${esc(st.title)}</h4>`);
-            out.push(`<div class="card guide-html" contenteditable="false" class="editable">${st.html || ''}</div>`);
+            out.push(`<div class="card guide-html" data-editable="1">${st.html || ''}</div>`);
           });
         }
         out.push(`</div>`);
