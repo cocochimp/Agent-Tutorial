@@ -1,5 +1,76 @@
 {
   "version": 2,
   "algorithm": "sha256$salt$hash(salt:account:password)",
-  "accounts": []
+  "accounts": [
+    {
+      "id": "stu-20261013-001",
+      "note": "",
+      "createdAt": 1791822527380,
+      "expiresAt": 1797006527380,
+      "hash": "sha256$036229ce6b8606478bc247f29ac72481$fc2af94b441e1abd315bf9067b0d64d72f795516df9cf4d93093c6013c5c018b"
+    },
+    {
+      "id": "stu-20261013-002",
+      "note": "",
+      "createdAt": 1791822527381,
+      "expiresAt": 1797006527381,
+      "hash": "sha256$83b3d06a37da7e21ab03d6d35505e919$361bf3f9cef62be487c1aa5693d6a3302dc70e3a7591618c9bdec2574a479a12"
+    },
+    {
+      "id": "stu-20261013-003",
+      "note": "",
+      "createdAt": 1791822527381,
+      "expiresAt": 1797006527381,
+      "hash": "sha256$24ff0eb0f1f07b69732f7b4b7a4dfd45$5cdb4731eb9985f0bae6966530ba7c836a144f6f7cd3208e4455049f1ee54cf2"
+    },
+    {
+      "id": "stu-20261013-004",
+      "note": "",
+      "createdAt": 1791822527381,
+      "expiresAt": 1797006527381,
+      "hash": "sha256$71e7910137b798e6ec653c2a8cb4fc26$1e56dfd9cf80160f6567decaf8f103dc64c75a8b21ccd5c504d01dbaad36e7fa"
+    },
+    {
+      "id": "stu-20261013-005",
+      "note": "",
+      "createdAt": 1791822527381,
+      "expiresAt": 1797006527381,
+      "hash": "sha256$da4f2d3de5602e95f42e6216dec09f11$491a21778a7836f9707f585020d64b034df84cd447cee1f10a2c7897387853cd"
+    },
+    {
+      "id": "stu-20261013-006",
+      "note": "",
+      "createdAt": 1791822527381,
+      "expiresAt": 1797006527381,
+      "hash": "sha256$2cf1483224654337266dc269e233eaec$55900d5878f504befd610707a404a4a0359e77acfe88266b08a4defee99fca1c"
+    },
+    {
+      "id": "stu-20261013-007",
+      "note": "",
+      "createdAt": 1791822527381,
+      "expiresAt": 1797006527381,
+      "hash": "sha256$b90db0e58518c9d3719e4120a4dcedec$0bf4a76818a213bfa6a3319b441bcee9967ee2541f6b5f6b992dfa5798c3211f"
+    },
+    {
+      "id": "stu-20261013-008",
+      "note": "",
+      "createdAt": 1791822527381,
+      "expiresAt": 1797006527381,
+      "hash": "sha256$b1004eec67f2e398c1d6fed77e01c10c$cc5d062d175f42a94d77b82c68d255769758ede115a4a7f7fbeb564aa23a1c89"
+    },
+    {
+      "id": "stu-20261013-009",
+      "note": "",
+      "createdAt": 1791822527381,
+      "expiresAt": 1797006527381,
+      "hash": "sha256$96c20222adb30c14396d736f28a5a82f$5ea6ca0fd98a9de6dd49778cb492647f75ec27c0e8efb0175706618adc3c5843"
+    },
+    {
+      "id": "stu-20261013-010",
+      "note": "",
+      "createdAt": 1791822527381,
+      "expiresAt": 1797006527381,
+      "hash": "sha256$8cd6daec610ca30c80c0c28fa2d6a3ed$a5ba1a19386ec4b30a7e7054c77f4cce71c232f8d85f8ee2bfcd847a10f5ef5b"
+    }
+  ]
 }
