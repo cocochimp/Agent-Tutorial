@@ -1,0 +1,5 @@
+{
+  "version": 2,
+  "algorithm": "sha256$salt$hash(salt:account:password)",
+  "accounts": []
+}
