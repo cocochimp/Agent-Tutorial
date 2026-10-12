@@ -229,6 +229,11 @@
       pubBtn.onclick = async () => {
         const draft = window.Accounts.loadDraft();
         if (!draft.length) { el('export-status').textContent = '请先生成账号，再点击确认提交。'; return; }
+        // 线上浏览模式（GitHub Pages 无后端）无法直接提交 → 给出本地版引导
+        if (window.APP_STATIC_MODE === true) {
+          el('export-status').innerHTML = '当前是线上浏览模式，无法直接提交（网页没有 GitHub 写权限）。请在<strong>本地开发版</strong>操作：项目目录运行 <code>./.venv/bin/python launch.py</code>，然后打开 <code>http://127.0.0.1:8765</code> 用主账号登录后点此按钮即可自动提交上线。';
+          return;
+        }
         if (!confirm('确认提交 ' + draft.length + ' 个新账号并自动部署到 GitHub 线上？\n提交后立即生效、不可撤销。')) return;
         pubBtn.disabled = true;
         pubBtn.textContent = '提交部署中…';

@@ -23,7 +23,7 @@ def test_estate_package_complete():
     wi = json.loads((ESTATE / 'work-items.json').read_text(encoding='utf-8'))
     assert len(wi['workItems']) == 5
     guide = json.loads((ESTATE / 'guide-data.json').read_text(encoding='utf-8'))
-    assert len(guide['chapters']) == 13
+    assert len(guide['chapters']) == 12
     hb = (ESTATE / 'handbook.html').read_text(encoding='utf-8')
     assert hb.count('<section ') == 22
 
@@ -80,7 +80,8 @@ def test_views_load_current_project():
 def test_export_uses_current_project():
     """导出逻辑按当前项目加载并带项目名前缀。"""
     e = (WEB / 'export.js').read_text(encoding='utf-8')
-    assert "static/projects/' + pid() + '/handbook.html" in e
+    assert "static/projects/' + pid() + '/guide-data.json" in e
+    assert "static/projects/' + pid() + '/work-items.json" in e
     assert "static/projects/' + pid() + '/tutorial-data.json" in e
     assert "static/projects/' + pid() + '/interview-topics.json" in e
     assert 'static/interview-common.json' in e

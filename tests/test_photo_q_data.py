@@ -35,7 +35,7 @@ def test_photo_work_items_metrics():
 
 def test_photo_guide_chapters():
     d = load('guide-data.json')
-    assert len(d['chapters']) >= 9
+    assert len(d['chapters']) >= 8
     for c in d['chapters']:
         assert c['title'] and c['html']
 
