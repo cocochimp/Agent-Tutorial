@@ -1,0 +1,79 @@
+{
+  "version": "1.0",
+  "lessons": [
+    {
+      "id": "l1",
+      "title": "工具封装与 Schema 校验",
+      "files": [
+        "photo_agent/tools.py"
+      ],
+      "desc": "把 OCR/检索/生成/相似题封装为统一 Schema 的工具，校验失败重试。"
+    },
+    {
+      "id": "l2",
+      "title": "LangGraph 状态机编排",
+      "files": [
+        "photo_agent/graph.py"
+      ],
+      "desc": "解析→检索→记忆→生成→校验五段式，条件边实现重试与人工兜底。"
+    },
+    {
+      "id": "l3",
+      "title": "Query 理解与拆题",
+      "files": [
+        "photo_agent/query.py"
+      ],
+      "desc": "一图多题拆解、指代消解、结构化字段输出。"
+    },
+    {
+      "id": "l4",
+      "title": "混合检索与精排",
+      "files": [
+        "photo_agent/retrieval.py"
+      ],
+      "desc": "BGE+BM25 双路、RRF 融合、Cross-Encoder 精排、MMR 去冗余。"
+    },
+    {
+      "id": "l5",
+      "title": "幻觉治理与质量把关",
+      "files": [
+        "photo_agent/verify.py"
+      ],
+      "desc": "唯一数据源、LaTeX 渲染校验、Fact-Checker、Self-Refinement。"
+    },
+    {
+      "id": "l6",
+      "title": "记忆与上下文预算",
+      "files": [
+        "photo_agent/memory.py"
+      ],
+      "desc": "短期会话记忆、长期画像掌握度、按优先级注入。"
+    }
+  ],
+  "files": {
+    "photo_agent/tools.py": {
+      "text": "\"\"\"拍照搜题 Agent · 工具封装（Function Calling）\n统一入参出参 Schema，供 Agent 规划层调度；校验失败触发错误重试。\"\"\"\nTOOL_SCHEMAS = {\n    \"ocr_parse\": {\"desc\": \"解析题目图片，输出文本与 LaTeX\",\n                  \"params\": {\"image_id\": \"str\", \"page_slice\": \"int\"},\n                  \"required\": [\"image_id\"]},\n    \"tool_retrieve\": {\"desc\": \"题库混合检索，返回候选题目\",\n                      \"params\": {\"query\": \"str\", \"top_k\": \"int\"},\n                      \"required\": [\"query\"]},\n    \"tool_generate\": {\"desc\": \"基于检索结果生成解题步骤\",\n                      \"params\": {\"qid\": \"str\", \"evidence\": \"list\"},\n                      \"required\": [\"qid\"]},\n    \"similar_recommend\": {\"desc\": \"推荐相似题练习\",\n                          \"params\": {\"qid\": \"str\", \"n\": \"int\"},\n                          \"required\": [\"qid\"]},\n}\n\nclass ToolCallError(Exception):\n    \"\"\"工具调用不符合 Schema 时抛出，由重试节点捕获。\"\"\"\n\ndef validate_call(name, args):\n    schema = TOOL_SCHEMAS.get(name)\n    if not schema:\n        raise ToolCallError(f\"未知工具: {name}\")\n    missing = [k for k in schema[\"required\"] if k not in args]\n    if missing:\n        raise ToolCallError(f\"{name} 缺参: {missing}\")\n    for k, v in args.items():\n        expected = schema[\"params\"].get(k)\n        if expected == \"str\" and not isinstance(v, str):\n            raise ToolCallError(f\"{name} 参数 {k} 应为 str, 实为 {type(v).__name__}\")\n    return {\"valid\": True, \"schema\": schema[\"desc\"]}\n",
+      "sha256": "395ebd867c5501460b8b5cf541fc50b0c0436c0dba8c2ca974695a65c1e2c1a2"
+    },
+    "photo_agent/graph.py": {
+      "text": "\"\"\"LangGraph 状态机：解析→检索→记忆→生成→校验，含重试与人工兜底。\"\"\"\nfrom typing import TypedDict\nfrom langgraph.graph import StateGraph, END\n\nMAX_ATTEMPTS = 2\nCONFIDENCE_THRESHOLD = 0.85\n\nclass PhotoAgentState(TypedDict):\n    image_id: str\n    sub_queries: list\n    candidates: list\n    answer: dict\n    attempts: int\n    confidence: float\n\ndef should_retry(state: PhotoAgentState) -> bool:\n    \"\"\"校验失败且未超次数 → 重试；否则人工兜底。\"\"\"\n    return state[\"attempts\"] < MAX_ATTEMPTS and state[\"confidence\"] < CONFIDENCE_THRESHOLD\n\ndef passed(state: PhotoAgentState) -> bool:\n    return state[\"confidence\"] >= CONFIDENCE_THRESHOLD\n\ndef build_agent():\n    g = StateGraph(PhotoAgentState)\n    g.add_node(\"user_input\", receive_image)\n    g.add_node(\"ocr_parse\", ocr_parse)\n    g.add_node(\"query_understand\", understand)\n    g.add_node(\"agent_node\", plan_next_tool)     # ReAct 决策：选工具\n    g.add_node(\"tool_retrieve\", hybrid_retrieve)\n    g.add_node(\"tool_generate\", generate_answer)\n    g.add_node(\"verify_node\", fact_check)\n    g.add_node(\"retry_node\", self_refine)\n    g.add_node(\"memory_node\", update_memory)\n    g.add_node(\"finish\", output)\n    g.add_edge(\"user_input\", \"ocr_parse\")\n    g.add_edge(\"ocr_parse\", \"query_understand\")\n    g.add_edge(\"query_understand\", \"agent_node\")\n    g.add_conditional_edges(\"verify_node\", should_retry,\n                            {True: \"retry_node\", False: \"finish\"})\n    g.add_edge(\"retry_node\", \"verify_node\")\n    g.add_edge(\"finish\", END)\n    return g.compile(checkpointer=SQLiteCheckpointer(\"state.db\"))\n",
+      "sha256": "037123e546ca4d128d15742042e1666596420865d34366a5073037aea0ca079e"
+    },
+    "photo_agent/query.py": {
+      "text": "\"\"\"Query 理解：一图多题拆解 / 指代消解 / 改写 / 结构化输出。\"\"\"\ndef understand_query(image_text: str, conversation: list) -> dict:\n    # 1) 一图多题：版面切分拆成多条子 query\n    sub_queries = split_multi_problem(image_text)\n    # 2) 跨题指代消解：「上一题的结果」「这道题」绑定题目栈\n    resolved = resolve_coreference(sub_queries, conversation)\n    # 3) 必要时代码改写 / HyDE 扩写，错字顺句\n    rewritten = [rewrite(q) for q in resolved]\n    # 4) 结构化字段驱动下游 Filter 与精排加权\n    return {\n        \"sub_queries\": rewritten,\n        \"intent\": classify(rewritten),            # 数学-导数-求值\n        \"filters\": extract_filters(rewritten),    # {年级, 科目, 知识点, 题型}\n        \"dense_sparse\": decide_fusion(rewritten), # 偏语义/偏精确 → 融合权重 α\n        \"rewrite_confidence\": 0.91,               # 低于阈值回退原始 query\n    }\n",
+      "sha256": "bd5de412e09899a635e25b62bb06619eacfe29d9f096a060c20a73bb9cb58442"
+    },
+    "photo_agent/retrieval.py": {
+      "text": "\"\"\"混合检索：BGE 向量 + BM25 双路 → RRF 融合 → Cross-Encoder 精排 → MMR。\"\"\"\nTOP_DENSE, TOP_SPARSE = 100, 100\nFUSE_TOP, RERANK_TOP, FINAL_TOP = 50, 10, 5\nINJECT_TOP = 3\n\ndef hybrid_retrieve(query: str, filters: dict) -> list:\n    dense = bge_index.search(query, k=TOP_DENSE)     # 语义：换了说法也能找到\n    sparse = bm25_index.search(query, k=TOP_SPARSE)  # 关键词：公式、题号精确匹配\n    fused = rrf_fuse(dense, sparse, top=FUSE_TOP)    # 只看排名融合，天然可比\n    filtered = apply_filters(fused, filters)         # 年级/科目/知识点硬过滤\n    reranked = cross_encoder.rerank(filtered, top=RERANK_TOP)  # 逐条精判\n    final = mmr_dedup(reranked, top=FINAL_TOP, lambda_=0.7)    # 去近似重复\n    return final[:INJECT_TOP]                        # 注入 Top-3\n",
+      "sha256": "109460f43c2410c4e1fcdfafc2c8a7411ba808f90a8d1c40618cdeeb12657a02"
+    },
+    "photo_agent/verify.py": {
+      "text": "\"\"\"质量把关：唯一数据源 + LaTeX 渲染校验 + Fact-Checker + Self-Refinement。\"\"\"\ndef verify(answer: dict, evidence: list) -> dict:\n    checks = []\n    # 格式校验：LaTeX 逐行送渲染器试渲染\n    for i, latex in enumerate(answer[\"latex\"]):\n        ok = try_render(latex)\n        checks.append({\"type\": \"render\", \"line\": i + 1, \"pass\": ok,\n                       \"detail\": None if ok else f\"L{i+1} 渲染失败\"})\n    # 事实核查：生成内容必须能在检索命中材料里找到依据\n    claims = extract_claims(answer[\"steps\"])\n    for claim in claims:\n        supported = any(claim in e for e in evidence)\n        checks.append({\"type\": \"fact\", \"claim\": claim, \"pass\": supported,\n                       \"detail\": None if supported else \"unsupported_claim\"})\n    confidence = min(c[\"pass\"] for c in checks)  # 取最差一项\n    if confidence:\n        return {\"verdict\": \"pass\", \"confidence\": 0.93}\n    feedback = [c[\"detail\"] for c in checks if not c[\"pass\"]]\n    return {\"verdict\": \"refine\", \"confidence\": 0.6, \"feedback\": feedback}\n",
+      "sha256": "038c3e18c82b90d2208274b0c377662f381dd3d66b010e952c2665b33f93d7f4"
+    },
+    "photo_agent/memory.py": {
+      "text": "\"\"\"记忆系统：短期会话记忆 + 长期学生画像 + 上下文预算管理。\"\"\"\ndef build_context(state: dict, profile: dict) -> str:\n    # 短期：滑动窗口 + 摘要压缩，只留最近几轮原文\n    short = compress_window(state[\"rounds\"], window=6)\n    # 长期：画像按当前题知识点检索注入（画像也当一路召回）\n    boost = retrieve_profile(profile, state[\"topic\"], top=3)\n    # 预算：按优先级注入 系统提示 > 当前问题 > 检索原题 > 记忆/画像\n    return priority_inject([\n        (\"system\", state[\"system\"]),\n        (\"question\", state[\"question\"]),\n        (\"evidence\", state[\"evidence\"]),\n        (\"memory\", short + boost),\n    ])\n\ndef update_mastery(profile: dict, topic: str, correct: bool):\n    \"\"\"掌握度建模：答对上调 / 答错下调 / 遗忘衰减（概念级即可）。\"\"\"\n    profile[topic] = max(0.0, min(1.0, profile.get(topic, 0.5)\n                                  + (0.08 if correct else -0.12)))\n",
+      "sha256": "ddc230c30ddfadfcf8341b2f76d6b5eff8324b5d8ba4dbbee17f48511a1eceb9"
+    }
+  }
+}

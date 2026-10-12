@@ -7,14 +7,34 @@
     if (cls) n.className = cls;
     return n;
   };
-  let chapters = [], active = 0;
+  let chapters = [], hero = null, active = 0;
   const pid = () => (window.App && window.App.projectId()) || 'estate-agent';
 
   async function load() {
     if (chapters.length) return;
     const r = await fetch('static/projects/' + pid() + '/guide-data.json', {cache: 'no-cache'});
     if (!r.ok) throw new Error('导读数据加载失败');
-    chapters = (await r.json()).chapters || [];
+    const d = await r.json();
+    chapters = d.chapters || [];
+    hero = d.hero || null;
+  }
+
+  /* hero 按当前项目联动 */
+  function renderHero() {
+    if (!hero) return;
+    const set = (id, v) => { const e = document.getElementById(id); if (e && v) e.textContent = v; };
+    set('hero-eyebrow', hero.eyebrow);
+    set('hero-title', hero.title);
+    set('hero-desc', hero.desc);
+    const host = document.getElementById('hero-facts');
+    if (host && Array.isArray(hero.facts)) {
+      host.replaceChildren();
+      hero.facts.forEach(f => {
+        const d = make('div', undefined, 'hero-fact');
+        d.append(make('span', f.label), make('b', f.value));
+        host.append(d);
+      });
+    }
   }
 
   function renderCats() {
@@ -45,6 +65,7 @@
     async init() {
       try {
         await load();
+        renderHero();
         if (chapters.length) { renderCats(); renderContent(); }
       } catch (e) {
         const host = el('guide-view'); host.replaceChildren();
@@ -53,6 +74,6 @@
     },
     select: i => { active = i; renderCats(); renderContent(); },
     // 切换项目后清缓存重载
-    async reload() { chapters = []; active = 0; await this.init(); }
+    async reload() { chapters = []; hero = null; active = 0; await this.init(); }
   };
 })();

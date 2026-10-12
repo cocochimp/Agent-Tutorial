@@ -1,0 +1,884 @@
+<!doctype html>
+<html lang="zh-CN"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>拍照搜题 Agent · Agent 开发校招辅导课件（v2）</title>
+  <style>
+    :root {
+      --ink: #1d2a35;
+      --muted: #5f6d78;
+      --line: #d7e0e5;
+      --paper: #ffffff;
+      --wash: #f4f7f8;
+      --navy: #17324d;
+      --teal: #087f8c;
+      --orange: #c7682e;
+      --green: #2d7c61;
+      --shadow: 0 14px 38px rgba(23, 50, 77, 0.10);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--wash);
+      font: 15px/1.7 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    .topbar {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      padding: 12px max(22px, calc((100vw - 1380px) / 2));
+      color: #fff; background: var(--navy); box-shadow: 0 4px 16px rgba(0,0,0,.16);
+    }
+    .brand { font-weight: 800; letter-spacing: .02em; margin-right: auto; }
+    .brand small { display: block; color: #bcd0df; font-weight: 500; letter-spacing: 0; font-size: 11px; }
+    .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .toolbar button, .toolbar input {
+      border: 1px solid rgba(255,255,255,.28); border-radius: 6px; padding: 7px 11px;
+      color: #fff; background: rgba(255,255,255,.10);
+    }
+    .toolbar input { width: 185px; background: #fff; color: var(--ink); }
+    .toolbar button:hover { background: rgba(255,255,255,.20); }
+    .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); max-width: 1380px; margin: 0 auto; }
+    aside { position: sticky; top: 68px; align-self: start; height: calc(100vh - 68px); overflow: auto; padding: 22px 14px 30px 22px; }
+    aside h2 { margin: 0 0 10px; font-size: 13px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+    aside > button { margin: 0 0 10px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 5px; color: var(--teal); background: #fff; }
+    aside > button:hover { background: #e7f1f2; }
+    aside a { display: block; padding: 7px 9px; color: var(--muted); text-decoration: none; border-left: 2px solid transparent; }
+    aside a:hover, aside a.active { color: var(--teal); border-left-color: var(--teal); background: #e7f1f2; }
+    main { min-width: 0; padding: 30px 28px 80px; }
+    .hero { padding: 34px 38px; color: #fff; background: var(--navy); border-radius: 8px; box-shadow: var(--shadow); }
+    .hero .eyebrow { color: #8fd2d5; text-transform: uppercase; letter-spacing: .12em; font-size: 12px; font-weight: 700; }
+    .hero h1 { margin: 8px 0 10px; font-size: clamp(28px, 4vw, 48px); line-height: 1.18; }
+    .hero p { max-width: 850px; margin: 0; color: #d9e7ef; font-size: 16px; }
+    .hero-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 22px; align-items: end; }
+    .hero-note { border-left: 3px solid #8fd2d5; padding-left: 15px; color: #c8dce7; font-size: 14px; }
+    section { margin-top: 30px; padding: 28px 30px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 5px 18px rgba(23,50,77,.04); }
+    section h2 { margin: 0 0 13px; color: var(--navy); font-size: 25px; line-height: 1.3; }
+    section h3 { margin: 24px 0 8px; color: var(--teal); font-size: 18px; }
+    section h4 { margin: 18px 0 6px; color: var(--orange); font-size: 15px; }
+    p { margin: 8px 0; }
+    ul, ol { margin: 8px 0 12px 22px; padding: 0; }
+    li { margin: 4px 0; }
+    code { padding: 1px 5px; border-radius: 4px; color: #8c431d; background: #fff1e8; font-family: "SFMono-Regular", Consolas, monospace; font-size: .92em; }
+    pre { overflow: auto; margin: 12px 0; padding: 15px 17px; color: #e9f2f5; background: #172833; border-radius: 6px; font: 13px/1.6 "SFMono-Regular", Consolas, monospace; }
+    .callout { margin: 16px 0; padding: 13px 16px; border-left: 4px solid var(--teal); background: #edf8f8; }
+    .callout.warn { border-left-color: var(--orange); background: #fff5ed; }
+    .callout.good { border-left-color: var(--green); background: #eef8f2; }
+    .grid-2, .grid-3 { display: grid; gap: 16px; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .mini { padding: 15px 16px; border: 1px solid var(--line); border-radius: 6px; background: #fbfcfc; }
+    .mini strong { color: var(--navy); }
+    table { width: 100%; border-collapse: collapse; margin: 13px 0; font-size: 14px; }
+    th, td { padding: 9px 10px; text-align: left; vertical-align: top; border: 1px solid var(--line); }
+    th { color: var(--navy); background: #eef3f5; }
+    .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0; }
+    .flow span { padding: 8px 11px; border: 1px solid #b9d5d8; border-radius: 5px; color: var(--navy); background: #f0fbfb; font-weight: 700; }
+    .flow b { color: var(--orange); }
+    .resume { padding: 22px 24px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfc; }
+    .resume-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding-bottom: 12px; border-bottom: 2px solid var(--navy); }
+    .resume-head .who { font-size: 18px; font-weight: 800; color: var(--navy); }
+    .resume-head .who span { color: var(--teal); }
+    .resume-head .when { color: var(--muted); font-size: 14px; }
+    .resume p { margin: 10px 0; }
+    .resume ol { margin: 10px 0 4px 20px; }
+    .resume ol li { margin: 8px 0; }
+    .resume .k { color: var(--navy); font-weight: 700; }
+    .case { margin: 16px 0; border: 1px solid #cfe0e2; border-radius: 8px; background: #fbfdfd; }
+    .case-title { padding: 10px 14px; background: #e7f1f2; color: var(--navy); font-weight: 800; border-bottom: 1px solid #cfe0e2; border-radius: 8px 8px 0 0; }
+    .case-title small { font-weight: 600; color: var(--teal); }
+    .case-body { padding: 8px 16px 12px; }
+    .case-body .row { display: flex; gap: 10px; margin: 9px 0; }
+    .case-body .lbl { flex: 0 0 84px; height: fit-content; padding: 2px 8px; border-radius: 4px; background: #e2f2f3; color: #245d65; font-size: 12px; font-weight: 700; text-align: center; }
+    .case-body .lbl.warn { background: #fbe6d6; color: #9c4a1e; }
+    .case-body .row > div:last-child { flex: 1; min-width: 0; }
+    .qa { border-top: 1px solid var(--line); }
+    .qa details { padding: 11px 0; border-bottom: 1px solid var(--line); }
+    .qa summary { cursor: pointer; color: var(--navy); font-weight: 750; }
+    .qa summary::marker { color: var(--orange); }
+    .answer { margin: 9px 0 2px; padding: 12px 14px; background: #f7fafb; border-left: 3px solid #9ab5be; }
+    .tag { display: inline-block; margin: 0 5px 5px 0; padding: 2px 8px; border-radius: 99px; color: #245d65; background: #e2f2f3; font-size: 12px; }
+    .score { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border-radius: 5px; color: #315848; background: #e5f4eb; font-weight: 700; }
+    .edit-hint { margin-top: 8px; color: var(--muted); font-size: 13px; }
+    [contenteditable="true"] { outline: 2px dashed #6db8be; outline-offset: 3px; }
+    .hidden { display: none !important; }
+    mark { padding: 0 2px; background: #ffe18e; }
+    footer { margin: 30px 0 0; color: var(--muted); text-align: center; font-size: 13px; }
+    @media (max-width: 900px) {
+      .layout { display: block; }
+      aside { position: static; height: auto; padding: 12px 18px; border-bottom: 1px solid var(--line); background: #fff; }
+      aside nav { display: flex; gap: 4px; overflow-x: auto; }
+      aside a { white-space: nowrap; border-left: 0; border-bottom: 2px solid transparent; }
+      aside a:hover, aside a.active { border-left: 0; border-bottom-color: var(--teal); }
+      main { padding: 18px 14px 60px; }
+      section { padding: 21px 18px; }
+      .hero { padding: 25px 22px; }
+      .hero-grid, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .case-body .row { flex-direction: column; gap: 3px; }
+      .toolbar { width: 100%; }
+      .toolbar input { flex: 1; width: auto; }
+    }
+    @media print {
+      @page { margin: 12mm; }
+      body { background: #fff; }
+      .topbar, aside { display: none; }
+      .layout { display: block; }
+      main { padding: 0; }
+      section, .hero { box-shadow: none; break-inside: avoid; }
+      [contenteditable="true"] { outline: 0; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">拍照搜题 Agent<small>Agent 案例 · RAG 实战 · 面试讲解</small></div>
+    <div class="toolbar">
+      <input id="search" type="search" placeholder="搜索问题或关键词" aria-label="搜索">
+      <button id="editBtn" type="button" aria-pressed="false">开启编辑</button>
+      <button id="saveBtn" type="button">保存草稿</button>
+      <button id="exportBtn" type="button">导出新 HTML</button>
+      <button id="pdfBtn" type="button">导出 PDF</button>
+      <button id="addSectionBtn" type="button">新增章节</button>
+      <button id="resetBtn" type="button">恢复已发布版</button>
+      <button id="randomBtn" type="button">随机抽题</button>
+    </div>
+  </header>
+  <div class="layout">
+    <aside>
+      <h2>目录</h2>
+      <button id="addTocBtn" type="button">新增目录项</button>
+      <nav>
+        <a href="#resume">实习经历模板</a>
+        <a href="#opening">项目总览 &amp; 开场</a>
+        <a href="#architecture">整体架构与检索漏斗</a>
+        <a href="#rag">RAG 核心概念（底座）</a>
+        <a href="#work1">工作一 · Agent 编排</a>
+        <a href="#work2">工作二 · 多模态与 Query 理解</a>
+        <a href="#work3">工作三 · 混合检索与精排</a>
+        <a href="#work4">工作四 · 生成与质量</a>
+        <a href="#memory">工作五 · 上下文与记忆系统</a>
+        <a href="#deepdive">检索漏斗逐层拆解</a>
+        <a href="#eval">评测体系</a>
+        <a href="#qa">高频面试追问</a>
+        <a href="#pitfalls">答题易错点</a>
+        <a href="#cheatsheet">指标与术语速查</a>
+      </nav>
+    </aside>
+    <main id="document">
+      <div class="hero">
+        <div class="hero-grid">
+          <div>
+            <div class="eyebrow">Campus-hire coaching · Agent + RAG</div>
+            <h1>拍照搜题 Agent</h1>
+            <p>用「拍照搜题」这一个案例串起 RAG 全链路（Query 理解 → 粗召回 → 精排 → 去冗余 → 生成 → 记忆），<span style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">每一层都配真实场景、参数取舍、理论底座与面试追问</span></p>
+          </div>
+          <div class="hero-note">多模态输入 · 检索增强 · 记忆增强 · 生成可控<br>K12 拍照搜题与多轮讲题场景</div>
+        </div>
+      </div>
+
+      <section id="resume" data-search="实习经历 模板 简历 项目 工作内容">
+        <h2>实习经历模板（可直接放进简历）</h2>
+        <div class="resume">
+          <div class="resume-head">
+            <div class="who">猿辅导｜AI 教育平台部　·　<span>AI Agent 应用开发实习生</span></div>
+            <div class="when">2026.02 – 2026.07</div>
+          </div>
+          <p><span class="k">项目：</span>面向 K12 的多模态「拍照搜题 Agent」（题库约 500 万题，支持拍照识题与多轮讲题）。</p>
+          <p><span class="k">项目背景：</span>面向中小学拍照搜题与追问讲题场景，解决通用大模型「识题不准、搜不到原题、多轮追问断片、解题步骤编造」四类问题，构建覆盖「识题 → 检索 → 记忆 → 讲解」全链路的垂直领域智能体。</p>
+          <p class="k">工作内容：</p>
+          <ol>
+            <li><strong>ReAct 规划编排：</strong><span>&nbsp;</span>将 OCR、公式识别、题库检索、解题生成、相似题推荐封装为<span>&nbsp;</span><strong style="box-sizing: border-box;">Function Calling 工具</strong>，基于<span>&nbsp;</span><strong style="box-sizing: border-box;">ReAct</strong><span>&nbsp;</span>做多步推理与工具调度，并用<span>&nbsp;</span><strong style="box-sizing: border-box;">LangGraph</strong><span>&nbsp;</span>编排"解析→检索→记忆→生成→校验"状态机（含置信度阈值与 human-in-the-loop）；工具调用准确率<span>&nbsp;</span><strong style="box-sizing: border-box;">≥92%</strong>。（<b>PS：</b><strong style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">让系统自己会「识题 → 搜题 → 讲题」：</strong><span style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">一张作业照片里常有好几道题，识别也可能出错。我把识题、搜题、讲解拆成一个个可单独调用的工具，让系统自己判断先做哪一步、出错了如何重试，减少调错和跳步，工具调用准确率做到 92%。）</span></li><li><b>多模态/增强 Query 理解：<span>&nbsp;</span></b>拍照经 OCR/公式识别输出 LaTeX，再做上下文改写、题目拆解（一图多题）、HyDE、Step-back 知识点泛化，输出「意图/学科/知识点/年级」结构化字段驱动下游 filter，复杂场景检索解决率提升25%。（<b>PS：</b><strong style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">先把题读懂，再去搜：</strong><span style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">解决「一张图混着好几道题」「学生追问『这道题』到底指哪一道」这类情况——先把题目拆清、公式读准、把没说完整的追问补全，复杂场景下正确找到题目的比例提升 25%</span>）</li>
+            <li><strong>混合检索与结果精排：</strong>搭建<b>语义检索<span style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">BGE</span></b>与<b>关键词检索<span style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">BM25</span></b>双路并行、<b>融合排序RRF</b>与相关性精排的题库匹配方案，原题命中率提升 18%。（<b>PS：</b><strong style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">让题搜得到、也搜得准：</strong><span style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">针对「带公式的数学题经常搜不到原题」，把「按语义搜」和「按关键词搜」两种方式结合，再对结果重新排序、挑出最匹配的原题，原题命中率提升 18%。</span>这一段是<b style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">重难点</b><span style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">，可以改成：</span><strong style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">稠密向量召回（BGE + HNSW）+ 稀疏 BM25</strong><span style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">&nbsp;</span><span style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">双路（各 topK=100）经</span><span style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">&nbsp;</span><strong style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">RRF 融合</strong><span style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">取 Top 50，</span><strong style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">BGE-Reranker（Cross-Encoder）</strong><span style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">&nbsp;</span><span style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">精排至 Top 10，再叠加多维度排序 +</span><span style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">&nbsp;</span><strong style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">MMR 去冗余</strong><span style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">；粗召回</span><span style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">&nbsp;</span><strong style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">Recall@100 84%→96%）</strong></li>
+            <li><strong>上下文与记忆系统：</strong>建设多轮会话短期记忆与学生画像长期记忆，配合上下文动态注入与压缩，多轮追问理解准确率提升 30%，单次会话 Token 成本下降约 70%。（PS<b>：</b><strong style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">让它记得住上下文，也越用越懂学生：</strong><span style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">既记得上一轮讲了什么（多轮追问不断片），也逐步记住每个学生的易错知识点（越用越贴合），同时控制每次携带的信息量，多轮追问理解准确率提升 30%，单次对话成本下降约 70%。<b>如何搭建？</b>建设短期会话记忆（多轮指代消解 + 滑动窗口摘要压缩）与长期用户画像记忆（易错/已掌握知识点，向量化存储、检索时作个性化 boost）；设计 token 预算分配与上下文动态注入；多轮追问理解准确率 +30%，Prompt Token 降 40% 且问答质量不降。）</span></li><li><strong>解题生成与质量保障：</strong>以检索内容为唯一依据约束模型输出，引入LaTeX公式校验、事实核查与人工兜底，并建设多学科“金标准”评测集，解题步骤正确率提升至 96%（<b>PS：</b><strong style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">保证讲得对、不编造：</strong><span style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">只允许模型依据搜到的真实题目讲解，再加一道公式与答案的核查，拿不准就转人工；并整理了一套覆盖多学科的题目用于验证效果，解题步骤正确率做到 96%。</span><b style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">如何实现？</b><span style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">以检索/记忆命中内容为唯一数据源，LLM 强制 JSON 结构化输出 + 公式 LaTeX 逐项校验；引入 Fact-Checker（阈值 0.85） + 硬规则/LLM 后过滤，低于阈值触发 Self-Refinement；构建覆盖多学科评测集（金标准 + 禁止错误类型），解题正确率 ≥96%，单次对话 Token 成本降 60%–80%、P99 ≤ 1.2s。）</span></li>
+          </ol>
+          <p><span class="k" style="color: rgb(23, 50, 77);">技术栈：</span>LangGraph、Function Calling、检索增强（向量 + 关键词混合检索、融合排序、精排/重排）、多模态 OCR 与公式识别、Prompt 工程、事实核查与结构化输出。</p>
+        </div>
+        <p class="edit-hint">数字为教学示意值，正式使用时请替换为你项目的真实测量数据；下方各章节是对每条工作内容的展开、理论底座与追问准备。</p>
+      </section>
+
+      <section id="opening" data-search="开场 30秒 项目介绍 总结 四个关键词 RAG 是什么">
+        <h2>项目总览 &amp; 30 秒开场</h2>
+        <div class="callout good"><strong>建议背熟的开场：</strong>我实习做的是一个面向 K12 的「拍照搜题 Agent」——用户拍一张题目照片，系统要识别题目、从五百万题库里找到最匹配的原题和知识点，再生成分步骤的讲解，并且支持多轮追问。我主要负责把它当成一个「智能体」来搭：从工具编排、多模态识题、检索、上下文与记忆，到最后的解题生成与质量把关这条完整链路。</div>
+        <h3>先建立一个概念：什么是 RAG，为什么拍照搜题非用它不可</h3>
+        <p><strong>RAG（检索增强生成）</strong>＝「先检索、再生成」：不让大模型凭记忆直接答，而是<strong>先从可信题库里检索出真实原题与知识点，再让模型基于这些材料讲解</strong>。拍照搜题场景对正确率零容忍——讲错一步就是教学事故，模型凭记忆很容易编造公式，所以答案必须<strong>可溯源、可校验</strong>，这正是 RAG 的用武之地。RAG 的两大主力就是后面反复出现的<strong>「粗召回（解决召回率，别漏）」和「精排（解决准确率，排准）」</strong>。</p>
+        <h3>四个关键词（记住这四个，任何追问都能回到主线）</h3>
+        <div class="grid-2">
+          <div class="mini"><strong>多模态输入</strong><br>拍照不是文本：要先做 OCR 与公式识别，把图片变成机器能检索的结构化问题。</div>
+          <div class="mini"><strong>检索增强</strong><br>答案不能靠模型编，必须先从题库检索到真实原题与知识点，再让模型基于它讲解。</div>
+          <div class="mini"><strong>记忆增强</strong><br>多轮追问要记住上一步，长期使用要记住这个学生的易错点，本质都是上下文管理。</div>
+          <div class="mini"><strong>生成可控</strong><br>解题必须可溯源、可校验：唯一数据源 + 公式校验 + 事实核查，低置信度转人工。</div>
+        </div>
+        <p class="edit-hint">面试时先用这段 30 秒讲清「是什么、我做了哪条链路」，再等追问逐层展开。</p>
+      </section>
+
+      <section id="architecture" data-search="架构 链路 漏斗 topK 召回 精排 检索 流程 60 40">
+        <h2>整体架构与检索漏斗</h2>
+        <p>整条链路可以用一句话概括：<strong>把一张照片，一步步收敛成一道可讲解的原题</strong>。每一环都是「上一环的输出，下一环的输入」。</p>
+        <div class="flow">
+          <span>拍照</span><b>→</b><span>OCR / 公式识别</span><b>→</b><span>Query 理解</span><b>→</b><span>混合召回</span><b>→</b><span>精排 / 去重</span><b>→</b><span>记忆注入</span><b>→</b><span>解题生成</span><b>→</b><span>校验</span>
+        </div>
+        <h3>检索漏斗：为什么层层收敛</h3>
+        <p>核心思想是<strong>「用便宜的方法多召回，用贵的方法精挑」</strong>。候选数量逐层收敛，越往后用的模型越强、越贵，但处理的候选越少（下面的取值与 RAG 实战文档一致：双路 Top-60、融合 Top-40、精排到个位数）：</p>
+        <pre>500 万题库
+  │  ① Query 理解：1 张照片 → 1~3 个子问题（+ 结构化过滤条件）
+  ▼
+每个子问题并行两路检索：
+  ├─ 语义（向量）检索   取前 60
+  └─ 关键词（BM25）检索 取前 60
+  │  ② 归一化 + 加权融合（或 RRF）去重 → 前 40   （粗召回出口）
+  ▼
+③ 精排模型（Cross-Encoder）重排 40 条 → 前 10（动态截断：分≥0.6，最多10，至少2）
+  │  ④ 多维度排序 + MMR 去冗余 → 前 5
+  ▼
+⑤ 注入解题上下文：前 3</pre>
+        <div class="callout"><strong>一句话记忆：</strong>60 → 40 → 10 → 5 → 3。粗召回决定系统效果的<strong>上限</strong>（漏了就再也找不回），精排只能逼近它、无法超越——所以前面宁可多召回，后面再慢慢精挑。</div>
+        <p class="edit-hint">下一章先补 RAG 核心概念作为「理论底座」，随后五个「工作内容」章节会分别展开这条链路里我负责的每一环。</p>
+      </section>
+
+
+      <section id="rag" data-search="RAG 核心概念 粗召回 精排 重排 Query理解 向量 BM25 RRF 加权融合 HyDE Step-back QA子切片 Cross-Encoder Bi-Encoder MMR 双塔 交叉">
+        <h2>RAG 核心概念（后面各章的理论底座）</h2>
+        <p>这一章把「拍照搜题」用到的检索理论一次讲透，后面工作章节直接引用，不再重复。一句话分工：<div><strong>1、粗召回解决「召回率（别漏）」</strong></div><div><strong>2、精排解决「准确率（排准）」</strong></div><div><strong>3、Query 理解在最前面决定「怎么搜」。</strong></div></p>
+
+        <h3>一、粗召回：解决召回率问题</h3>
+        <div class="callout"><strong>北极星：</strong>召回侧用<strong>双塔（Bi-Encoder）</strong>——query 与文档各自离线编码成向量、在线用 ANN 近邻检索，<strong>重速度</strong>（深度交互太贵，召回阶段付不起）。</div>
+        <p>核心链路（与实战文档一致）：</p>
+        <pre>输入 Query
+  → Filter 过滤（知识/时间范围等结构化元数据，硬筛选，不打分）
+  → Query 扩写（语义 ×3 / 关键字 ×3，救回口语化、残缺、歧义）
+  → 双路召回：向量(Top-60，余弦∈[0,1]) ＋ BM25(Top-60，分∈[0,20])
+  → Min-Max 归一化 → 加权混合 Final = α·sparse + (1-α)·dense（α≈0.3~0.7）
+  → 取前 40 送精排</pre>
+        <div class="grid-2">
+          <div class="mini"><strong>向量召回（BGE + ANN）</strong><br>匹配<strong>语义</strong>而非字面，「求导数」能召回「微分运算」；抗同义词、抗改写。弱点：吃不准公式符号、编号、专有名词。</div>
+          <div class="mini"><strong>关键字召回（BM25）</strong><br>基于词频的<strong>字面精确匹配</strong>：公式符号、题号、专有名词命中极准，快、便宜、可解释。弱点：完全不懂语义，换个说法就漏召。</div>
+          <div class="mini"><strong>Filter 结构化过滤</strong><br>用元数据（学科/年级/权限）做硬筛，缩小候选、更快更准；本质是「确定性关卡」，不参与相关性打分。依赖标签质量。</div>
+          <div class="mini"><strong>QA 子切片（泛化召回）</strong><br>离线为每个文档切片用 LLM 生成 3~5 个「用户可能会问的问题」，每个问题独立编码入库并关联父切片 ID。让「问题 vs 问题」而不是「问题 vs 文档」匹配，召回更准。</div>
+        </div>
+        <div class="callout good"><strong>HyDE（假设性文档）：</strong>先让 LLM 对 query「假想写一段答案/相似题干」，再用这段假想答案去做向量召回——因为<strong>「答案 vs 答案」的向量比「问题 vs 答案」更接近</strong>。属于 Query 扩写的一种，专治「问法和原文写法差很远」。</div>
+
+        <h3>二、精排 / 重排：解决准确率问题</h3>
+        <div class="callout"><strong>北极星：</strong>精排侧用<strong>交叉编码器（Cross-Encoder）</strong>——把 query 和 doc 拼在一起在线逐对打分，<strong>重精度</strong>（候选量已经很小，付得起）。链路：<code>query + doc[Top-40] → 精/重排 → Top 2~10 → 组装 context → LLM</code>。</div>
+        <h4>相关性排序的四种做法（面试高频对比）</h4>
+        <table>
+          <thead><tr><th>类型</th><th>代表</th><th>打分方式</th><th>精度 / 延迟</th><th>适用</th></tr></thead>
+          <tbody>
+            <tr><td>Cross-Encoder 型</td><td>BGE-Reranker</td><td><code>[CLS] query [SEP] doc [SEP]</code> 编码，取 [CLS] 过线性头输出标量分</td><td>精度很高 / 延迟高</td><td>主流精排主力</td></tr>
+            <tr><td>生成式改造型</td><td>Qwen3-Reranker</td><td>指令模板让模型答 yes/no，<strong>取 "yes" token 的概率</strong>作分数</td><td>天花板最高 / 中</td><td>强可解释、终排</td></tr>
+            <tr><td>LLM 提示词型</td><td>RankGPT</td><td>让 LLM 直接读候选列表输出排序/打分</td><td>高 / 很高</td><td>领域定制、终排</td></tr>
+            <tr><td>特征工程 + 轻量模型</td><td>XGBoost</td><td>BM25/覆盖率/实体命中等特征 → 判别式打分</td><td>受特征限 / 极低</td><td>先廉价压候选</td></tr>
+          </tbody>
+        </table>
+        <div class="callout"><strong>级联漏斗：</strong>先用轻量模型把上百候选廉价压到几十 → BGE-Reranker 精排到十几个 → Qwen3/LLM 给最前排做终排。<strong>量级递减、精度递增、计算递增</strong>，把延迟预算花在刀刃上。</div>
+        <h4>多维度排序：相关性只是一维</h4>
+        <div class="grid-2">
+          <div class="mini"><strong>权威度</strong><br>维护来源表给每种 source_type 一个 [0,1] 先验权重（官方 1.0 &gt; 内部 wiki 0.8 &gt; 社区 0.5 &gt; 匿名转载 0.2），入库打标、精排查表。</div>
+          <div class="mini"><strong>时效性</strong><br>用衰减因子建模：越新时效分越高，但平滑递减（30 天=1.0、60 天≈0.9、90 天≈0.81），不一票否决稍旧但权威的内容。</div>
+          <div class="mini"><strong>质量分</strong><br>离线预计算 <code>quality = α₁·完整性 + α₂·准确性 + α₃·可读性</code>。</div>
+          <div class="mini"><strong>丰富度（MMR）</strong><br>贪心地每次选「既相关、又和已选不相似」的一条，去冗余（见下）。</div>
+        </div>
+        <div class="callout good"><strong>动态截断（代替固定 Top-K）：</strong>不再死取 Top-5，而是「取 Final 分 ≥ 0.6 的候选，最多 10 条、至少保 2 条」——高置信时多给、低置信时宁缺毋滥。</div>
+
+        <h3>三、Query 理解：三大块</h3>
+        <div class="grid-3">
+          <div class="mini"><strong>① 改写与拆解</strong><br>上下文改写（「那第二问呢」→ 补成完整题）、纠错顺句（OCR「涵数」→「函数」）、问题拆解（一题多问拆成多条子 query）、扩写（HyDE / 同义变体）。</div>
+          <div class="mini"><strong>② 问题理解（只决策不检索）</strong><br>判是哪类题 → 路由到哪个库；判时效态度 → 要不要加时间过滤；判偏精确还是偏语义 → 调融合权重 α。</div>
+          <div class="mini"><strong>③ 关键信息提取</strong><br>把散落属性抽成结构化实体 <code>{年级,科目,知识点,题型}</code> 喂 Filter；时间归一化「去年期末卷」→ <code>2025-01~02</code>。</div>
+        </div>
+
+        <h3>四、融合方法之辩：RRF vs 加权归一化（面试会追）</h3>
+        <table>
+          <thead><tr><th>方法</th><th>怎么算</th><th>优点</th><th>短板 / 适用</th></tr></thead>
+          <tbody>
+            <tr><td><strong>加权归一化</strong></td><td>各路分数先 Min-Max 归一化，再 <code>Final=α·sparse+(1-α)·dense</code></td><td>保留分数「强弱」信息，可按 query 特性调 α</td><td>需可靠归一化；min/max 受异常值影响，需调 α</td></tr>
+            <tr><td><strong>RRF</strong></td><td>只看排名：<code>score = Σ 1/(k + rank)</code>，k 常取 60</td><td>无需归一化、对异构分数<strong>鲁棒</strong>，工程简单</td><td>丢弃分数强度信息；适合分数不可比/难归一化时</td></tr>
+          </tbody>
+        </table>
+        <div class="callout"><strong>本项目选型：</strong>拍照搜题两路分数量纲差异大且波动，优先用 <strong>RRF</strong> 保稳（鲁棒、少调参）；当需要按「这题偏精确 / 偏语义」动态调侧重时，再切到<strong>加权归一化 + 动态 α</strong>。两者不是二选一的对错，而是「稳 vs 细」的取舍。</div>
+        <p class="edit-hint">以上概念在后面各章会以「拍照搜题」的具体场景落地，看到术语可回本章速查。</p>
+      </section>
+
+
+      <section id="work1" data-search="工作一 Agent 工具编排 ReAct Function Calling LangGraph 多步规划 状态机">
+        <h2>工作一 · Agent 工具编排与流程规划</h2>
+        <div class="callout good"><strong>🎯 真实需求场景：</strong>产品提了个需求——「家长拍一张含 3 道题的作业照片，App 要能自动逐题识别、分别讲解」。这件事没法用一条写死的流程搞定：有的题要查公式、有的题要找相似题、识别失败还要重试。于是需要让系统像人一样「自己决定下一步调用哪个工具」，这就是 Agent 编排要解决的问题。</div>
+        <div class="flow"><span>用户输入</span><b>→</b><span>模型规划下一步</span><b>→</b><span>调用工具</span><b>→</b><span>看结果再规划</span><b>→</b><span>直到给出答案</span></div>
+        <h3>我做了什么</h3>
+        <div class="grid-3">
+          <div class="mini"><strong>工具封装</strong><br>把 OCR、公式识别、题库检索、解题生成、相似题推荐封装成统一的可调用工具，每个工具的入参出参用固定 Schema 约束。</div>
+          <div class="mini"><strong>多步规划（ReAct）</strong><br>让模型「思考 → 行动 → 观察结果 → 再思考」循环，自主决定调用哪个工具、按什么顺序调。</div>
+          <div class="mini"><strong>流程编排（LangGraph）</strong><br>用状态机把「解析 → 检索 → 记忆 → 生成 → 校验」串起来，关键节点设置置信度阈值和人工兜底。</div>
+        </div>
+        <h3>为什么这么做 + 关键设计</h3>
+        <table>
+          <thead><tr><th>做法</th><th>为什么</th><th>参数 / 指标</th></tr></thead>
+          <tbody>
+            <tr><td>工具入参出参强制 Schema</td><td>模型经常传错字段、漏参数，不约束就会调用失败或答非所问。</td><td>Schema 校验 + 错误重试，工具调用准确率提升至 <strong>92%</strong>。</td></tr>
+            <tr><td>强制先检索再作答</td><td>不强制的话模型会「跳过检索直接编」，这是幻觉的主要来源。</td><td>检索工具设为必经节点。</td></tr>
+            <tr><td>用状态机而非一条链</td><td>识题失败要回退重试、低置信度要转人工——固定链路表达不了这些分支。</td><td>关键节点置信度阈值 + human-in-the-loop。</td></tr>
+          </tbody>
+        </table>
+        <h3>面试追问</h3>
+        <div class="qa">
+          <details><summary>ReAct 和「写死的流程（workflow）」有什么区别？</summary><div class="answer">写死的 workflow 是固定顺序，适合流程确定的场景；ReAct 让模型每一步看着上一步的结果，自己决定下一步做什么，适合「一图多题、要不要重试、调哪个工具」这种不确定分支。代价是更耗 token、也更难预测，所以我用状态机把边界框住，只在需要判断的节点交给模型。</div></details>
+          <details><summary>为什么工具要做 Schema 约束？不约束会怎样？</summary><div class="answer">模型输出是自然语言概率分布，不约束就可能传错类型、漏字段、编造不存在的参数，导致工具调用失败甚至串数据。用固定 Schema + 校验 + 失败重试，能把工具调用准确率显著拉高。</div></details>
+        </div>
+        <div class="grid-2">
+          <div class="mini"><span class="tag">不要说</span>「Agent 就是让大模型自动干活。」<br><span class="tag">应该说</span>Agent 是「模型做大脑 + 工具做手脚 + 编排框边界」，我负责把工具和编排这层做稳。</div>
+          <div class="mini"><span class="tag">不要说</span>「流程我用 if-else 串起来的。」<br><span class="tag">应该说</span>用状态机编排，把重试、转人工这些分支显式表达出来。</div>
+        </div>
+      </section>
+
+      <section id="work2" data-search="工作二 多模态 OCR 公式识别 LaTeX 问题理解 指代消解 拆解 HyDE Step-back 接上一题 结构化输出">
+        <h2>工作二 · 多模态解析与 Query 理解</h2>
+        <div class="callout good"><strong>🎯 真实需求场景：</strong>两个真实痛点——① 学生拍完一道题，紧接着追问「<em>这道题第 2 步为什么这么写</em>」，「这道题」到底指哪道？② 一张照片里混着好几道题。如果不先把图片「读懂、拆清、补全」，后面检索再强也白搭，因为送进去的问题本身就是残缺的。</div>
+        <div class="flow"><span>照片</span><b>→</b><span>OCR + 公式识别</span><b>→</b><span>题目拆解</span><b>→</b><span>指代消解 / 补全</span><b>→</b><span>关键信息提取</span><b>→</b><span>结构化问题</span></div>
+        <h3>我做了什么（对应 RAG 的 Query 理解三大块）</h3>
+        <div class="grid-3">
+          <div class="mini"><strong>改写与拆解</strong><br>一图多题拆成多条子 query；追问做上下文改写与指代消解；OCR 错字纠错顺句；必要时 HyDE 扩写。</div>
+          <div class="mini"><strong>问题理解（决策）</strong><br>判学科题型 → 路由题库；判偏精确/偏语义 → 调融合侧重；判时效 → 要不要加年份过滤。</div>
+          <div class="mini"><strong>关键信息提取</strong><br>抽出 <code>{年级, 科目, 知识点, 题型}</code> 结构化字段，喂给 Filter 硬过滤、喂给精排做加权。</div>
+        </div>
+        <h4>Query 理解的结构化输出（示例）</h4>
+        <pre>{
+  "sub_queries": ["求 f(x)=x²+2x+1 在 x=3 处的导数"],
+  "intent": "数学-导数-求值",
+  "filters": { "subject": "数学", "grade": "高三", "topic": "导数" },
+  "dense_sparse": "偏语义",      // 决定融合权重 α
+  "time_sensitivity": "无",
+  "rewrite_confidence": 0.91      // 低于阈值则回退用原始 query
+}</pre>
+
+        <div class="case">
+          <div class="case-title">场景① · 一图三题，第 2 题写着「接上一题的结果继续计算」　<small>Query 理解 / 拆解 + 指代消解</small></div>
+          <div class="case-body">
+            <div class="row"><div class="lbl">场景</div><div>学生拍了一张含 3 道题的作业照片，第 2 题题干是「<strong>接上一题的结果，求该数列前 n 项和</strong>」——它自己不完整，依赖第 1 题的答案。</div></div>
+            <div class="row"><div class="lbl">处理流程</div><div>① 版面切分识别出 3 道题；② 拆成 3 条子 query 各自独立检索；③ 检测到第 2 题含跨题指代「上一题的结果」，<strong>不直接检索</strong>，先建立题间依赖：把第 1 题的解题结论（如「通项 aₙ=2n-1」）回填进第 2 题题干，补全成「已知 aₙ=2n-1，求前 n 项和 Sₙ」；④ 补全后的完整 query 再走检索与讲解。</div></div>
+            <div class="row"><div class="lbl">关键决策</div><div>为什么不把三题拼一起检索？——会互相干扰、谁都搜不准。为什么第 2 题要等第 1 题？——存在<strong>数据依赖</strong>，需按依赖顺序求解，用一个「题目依赖图 + 结果槽位」来编排（本质是 Agent 编排的一个子图）。</div></div>
+            <div class="row"><div class="lbl warn">失败兜底</div><div>若第 1 题没解出/低置信，第 2 题无法补全 → 不硬编一个假结果，而是<strong>提示学生「请把第 1 题也拍清楚」</strong>或让学生手动确认上一题答案；指代对象有歧义（有两个「上一题」候选）时，回退为「向学生澄清」。</div></div>
+          </div>
+        </div>
+
+        <div class="callout warn"><strong>易踩的坑（语义漂移）：</strong>改写不能「过度」。把问题改得太多会偏离原意反而搜错。所以每次改写都带<strong>置信度</strong>，低于阈值就<strong>回退用原始 query</strong>；并用「改写前后一致性」做离线评测，防止改写模块偷偷把召回带坏。</div>
+        <h3>面试追问</h3>
+        <div class="qa">
+          <details><summary>为什么不直接把图片丢给多模态大模型，让它一步到位？</summary><div class="answer">可以做一版基线，但纯多模态直出有两个问题：一是公式、手写体识别不稳定，二是它「读懂了」不等于「查到了真实原题」，仍会编答案。所以把「识别」和「检索作答」拆开：识别只负责把图片变成可检索的结构化问题，作答交给检索增强来保证可溯源。</div></details>
+          <details><summary>追问里的「这道题」你怎么让系统知道指的是哪道？</summary><div class="answer">靠短期会话记忆做指代消解：把最近几轮对话里出现过的题目对象保留下来，追问时把「这道题/上一步」绑定到最近一次讲解的对象上，再补全成完整问题去检索。多个候选有歧义时宁可向学生澄清。</div></details>
+          <details><summary>什么是 HyDE？拍照搜题里怎么用？</summary><div class="answer">HyDE 是先让 LLM 对问题「假想写一段答案/相似题干」，再拿这段去做向量召回，因为「答案 vs 答案」的向量比「问题 vs 答案」更接近。拍照搜题里，学生的问法（口语）和题库原题写法差很远时，用 HyDE 生成一段规范题干再检索，能显著提召回。</div></details>
+        </div>
+      </section>
+
+      <section id="work3" data-search="工作三 混合召回 向量 BM25 RRF 融合 精排 Cross-Encoder Reranker MMR 去冗余 Recall nDCG 60 40 导数">
+        <h2>工作三 · 混合检索与结果精排</h2>
+        <div class="callout good"><strong>🎯 真实需求场景：</strong>线上反馈了一个 bug——「一道带根号、绝对值符号的数学题，系统搜出来一堆‘看着像但其实不是’的题，就是找不到那道原题」。排查发现：纯语义检索擅长「意思相近」，但对公式符号、专有名词这种<strong>精确匹配</strong>不敏感。于是我加了关键词检索来补这一刀（理论见 <a href="#rag">RAG 核心概念</a>）。</div>
+        <div class="flow"><span>子问题</span><b>→</b><span>语义 60</span><span>+</span><span>关键词 60</span><b>→</b><span>融合 40</span><b>→</b><span>精排 10</span><b>→</b><span>去冗余 5</span><b>→</b><span>注入 3</span></div>
+        <h3>我做了什么</h3>
+        <div class="grid-3">
+          <div class="mini"><strong>双路召回</strong><br>语义（向量）检索懂「换了说法也能找到」，关键词（BM25）检索懂「公式、题号精确匹配」，两路各取 Top-60 并行互补。</div>
+          <div class="mini"><strong>融合排序</strong><br>两路分数不可比，默认用只看排名的 <strong>RRF</strong> 融合去重取前 40，再按学科/知识点结构化过滤；需要动态调侧重时切加权归一化。</div>
+          <div class="mini"><strong>精排 + 去冗余</strong><br>用 Cross-Encoder（BGE-Reranker）对 40 条逐条精判取前 10，再用 MMR 去掉近似重复题取前 5，注入前 3。</div>
+        </div>
+
+        <div class="case">
+          <div class="case-title">场景② · 换个写法的同一道题　<small>向量召回 vs BM25 谁能命中</small></div>
+          <div class="case-body">
+            <div class="row"><div class="lbl">场景</div><div>学生的问题是「<strong>求函数 f(x)=x²+2x+1 在 x=3 处的导数</strong>」，而题库里存的是同一道题的另一种写法「<strong>已知二次函数 f(x)=(x+1)²，求 f′(3)</strong>」。字面几乎不重叠（x²+2x+1 vs (x+1)²、"导数" vs "f′"）。</div></div>
+            <div class="row"><div class="lbl">处理流程</div><div>① <strong>向量召回</strong>：能理解「x²+2x+1 = (x+1)²」「求导数 ≈ f′」，语义相近，<strong>大概率命中</strong>，是这题的主力；② <strong>BM25</strong>：靠字面，"f(x)"、"x=3/f′(3)"这些符号仍有部分重叠，作补充；③ 若配合 <strong>HyDE</strong>（先假想写出解题式）或 <strong>QA 子切片</strong>（题库离线已生成「怎么求 f(x)=(x+1)² 的导数」这类问句），命中更稳。</div></div>
+            <div class="row"><div class="lbl">关键决策</div><div>这题体现向量召回的价值——<strong>跨写法的语义匹配</strong>正是 BM25 的盲区；反过来「第 38 页第 3 题」「∮ 符号」这类才是 BM25 的主场。所以必须双路都上，靠融合取长补短。</div></div>
+            <div class="row"><div class="lbl warn">失败兜底</div><div>若 embedding 对「配方/因式分解等价」不敏感导致向量也没召回 → 用 QA 子切片泛化召回补救；仍搜不到则判为「题库无原题」，走「不返回错题，转通用解题模式并明确标注‘未匹配到原题’」，而不是硬塞一个相似题。</div></div>
+          </div>
+        </div>
+
+        <div class="case">
+          <div class="case-title">场景③ · 粗召回回来 5 条，精排怎么排　<small>Cross-Encoder + 多维度 + MMR</small></div>
+          <div class="case-body">
+            <div class="row"><div class="lbl">场景</div><div>某道题粗召回返回 5 条候选：<strong>A、B</strong> 是近似重复题（只有数字不同），<strong>C</strong> 是同一知识点的不同题型（选择题 vs 原填空题），<strong>D</strong> 是关键词重叠但完全无关的题（都含"函数"但考点不同），<strong>E</strong> 是真正的原题。</div></div>
+            <div class="row"><div class="lbl">处理流程</div><div>① Cross-Encoder 逐条把 query 与候选拼一起打分：E 最高、A/B 次之、C 中等、<strong>D 因语义不相关被打低分</strong>（这正是精排比粗召回强的地方——D 是关键词骗过了 BM25，精排能识破）；② 多维度加权：E 若来自官方题库再加权威度分；③ <strong>MMR 去冗余</strong>：A、B 高度相似，只保留其一，避免给模型喂两份重复。</div></div>
+            <div class="row"><div class="lbl">关键决策</div><div>最终顺序约为 <strong>E &gt; A（或B）&gt; C</strong>，D 被过滤、B（与A重复）被 MMR 去掉。C 保留是因为「同知识点异题型」对讲题有价值（可作举一反三），但排在原题之后。λ 取 0.7 偏相关、留一点多样性。</div></div>
+            <div class="row"><div class="lbl warn">失败兜底</div><div>若精排把 D 误判为高分（业务偏移）→ 归因到精排层，注入业务提示词或加难负例重训；若 E 根本没进这 5 条（漏召）→ <strong>不在精排调，回去查粗召回</strong>（扩 Top-K / 调融合 / 检查 Filter 是否过紧）。</div></div>
+          </div>
+        </div>
+
+        <h3>为什么每层 topK 是这个数</h3>
+        <table>
+          <thead><tr><th>环节</th><th>取值</th><th>为什么这么定</th></tr></thead>
+          <tbody>
+            <tr><td>每路召回</td><td>前 60</td><td>太小（如 20）正确原题可能没进候选，效果上限被锁死；太大后面精排又慢又贵。看 Recall@K 曲线在 50~100 区间收益变平，实战取 60。</td></tr>
+            <tr><td>融合出口</td><td>前 40</td><td>给精排一个「够用又不过量」的候选池；粗召回的目标是「别漏」，精排的目标才是「排准」。</td></tr>
+            <tr><td>精排出口</td><td>前 10（动态截断）</td><td>Cross-Encoder 把问题和候选拼一起联合判断，精度高但很贵。用「分≥0.6、最多10、至少2」动态截断，代替死取 Top-K。</td></tr>
+            <tr><td>去冗余出口</td><td>前 5 → 注入 3</td><td>题库多近似重复题，MMR 兼顾相关性与多样性；注入越多噪声越大、成本越高，Top-3 覆盖大多数原题。</td></tr>
+          </tbody>
+        </table>
+        <div class="callout"><strong>成效：</strong>加了关键词检索 + 融合 + 精排后，原题命中率提升 <strong>18%</strong>，公式类题目「搜不到原题」的问题基本解决。</div>
+        <h3>面试追问</h3>
+        <div class="qa">
+          <details><summary>为什么要「向量 + 关键词」两路，只用一路不行吗？</summary><div class="answer">向量检索懂语义、换个说法也能命中（见场景②），但对公式符号、专有名词这种精确 token 不敏感；关键词检索正好相反，擅长精确匹配但不懂近义。两者互补，所以做混合检索再融合。</div></details>
+          <details><summary>Cross-Encoder 为什么比向量召回准，却不能拿来扫全库？</summary><div class="answer">向量召回是双塔：query 和 doc 各自编码再算距离，没有交互，快但粗。Cross-Encoder 把 query 和 doc 拼一起送进模型做全程自注意力交互，精度高但每一对都要跑一次前向，很贵，只能处理粗召回筛出来的几十条。</div></details>
+          <details><summary>融合你用 RRF 还是加权归一化？怎么选？</summary><div class="answer">默认 RRF——只看排名、无需归一化，对两路量纲不一的分数最鲁棒，少调参。当要按「这题偏精确还是偏语义」动态调侧重时，改用 Min-Max 归一化 + 加权（Final=α·sparse+(1-α)·dense）。取舍是「稳 vs 细」。</div></details>
+        </div>
+      </section>
+
+
+      <section id="work4" data-search="工作四 解题生成 幻觉治理 唯一数据源 JSON 结构化 LaTeX 校验 Fact-Checker Self-Refinement 后过滤 评测集 幻觉类型">
+        <h2>工作四 · 解题生成、幻觉治理与质量把关</h2>
+        <div class="callout good"><strong>🎯 真实需求场景：</strong>出过一次线上事故——「模型编造了一个不存在的公式，把学生教错了」。教育场景对正确率的容忍度极低，讲错一步就是事故。所以这一环的核心不是「讲得多漂亮」，而是「<strong>可溯源、可校验、错了能拦住</strong>」。</div>
+        <div class="flow"><span>检索命中内容</span><b>→</b><span>约束生成（唯一数据源）</span><b>→</b><span>公式校验</span><b>→</b><span>事实核查</span><b>→</b><span>过关 / 自我修正 / 转人工</span></div>
+        <h3>我做了什么（治幻觉三板斧）</h3>
+        <div class="grid-3">
+          <div class="mini"><strong>唯一数据源</strong><br>解题只能引用检索到的原题与知识点，不许模型自由发挥、凭记忆编。</div>
+          <div class="mini"><strong>结构化 + 公式校验</strong><br>强制模型按固定结构输出（步骤、公式、答案分字段），公式逐项校验 LaTeX 能否正常渲染。</div>
+          <div class="mini"><strong>事实核查 + 兜底</strong><br>对生成结果打置信度，低于阈值触发自我修正重试，仍不过关就转人工，绝不硬输出。</div>
+        </div>
+        <h4>先把幻觉分类，再对症下药</h4>
+        <table>
+          <thead><tr><th>幻觉类型</th><th>例子</th><th>主要拦截手段</th></tr></thead>
+          <tbody>
+            <tr><td>无中生有</td><td>编造一个不存在的「定理/公式」</td><td>唯一数据源约束 + 事实核查（比对检索材料里有没有这条依据）</td></tr>
+            <tr><td>张冠李戴</td><td>把别的题的解法套到这道题</td><td>唯一数据源 + 精排保证注入的是真原题（见工作三场景③）</td></tr>
+            <tr><td>计算错误</td><td>推导步骤算错数</td><td>结构化输出分步 + 代入验算 / 符号计算校验</td></tr>
+            <tr><td>格式错误</td><td>LaTeX 渲染失败、字段缺失</td><td>渲染校验 + Schema 校验，失败即触发重试</td></tr>
+          </tbody>
+        </table>
+
+        <div class="case">
+          <div class="case-title">场景④ · 讲解里公式渲染失败、还编了个「定理」　<small>Fact-Checker + Self-Refinement</small></div>
+          <div class="case-body">
+            <div class="row"><div class="lbl">场景</div><div>模型生成的解题步骤里：① 有一行 LaTeX <code>\\frac{-b}{2a</code> 少了个花括号，前端<strong>渲染失败变乱码</strong>；② 结尾还写了「根据<strong>韦达差值定理</strong>可得…」——这个定理压根不存在。</div></div>
+            <div class="row"><div class="lbl">处理流程</div><div>① <strong>格式校验</strong>：逐条把 LaTeX 送进渲染器试渲染，捕获到那行失败 → 标记 <code>render_error</code>；② <strong>事实核查</strong>：把「韦达差值定理」拿去和检索命中的知识点材料比对，材料里查无此条 → 标记 <code>unsupported_claim</code>，整体置信度被拉到阈值 0.85 以下；③ <strong>Self-Refinement</strong>：把「哪一行渲染失败、哪句缺依据」作为反馈回灌给模型，要求它只依据材料重写这两处；④ 重试通过校验后放行。</div></div>
+            <div class="row"><div class="lbl">关键决策</div><div>为什么阈值定 0.85？——在评测集上扫阈值看「漏放错误 vs 误拦正确」的 PR 曲线，0.85 是「几乎不漏放硬伤、又不过度误拦」的拐点。为什么用 Self-Refinement 而不是直接换答案？——它能在保留正确部分的前提下只修坏的那几处，改动最小。</div></div>
+            <div class="row"><div class="lbl warn">失败兜底</div><div><strong>重试上限（如 2 次）</strong>防死循环：重试仍不过关 → 不硬输出，<strong>转人工审核 / 回复「这道题我暂时不确定，帮你转给老师」</strong>。教育场景宁可不答，也不能答错。</div></div>
+          </div>
+        </div>
+
+        <h3>为什么这么做 + 关键设计</h3>
+        <table>
+          <thead><tr><th>做法</th><th>为什么</th><th>参数 / 指标</th></tr></thead>
+          <tbody>
+            <tr><td>唯一数据源约束</td><td>幻觉的根源是模型「没检索到也硬答」，锁死数据源就锁死大部分幻觉。</td><td>只允许引用检索内容。</td></tr>
+            <tr><td>置信度阈值 + 自我修正</td><td>低置信度结果直接给用户风险太高，宁可重试或转人工。</td><td>阈值 0.85（PR 曲线拐点），重试上限 2 次。</td></tr>
+            <tr><td>硬规则 + 语义后过滤</td><td>有些错误（格式、明显矛盾）用规则就能拦，不必都靠模型。</td><td>规则 + 语义双重把关。</td></tr>
+            <tr><td>建评测集</td><td>没有评测集的「优化」都是拍脑袋（详见评测体系章）。</td><td>覆盖多学科，金标准答案 + 禁止错误类型。</td></tr>
+          </tbody>
+        </table>
+        <div class="callout"><strong>成效：</strong>解题步骤正确率提升至 <strong>96%</strong>，配合缓存与上下文动态注入，单次会话 Token 成本下降约 <strong>70%</strong>。</div>
+        <h3>面试追问</h3>
+        <div class="qa">
+          <details><summary>幻觉是怎么产生的？你怎么治？</summary><div class="answer">幻觉主要来自「模型没有依据也硬答」。先把幻觉分类（无中生有 / 张冠李戴 / 计算错 / 格式错），再三板斧：唯一数据源、结构化输出 + 公式校验、事实核查打置信度低于阈值就自我修正或转人工。教育场景宁可不答也不能答错。</div></details>
+          <details><summary>Fact-Checker 的置信度阈值怎么定的？</summary><div class="answer">不是拍的。在评测集上扫不同阈值，画「漏放错误率 vs 误拦正确率」的 PR 曲线，取二者平衡的拐点（约 0.85）。阈值调高会拦得更严但误伤正确答案，调低会漏放硬伤，取决于业务对「错答」和「不答」的容忍度。</div></details>
+          <details><summary>Self-Refinement 会不会一直重试、卡死？</summary><div class="answer">设重试上限（如 2 次）＋每次都带上「具体哪里错」的结构化反馈。超限仍不过关就转人工或礼貌拒答，绝不无限循环，也绝不硬输出没通过校验的内容。</div></details>
+        </div>
+      </section>
+
+      <section id="memory" data-search="工作五 上下文 记忆 短期 长期 会话状态 学生画像 错题本 知识点掌握度 掌握度 遗忘 个性化推荐 token 预算 一元二次方程">
+        <h2>工作五 · 上下文与记忆系统设计</h2>
+        <div class="callout good"><strong>🎯 真实需求场景：</strong>两个需求推动了这块——① 学生会<strong>连续追问</strong>：「这一步为什么」「换个方法讲」，系统必须记得上一轮讲了什么、当前在讲哪道题；② 学生<strong>每天来搜题</strong>，产品希望针对他<strong>经常错的知识点</strong>优先讲得更细、推更贴合的练习。前者是「这一轮记得上一轮」（短期），后者是「越用越懂这个学生」（长期）。</div>
+        <h3>记忆系统的三层结构</h3>
+        <pre>上下文与记忆系统
+├─ 短期记忆（会话级）
+│   ├─ 会话状态：当前题目栈（正在讲哪道）、讲解进度（讲到第几步）
+│   ├─ 多轮指代消解：「这一步 / 上一题」→ 绑定题目栈里的对象
+│   └─ 滑动窗口 + 摘要压缩：对话过长时旧内容压成摘要，只留最近几轮原文
+├─ 长期记忆（用户级 / 跨会话）
+│   ├─ 学生画像：知识点掌握度、错题本、常搜学科、偏好难度
+│   └─ 去重写入：内容做指纹 + 状态锁，避免同一条记忆重复写
+└─ 上下文预算管理
+    └─ token 有限，按优先级注入：系统提示 &gt; 当前问题 &gt; 检索原题 &gt; 记忆/画像</pre>
+        <h3>三块怎么建（校招够讲的深度）</h3>
+        <div class="grid-3">
+          <div class="mini"><strong>会话状态（短期）</strong><br>维护「当前题目栈 + 讲解进度」，让追问能定位到对象；这也是工作二指代消解的数据来源。会话结束即释放。</div>
+          <div class="mini"><strong>学生画像（长期）</strong><br>为每个知识点维护一个<strong>掌握度</strong>（0~1）：答对/看懂则上调、答错/反复问则下调，并随时间缓慢「遗忘衰减」。再挂一个<strong>错题本</strong>（记录错题、错因、复习次数）。</div>
+          <div class="mini"><strong>预算与回流</strong><br>画像不是全量塞进上下文，而是<strong>按当前题的知识点检索出最相关的几条</strong>再注入（画像也当一路「召回」）。历史行为回流成个性化 boost。</div>
+        </div>
+        <div class="callout"><strong>掌握度建模（概念级，不必上重模型）：</strong>把它理解成一个随行为升降、随时间衰减的分数即可——<strong>答对/听懂 → 加分；答错/反复追问同类题 → 减分；长期不碰 → 缓慢回落</strong>。面试讲清「怎么更新、拿它干嘛（驱动个性化推荐与讲解详略）」比套公式更重要。</div>
+
+        <div class="case">
+          <div class="case-title">场景⑤ · 一节课连问 5 道一元二次方程　<small>掌握度建模 → 薄弱点识别 → 针对性推荐</small></div>
+          <div class="case-body">
+            <div class="row"><div class="lbl">场景</div><div>学生在一次会话里<strong>连续问了 5 道一元二次方程</strong>的题，其中 3 道都卡在「判别式 Δ 与根的关系」这一步反复追问。</div></div>
+            <div class="row"><div class="lbl">处理流程</div><div>① 每道题讲完，把知识点「一元二次方程-判别式」的<strong>掌握度下调</strong>（反复追问=信号弱），并写入错题本（错因：判别式符号判断）；② 触发写长期记忆（触发时机：答错 / 同类反复），做<strong>去重写入</strong>避免 5 条重复；③ 识别出「判别式」为当前薄弱点；④ 下次该生进来或本轮结束时，<strong>优先推 2~3 道判别式针对练习</strong>，并在讲解时对这一步<strong>讲得更细</strong>。</div></div>
+            <div class="row"><div class="lbl">关键决策</div><div>为什么用「反复追问」而不仅「答错」作信号？——很多学生不提交答案，追问频次是更早的困惑信号。为什么推荐要控量（2~3 道）？——避免一次压太多打击信心；难度按掌握度选「跳一跳够得着」的。</div></div>
+            <div class="row"><div class="lbl warn">失败兜底</div><div>样本太少易误判（偶尔手滑 ≠ 不会）→ 掌握度更新用<strong>平滑/多次确认</strong>，不因一次波动就打标薄弱；画像与检索<strong>解耦</strong>：即使画像判断错，也只影响推荐排序的加权，不会把错题当原题注入讲解（正确性仍由工作四的唯一数据源 + 校验兜底）。</div></div>
+          </div>
+        </div>
+
+        <h3>为什么这么做 + 关键设计</h3>
+        <table>
+          <thead><tr><th>做法</th><th>为什么</th><th>参数 / 指标</th></tr></thead>
+          <tbody>
+            <tr><td>短期会话记忆 + 题目栈</td><td>追问里的「这一步/上一题」不记住上文与当前对象就无法回答。</td><td>保留最近若干轮 + 当前题目栈，多轮追问理解准确率提升 <strong>30%</strong>。</td></tr>
+            <tr><td>滑动窗口 + 摘要压缩</td><td>对话越长全塞进去 token 越贵、噪声越多，还可能超窗。</td><td>旧内容压成摘要，Prompt token 下降约 <strong>40%</strong> 且质量不降。</td></tr>
+            <tr><td>掌握度 + 错题本</td><td>把「越用越懂学生」变成可量化的信号，驱动个性化。</td><td>掌握度随行为升降、随时间衰减；错题本记错因与复习次数。</td></tr>
+            <tr><td>画像按需检索注入</td><td>画像全量注入会挤爆上下文，且大多与当前题无关。</td><td>按当前知识点检索最相关几条，画像当一路召回。</td></tr>
+            <tr><td>去重写入</td><td>同一知识点反复写会让记忆膨胀、重复注入。</td><td>内容指纹 + 状态锁做幂等写入。</td></tr>
+          </tbody>
+        </table>
+        <div class="callout"><strong>一句话理解：</strong>短期记忆解决「这一轮听得懂上一轮」，长期记忆解决「越用越懂这个学生」；两者本质都和检索一样——<strong>把对的信息，在对的时候，用最省 token 的方式塞进上下文</strong>。</div>
+        <h3>面试追问</h3>
+        <div class="qa">
+          <details><summary>对话太长、token 要爆了怎么办？为什么用摘要而不是直接截断？</summary><div class="answer">直接截断会丢掉早期关键信息（比如最初那道题）。用滑动窗口保留最近几轮原文，更早内容让模型压成摘要保留要点，既控 token 又不丢关键上下文；摘要失败还有兜底。再配 token 预算按优先级注入。</div></details>
+          <details><summary>知识点掌握度你怎么建模、拿它干嘛？</summary><div class="answer">给每个知识点维护一个 0~1 的分：答对/听懂上调、答错/反复追问下调、长期不碰缓慢衰减。它驱动两件事：推荐（优先推薄弱点的针对练习）和讲解详略（薄弱点讲更细）。更新要平滑，避免一次波动就误判。</div></details>
+          <details><summary>长期记忆会不会把学生的错误答案当依据、导致讲错？</summary><div class="answer">不会——画像/记忆只影响推荐与加权，<strong>不作为解题的数据源</strong>。解题的正确性仍由工作四的「唯一数据源 + 公式校验 + 事实核查」保证。两条链路解耦，画像判断错顶多推荐不准，不会讲错题。</div></details>
+        </div>
+      </section>
+
+
+      <section id="deepdive" data-search="逐层拆解 topK 60 40 10 5 3 HyDE Step-back RRF Cross-Encoder MMR lambda nDCG 评测 迭代 Query理解 粗召回 精排 去冗余 幻觉 Recall bad case 归因">
+        <h2>检索漏斗逐层拆解：每层为什么这么调</h2>
+        <p>架构章讲了「60 → 40 → 10 → 5 → 3」这条漏斗，这一章回答面试官最爱追的问题——<strong>每一层的数字、阈值、参数到底怎么来的</strong>。核心永远是：在「效果、延迟、成本」之间做权衡，每个参数都能讲清为什么。</p>
+
+        <h3>① Query 理解层 —— 为什么放在最前面？</h3>
+        <div class="callout"><strong>为什么做：</strong>拍照题目常有「这道」「上一题」这类指代，或「一图多题」。不理解就直接检索，等于用一句残缺的话去查题库，后面召回再强也救不回来——它是<strong>投入产出比最高</strong>的一层。</div>
+        <div class="grid-3">
+          <div class="mini"><strong>拆解</strong><br>一张图若含多题 → 拆成 1~3 个子 query，各自独立走检索。</div>
+          <div class="mini"><strong>HyDE</strong><br>先让模型「假设写一个答案 / 相似题干」，再拿这段去做向量召回——「答案 vs 答案」的向量比「问题 vs 答案」更接近。</div>
+          <div class="mini"><strong>Step-back</strong><br>把具体题抽象成知识点（如「一元二次方程求根」），用于知识点召回。</div>
+        </div>
+        <div class="callout good"><strong>指标：</strong>复杂 / 多题场景解决率 +25%。改写要设<strong>置信度兜底</strong>——低置信度就用原始 query，避免「过度改写」导致语义漂移。</div>
+
+        <h3>② 粗召回层 —— topK 为什么是 60？</h3>
+        <p><strong>为什么两路一起：</strong>向量召回懂「语义相近」（换了说法也能找到），但对精确 token（公式符号、专有名词、题号）不敏感；BM25 正好相反，擅长精确匹配。两者互补，所以做混合召回。</p>
+        <table>
+          <thead><tr><th>topK 取值</th><th>会怎样</th></tr></thead>
+          <tbody>
+            <tr><td>太小（如 20）</td><td>正确原题可能根本没进候选，召回率上限被锁死，后面精排再强也无用。</td></tr>
+            <tr><td>太大（如 500）</td><td>Reranker 要逐对打分，延迟和成本线性上涨（Cross-Encoder 很贵）。</td></tr>
+            <tr><td><strong>60（选它）</strong></td><td>看 Recall@K 曲线：K 在 50~100 区间收益已趋平（边际递减），实战取 60，是「召回率 vs 成本」的平衡点。</td></tr>
+          </tbody>
+        </table>
+        <div class="callout"><strong>融合两法（详见 <a href="#rag">RAG 核心概念</a>）：</strong>默认 <strong>RRF</strong>（<code>score = Σ 1/(k + rank)</code>，k≈60，只看排名、最鲁棒）；需要按 query 特性动态调侧重时用 <strong>Min-Max 归一化 + 加权</strong>（<code>Final=α·sparse+(1-α)·dense</code>，α≈0.3~0.7）。融合去重后取 Top 40。</div>
+        <div class="callout good"><strong>指标：</strong>Recall@40 从 84% → 96%（BM25 + QA 子切片 + Query 改写的累计提升）。记住一句话：<strong>粗召回决定系统性能上限，精排只能逼近它、无法超越。</strong></div>
+
+        <h3>③ 精排 / 重排层 —— 为什么 40 → 10？</h3>
+        <div class="callout"><strong>为什么需要：</strong>粗召回的分数「跨路不可比、噪声多」。Cross-Encoder 把 query 和 doc 拼在一起做全程自注意力交互，判断精度远高于粗召回的「各自编码算余弦」，但很贵——不能扫全库，只能扫粗召回出来的 40 条。</div>
+        <ul>
+          <li><strong>延迟预算：</strong>Cross-Encoder 单对约几~十几 ms，40 条可批处理并行，整体控制在端到端 P99（≤1.2s）的预算内；这也是「为什么是 40 而不是 500」的硬约束。</li>
+          <li><strong>动态截断：</strong>不死取 Top-K，而是「Final 分 ≥ 0.6、最多 10、至少 2」，高置信多给、低置信宁缺毋滥。</li>
+          <li><strong>多维度加权：</strong>相关性只是一维，再叠加权威度（官方&gt;UGC）、质量分、时效性，避免「相关但低质/过时」排在前面。</li>
+        </ul>
+        <div class="callout good"><strong>指标：</strong>原题 Top-1 命中率 +18%，nDCG@10 +0.12（nDCG 衡量「越相关的排越前」，比单纯命中率更能反映排序质量）。</div>
+
+        <h3>④ 去冗余（MMR）—— 为什么 10 → 5，λ 怎么定？</h3>
+        <div class="callout"><strong>为什么做：</strong>题库里有大量「近似重复题」。若 Top 5 全是同一道题的变体，等于给模型喂了 5 份重复信息，浪费上下文窗口、推高 token 成本。</div>
+        <pre>MMR 每一步选：  argmax [ λ·相关性(d, query) − (1−λ)·max 相似度(d, 已选) ]</pre>
+        <table>
+          <thead><tr><th>λ 取值</th><th>偏向</th><th>后果</th></tr></thead>
+          <tbody>
+            <tr><td>λ → 1</td><td>只看相关性</td><td>退化成普通排序，近似重复题全进来</td></tr>
+            <tr><td>λ → 0</td><td>只看多样性</td><td>为了不重复把相关性也丢了，可能选进偏题</td></tr>
+            <tr><td><strong>λ ≈ 0.7</strong></td><td>相关为主、留一点多样</td><td>在评测集上扫 λ，看「覆盖率 vs 相关性」，0.7 附近最平衡</td></tr>
+          </tbody>
+        </table>
+        <p><strong>N 的消融（示意）：</strong>注入 Top-3 已覆盖约 9 成正确原题，Top-5 提升有限却明显增 token，Top-8 几乎不再涨——所以精排留 5、注入 3。</p>
+
+        <h3>⑤ 生成 + 幻觉治理 —— 为什么只注入 Top 3？</h3>
+        <div class="callout"><strong>为什么不把 5 条全喂进去：</strong>上下文越长，成本越高、噪声越多、越容易被无关内容带偏。经评测，Top 3 已覆盖绝大多数正确原题，性价比最高。</div>
+        <div class="grid-3">
+          <div class="mini"><strong>唯一数据源</strong><br>解题只能引用检索到的内容，不许模型自由发挥。</div>
+          <div class="mini"><strong>结构化输出</strong><br>强制 JSON（步骤、公式、答案分字段），公式 LaTeX 逐项校验能否正常渲染。</div>
+          <div class="mini"><strong>Fact-Checker</strong><br>对结果打置信度，阈值 0.85（PR 曲线拐点）——低于就触发 Self-Refinement（重试上限 2 次）或转人工。</div>
+        </div>
+        <div class="callout good"><strong>指标：</strong>解题步骤正确率 ≥ 96%。</div>
+
+        <h3>⑥ Bad case 归因 —— 出问题先定位在哪一层</h3>
+        <div class="callout warn"><strong>面试杀手锏：</strong>能按「现象 → 根因层 → 调哪里」定位 bad case，比只会背参数强得多。切忌「哪层出问题都去调精排」。</div>
+        <table>
+          <thead><tr><th>Bad case 现象</th><th>根因层</th><th>调整方向</th></tr></thead>
+          <tbody>
+            <tr><td>漏召：正确答案根本没进候选集</td><td>粗召层</td><td>回查粗召（扩 Top-K / 调融合权重 / 检查 Filter 是否过紧），<strong>别动精排</strong></td></tr>
+            <tr><td>错排：正确答案在候选里但没进 Top-K</td><td>精排层</td><td>提升相关性权重，检查多维特征是否压过了相关性</td></tr>
+            <tr><td>噪声：Top-K 混入明显不相关的题</td><td>精排层</td><td>压低截断 K 或提高分数阈值，加强难负例训练</td></tr>
+            <tr><td>冗余：Top-K 几条高度重复</td><td>重排层</td><td>调高 MMR 多样性权重（降 λ）</td></tr>
+            <tr><td>过时：排前的是旧版本题</td><td>多维度层</td><td>提升时效权重，检查版本感知检索</td></tr>
+            <tr><td>业务偏移：某类 query 持续「看似相关实则不对」</td><td>精排层</td><td>注入业务提示词或领域微调</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="eval" data-search="评测体系 评测集 指标 定义 Recall nDCG Top-1 端到端 正确率 分层评测 离线回归 可复现 迭代">
+        <h2>评测体系：把「优化」从拍脑袋变成可量化</h2>
+        <div class="callout"><strong>一句话：</strong>没有评测集的「优化」都是拍脑袋。每改一个参数（topK、λ、阈值、融合权重）都要跑评测，看指标是升是降，才敢上线。</div>
+
+        <h3>指标定义卡（每个指标量什么、在哪一层用）</h3>
+        <table>
+          <thead><tr><th>指标</th><th>量什么</th><th>怎么算（直觉）</th><th>用在哪层</th></tr></thead>
+          <tbody>
+            <tr><td>Recall@K</td><td>正确原题有没有进前 K 个候选</td><td>命中的正确题数 ÷ 应召回总数</td><td>粗召回（保「别漏」）</td></tr>
+            <tr><td>nDCG@10</td><td>相关的有没有排在前面</td><td>按位置加权的相关性得分，越靠前权重越高，再归一化</td><td>精排（保「排准」）</td></tr>
+            <tr><td>Top-1 命中率</td><td>第 1 条就是原题的比例</td><td>Top-1 命中数 ÷ 总数</td><td>精排 / 端到端体验</td></tr>
+            <tr><td>端到端正确率</td><td>最终讲解对不对</td><td>人工/金标准判定解题步骤是否正确</td><td>整链路（含生成与治理）</td></tr>
+          </tbody>
+        </table>
+
+        <h3>评测集怎么构建（可复现的关键）</h3>
+        <div class="grid-2">
+          <div class="mini"><strong>数据来源</strong><br>抽真实线上 query（覆盖各学科/年级/题型），加上人工构造的难例（公式变写法、一图多题、追问）。</div>
+          <div class="mini"><strong>标注规范</strong><br>每条标注：正确原题（金标准）、该题知识点、<strong>禁止出现的错误类型</strong>（如编造定理、算错）；标注需双人校验。</div>
+          <div class="mini"><strong>规模与版本</strong><br>固定一个带版本号的评测集（如 v1.0 共 N 条），改动只对比同一版本，保证<strong>可复现</strong>。</div>
+          <div class="mini"><strong>更新机制</strong><br>线上 bad case 定期回流补进评测集，但发版时冻结版本，避免「边改题边考试」。</div>
+        </div>
+
+        <h3>分层评测矩阵 —— 每层单独可量化</h3>
+        <table>
+          <thead><tr><th>层</th><th>主指标</th><th>离线怎么评</th></tr></thead>
+          <tbody>
+            <tr><td>Query 理解</td><td>改写前后一致性 / 拆解正确率</td><td>标注「应拆成几条、指代指谁」，比对</td></tr>
+            <tr><td>粗召回</td><td>Recall@40</td><td>金标准原题是否在 40 条内</td></tr>
+            <tr><td>精排</td><td>nDCG@10 / Top-1</td><td>金标准相关性排序对比</td></tr>
+            <tr><td>生成 + 治理</td><td>端到端正确率 / 幻觉拦截率</td><td>金标准答案 + 禁止错误类型比对</td></tr>
+          </tbody>
+        </table>
+
+        <h3>迭代路径（面试可讲的故事线）</h3>
+        <div class="flow"><span>v1 向量召回<br>Recall@40≈84%</span><b>→</b><span>v2 +BM25+融合<br>≈92%</span><b>→</b><span>v3 +改写+HyDE+子切片<br>≈96%</span><b>→</b><span>v4 +精排<br>Top-1 +18%</span><b>→</b><span>v5 +MMR+治理+缓存<br>正确率96%·成本↓70%</span></div>
+        <table>
+          <thead><tr><th>版本</th><th>做了什么</th><th>效果</th></tr></thead>
+          <tbody>
+            <tr><td>v1</td><td>只做向量召回</td><td>Recall@40 ≈ 84%，公式题老是搜不到</td></tr>
+            <tr><td>v2</td><td>加 BM25 混排 + 融合（RRF）</td><td>Recall 提到 92%（公式 / 题号精确匹配补上）</td></tr>
+            <tr><td>v3</td><td>加 Query 改写 + HyDE + QA 子切片</td><td>Recall 到 96%</td></tr>
+            <tr><td>v4</td><td>加 Cross-Encoder 精排 + 多维度</td><td>Top-1 命中 +18%、nDCG@10 +0.12</td></tr>
+            <tr><td>v5</td><td>加 MMR + 幻觉治理 + 缓存</td><td>解题正确率 96%、Token 成本 ↓约 70%、P99 ≤ 1.2s</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+
+      <section id="qa" data-search="高频面试追问 问答 面试 随机抽题">
+        <h2>高频面试追问（点「随机抽题」练手）</h2>
+        <div class="qa">
+          <details><summary>Q1：一句话讲清你的项目和你负责的部分。</summary><div class="answer">面向 K12 的拍照搜题 Agent：用户拍题，系统识题、从五百万题库检索原题与知识点、生成分步讲解、支持多轮追问。我负责把它当作一个智能体来搭，覆盖工具编排、多模态识题、混合检索、上下文与记忆、解题生成与质量把关这条完整链路。</div></details>
+          <details><summary>Q2：为什么要做成 Agent，而不是一个固定流程？</summary><div class="answer">因为分支太多：一图多题要拆、识别失败要重试、不同题要调不同工具、低置信度要转人工。固定流程表达不了这些动态决策，所以用 ReAct 让模型自主规划，再用状态机把边界框住。</div></details>
+          <details><summary>Q3：拍照搜题为什么不能只靠多模态大模型直出？</summary><div class="answer">纯直出有两个硬伤：公式和手写识别不稳定；「读懂了」不等于「查到了真实原题」，仍会编。所以把识别与作答拆开——识别把图片变成可检索的结构化问题，作答交给检索增强保证可溯源。</div></details>
+          <details><summary>Q4：完整讲一下这条 RAG 链路，60→40→10→5→3 是什么？</summary><div class="answer">双路各召回 Top-60（向量+BM25）→ 融合去重取 40 → Cross-Encoder 精排取 10（动态截断）→ MMR 去冗余取 5 → 注入 3 条给生成。前面便宜多召回保上限，后面贵模型精挑排准。</div></details>
+          <details><summary>Q5：向量召回和 BM25 各解决什么？举个例子。</summary><div class="answer">向量懂语义：「f(x)=x²+2x+1 求导」能召回题库里的「f(x)=(x+1)² 求 f′(3)」；BM25 擅长精确匹配：「第 38 页第 3 题」「∮ 符号」这类。两者互补，用 RRF 融合。</div></details>
+          <details><summary>Q6：融合为什么用 RRF？和加权归一化怎么选？</summary><div class="answer">RRF 只看排名、无需归一化，对两路量纲不一的分数最鲁棒、少调参，所以默认用它；当要按 query 偏精确/偏语义动态调侧重时，改用 Min-Max 归一化 + 加权（α）。取舍是「稳 vs 细」。</div></details>
+          <details><summary>Q7：Cross-Encoder 为什么准、为什么贵？和双塔啥区别？</summary><div class="answer">双塔（Bi-Encoder）query 和 doc 各自编码再算距离，无交互，快但粗，用于召回；Cross-Encoder 把两者拼一起做全程自注意力交互，精度高但每对都要一次前向，很贵，只能处理粗召回筛出的几十条。</div></details>
+          <details><summary>Q8：HyDE、Step-back、QA 子切片分别解决什么？</summary><div class="answer">HyDE：先假想写答案再检索，让「答案 vs 答案」更近；Step-back：把具体题抽象成知识点做泛化召回；QA 子切片：离线为题库切片生成「用户可能会问的问题」入库，让「问题 vs 问题」匹配。三者都是提召回。</div></details>
+          <details><summary>Q9：MMR 的 λ 怎么定？topK 每层怎么定？</summary><div class="answer">都靠评测集扫参：λ≈0.7（相关为主、留点多样，看覆盖率 vs 相关性曲线）；每路召回 60（Recall@K 拐点）、融合 40、精排动态截断到个位数、注入 3（覆盖率消融）。核心是「效果 vs 延迟成本」权衡。</div></details>
+          <details><summary>Q10：多轮对话太长、token 要爆了怎么办？</summary><div class="answer">滑动窗口保留最近几轮原文 + 旧内容压成摘要（不直接截断，免得丢最初的题），再按 token 预算优先级注入：系统提示 &gt; 当前问题 &gt; 检索原题 &gt; 记忆/画像。</div></details>
+          <details><summary>Q11：短期记忆、长期记忆、知识点掌握度是什么关系？</summary><div class="answer">短期是会话级（题目栈+指代消解），解决「记得上一轮」；长期是用户级画像（掌握度+错题本），解决「越用越懂学生」，驱动个性化推荐与讲解详略。掌握度随行为升降、随时间衰减。</div></details>
+          <details><summary>Q12：幻觉怎么治？置信度阈值 0.85 怎么来的？</summary><div class="answer">先分类（无中生有/张冠李戴/计算错/格式错），再三板斧：唯一数据源、结构化+公式校验、Fact-Checker 打分。阈值在评测集上扫 PR 曲线取「漏放 vs 误拦」平衡拐点，约 0.85；低于阈值触发 Self-Refinement（上限 2 次）或转人工。</div></details>
+          <details><summary>Q13：线上出了 bad case，你怎么定位？</summary><div class="answer">按现象归因到层：漏召→查粗召回（别动精排）；错排/噪声→精排；冗余→调 MMR 的 λ；过时→时效权重；某类持续偏→业务提示词或微调。先定位再调，切忌哪出问题都去动精排。</div></details>
+          <details><summary>Q14：你怎么证明优化真的有效？</summary><div class="answer">靠带版本的评测集：分层评（Recall@40/nDCG@10/Top-1/端到端正确率），每改一个参数跑一遍对比同版本，线上 bad case 回流补题但发版冻结版本，保证可复现。</div></details>
+        </div>
+      </section>
+
+      <section id="pitfalls" data-search="易错点 陷阱 不要说 应该说 误区">
+        <h2>答题易错点：面试官很可能继续追</h2>
+        <div class="grid-2">
+          <div class="mini"><span class="tag">不要说</span>「Agent 就是让大模型自动干活。」<br><span class="tag">应该说</span>模型做大脑、工具做手脚、编排框边界，我负责工具和编排这层。</div>
+          <div class="mini"><span class="tag">不要说</span>「检索就是查数据库。」<br><span class="tag">应该说</span>是向量 + 关键词双路召回、融合、精排、去冗余的多级漏斗。</div>
+          <div class="mini"><span class="tag">不要说</span>「topK / λ 我随便设的。」<br><span class="tag">应该说</span>在评测集上扫参、看曲线拐点定的，能讲清每个数为什么。</div>
+          <div class="mini"><span class="tag">不要说</span>「融合就是把两路分数加起来。」<br><span class="tag">应该说</span>两路分数不可比，用 RRF 按排名融合（或先归一化再加权）。</div>
+          <div class="mini"><span class="tag">不要说</span>「Cross-Encoder 又准就拿它扫全库。」<br><span class="tag">应该说</span>它逐对交互太贵，只能精排粗召回筛出的几十条，召回得用双塔。</div>
+          <div class="mini"><span class="tag">不要说</span>「上下文压缩就是删旧消息。」<br><span class="tag">应该说</span>滑动窗口保留近几轮 + 旧内容摘要，按 token 预算分优先级。</div>
+          <div class="mini"><span class="tag">不要说</span>「记忆就是把历史全存下来。」<br><span class="tag">应该说</span>短期会话记忆和长期画像分开，按需检索注入、写入去重、有触发时机。</div>
+          <div class="mini"><span class="tag">不要说</span>「模型不会说错，正确率很高。」<br><span class="tag">应该说</span>用唯一数据源 + 校验 + Fact-Checker 兜底，低置信度宁可转人工。</div>
+        </div>
+        <h3>可以主动反问面试官的问题</h3>
+        <ol>
+          <li>这个岗位偏「智能体应用开发」（搭产品链路），还是偏「算法/数据」（做检索、评测、数据）？我两块都能聊，但想知道侧重点。</li>
+          <li>你们的 Agent 更接近固定 workflow 的应用侧，还是通用型 Agent？编排框架是自研还是用 LangGraph 这类？</li>
+          <li>线上对「正确率」和「延迟/成本」哪个更敏感？这决定了检索漏斗和模型选型的取舍。</li>
+        </ol>
+      </section>
+
+      <section id="cheatsheet" data-search="指标 术语 速查 topK 阈值 参数 名词解释 HyDE Step-back Cross-Encoder Bi-Encoder MMR nDCG RRF QA子切片">
+        <h2>指标与术语速查</h2>
+        <h3>检索漏斗关键参数</h3>
+        <table>
+          <thead><tr><th>环节</th><th>输入</th><th>输出</th><th>关键点</th></tr></thead>
+          <tbody>
+            <tr><td>Query 理解</td><td>1 张照片</td><td>1~3 个子问题 + 结构化字段</td><td>拆解 + 指代消解 + 低置信度兜底</td></tr>
+            <tr><td>语义 / 关键词召回</td><td>子问题</td><td>各前 60</td><td>Recall 收益拐点，保「别漏」</td></tr>
+            <tr><td>融合排序</td><td>60 + 60</td><td>前 40</td><td>RRF（k=60）或归一化+加权（α）</td></tr>
+            <tr><td>精排重排</td><td>40</td><td>前 10（动态截断）</td><td>Cross-Encoder，分≥0.6、最多10、至少2</td></tr>
+            <tr><td>去冗余</td><td>10</td><td>前 5</td><td>MMR，λ≈0.7</td></tr>
+            <tr><td>注入生成</td><td>5</td><td>前 3</td><td>唯一数据源 + 校验 + Fact-Checker(0.85)</td></tr>
+          </tbody>
+        </table>
+        <h3>核心成效（教学示意值）</h3>
+        <p>
+          <span class="score">工具调用准确率 92%</span>&nbsp;
+          <span class="score">复杂场景检索解决率 +25%</span>&nbsp;
+          <span class="score">原题命中率 +18%</span>&nbsp;
+          <span class="score">多轮追问理解 +30%</span>&nbsp;
+          <span class="score">解题正确率 96%</span>&nbsp;
+          <span class="score">会话 Token 成本 -70%</span>
+        </p>
+        <h3>术语速查</h3>
+        <table>
+          <thead><tr><th>术语</th><th>一句话解释</th></tr></thead>
+          <tbody>
+            <tr><td>ReAct</td><td>让模型「思考→行动→观察→再思考」循环，自主决定调哪个工具。</td></tr>
+            <tr><td>Function Calling</td><td>把外部能力封装成带固定入参出参的工具，供模型按需调用。</td></tr>
+            <tr><td>RAG（检索增强）</td><td>先检索真实资料，再让模型基于资料作答，减少编造。</td></tr>
+            <tr><td>Bi-Encoder（双塔）</td><td>query 和 doc 各自编码成向量再算距离，快，用于召回。</td></tr>
+            <tr><td>Cross-Encoder（交叉）</td><td>query 和 doc 拼一起联合打分，准但贵，用于精排。</td></tr>
+            <tr><td>BM25 / 关键词检索</td><td>基于词频的精确匹配检索，擅长公式符号、专有名词。</td></tr>
+            <tr><td>RRF 融合</td><td>只看排名不看分数的融合法（Σ 1/(k+rank)），解决多路分数不可比。</td></tr>
+            <tr><td>加权归一化融合</td><td>各路分数 Min-Max 归一化后按 α 加权，保留分数强弱。</td></tr>
+            <tr><td>HyDE</td><td>先让 LLM 假想写答案，再拿它做向量召回（答案 vs 答案更近）。</td></tr>
+            <tr><td>Step-back</td><td>把具体题抽象成知识点，做泛化召回。</td></tr>
+            <tr><td>QA 子切片</td><td>离线为题库切片生成「可能被问的问题」入库，问题 vs 问题匹配。</td></tr>
+            <tr><td>MMR</td><td>相关性与多样性平衡（λ），去掉近似重复结果。</td></tr>
+            <tr><td>nDCG@K</td><td>按位置加权的相关性得分，衡量「越相关越靠前」的排序质量。</td></tr>
+            <tr><td>指代消解</td><td>把「这道题」「上一步」还原成它具体指的对象。</td></tr>
+            <tr><td>Fact-Checker / Self-Refinement</td><td>对结果打置信度，低于阈值就自我修正重试或转人工，不硬输出。</td></tr>
+          </tbody>
+        </table>
+        <div class="callout warn"><strong>使用声明：</strong>本课件为校招教学参考示例，所有数字均为示意值，用于说明 AI Agent 应用开发岗的工作结构与讲解方式；正式用于简历或面试前，请务必替换为你自己项目的真实经历与测量数据。</div>
+      </section>
+
+      <footer>Agent 开发校招辅导课件 · 拍照搜题 Agent 案例 · 教学参考示例（数字为示意值）</footer>
+    </main>
+  </div>
+  <script>
+    (() => {
+      const doc = document.getElementById('document');
+      const layout = document.querySelector('.layout');
+      const brand = document.querySelector('.brand');
+      const editBtn = document.getElementById('editBtn');
+      const saveBtn = document.getElementById('saveBtn');
+      const exportBtn = document.getElementById('exportBtn');
+      const pdfBtn = document.getElementById('pdfBtn');
+      const addSectionBtn = document.getElementById('addSectionBtn');
+      const addTocBtn = document.getElementById('addTocBtn');
+      const resetBtn = document.getElementById('resetBtn');
+      const randomBtn = document.getElementById('randomBtn');
+      const search = document.getElementById('search');
+      const storageKey = 'photo-search-agent-coaching-v2';
+      let editing = false;
+
+      const editableNodes = () => [
+        brand,
+        ...Array.from(layout.querySelectorAll('h1,h2,h3,h4,p,li,td,th,.mini,.callout,.hero-note,.answer,.flow span,.flow b,.eyebrow,.qa summary,.resume,.case-title,.case-body .row>div:last-child,footer,aside h2,aside a')),
+      ];
+      function setEditing(value) {
+        editing = value;
+        editableNodes().forEach((node) => node.setAttribute('contenteditable', String(value)));
+        editBtn.textContent = value ? '完成编辑' : '开启编辑';
+        editBtn.setAttribute('aria-pressed', String(value));
+      }
+      function serializeDocument() {
+        const snapshot = layout.cloneNode(true);
+        snapshot.querySelectorAll('.hidden').forEach((node) => node.classList.remove('hidden'));
+        snapshot.querySelectorAll('[contenteditable]').forEach((node) => node.removeAttribute('contenteditable'));
+        return JSON.stringify({ layout: snapshot.innerHTML, brand: brand.innerHTML });
+      }
+      function saveDraft() {
+        localStorage.setItem(storageKey, serializeDocument());
+        saveBtn.textContent = '已保存';
+        setTimeout(() => { saveBtn.textContent = '保存草稿'; }, 1400);
+      }
+      function restoreDraft() {
+        const saved = localStorage.getItem(storageKey);
+        if (!saved) return;
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.layout) layout.innerHTML = parsed.layout;
+          if (parsed.brand) brand.innerHTML = parsed.brand;
+        } catch {
+          doc.innerHTML = saved;
+        }
+      }
+      function exportHtml() {
+        const clone = document.documentElement.cloneNode(true);
+        clone.querySelectorAll('.hidden').forEach((node) => node.classList.remove('hidden'));
+        clone.querySelectorAll('[contenteditable]').forEach((node) => node.removeAttribute('contenteditable'));
+        const html = '<!doctype html>\n' + clone.outerHTML;
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const stamp = new Date().toISOString().slice(0, 10);
+        link.href = url;
+        link.download = 'photo-search-agent-coaching-' + stamp + '.html';
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      function exportPdf() {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+          window.print();
+          return;
+        }
+        const clone = document.documentElement.cloneNode(true);
+        clone.querySelectorAll('.hidden').forEach((node) => node.classList.remove('hidden'));
+        clone.querySelectorAll('.topbar, aside, script').forEach((node) => node.remove());
+        clone.querySelectorAll('[contenteditable]').forEach((node) => node.removeAttribute('contenteditable'));
+        const printStyle = '<style>@page { margin: 12mm; } body { background: #fff; } main { padding: 0; }</style>';
+        const html = '<!doctype html>\n' + clone.outerHTML.replace('</head>', printStyle + '</head>');
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.document.title = 'Agent 开发校招辅导课件';
+        printWindow.addEventListener('afterprint', () => printWindow.close(), { once: true });
+        window.setTimeout(() => {
+          printWindow.focus();
+          printWindow.print();
+        }, 150);
+      }
+      function addSection() {
+        const title = prompt('请输入新章节标题：', '新章节');
+        if (title === null) return;
+        const cleanTitle = title.trim() || '新章节';
+        const index = document.querySelectorAll('section[id^="custom-section-"]').length + 1;
+        const id = 'custom-section-' + index;
+        const section = document.createElement('section');
+        section.id = id;
+        section.dataset.search = cleanTitle;
+        section.innerHTML = '<h2>' + escapeHtml(cleanTitle) + '</h2>'
+          + '<p>在这里填写本章节的核心结论、真实需求场景与关键取舍。</p>'
+          + '<h3>面试问题</h3>'
+          + '<div class="qa"><details open><summary>这里放一个面试问题</summary><div class="answer">这里填写参考回答、关键边界和可能的追问。</div></details></div>';
+        const footer = doc.querySelector('footer');
+        doc.insertBefore(section, footer);
+        const link = document.createElement('a');
+        link.href = '#' + id;
+        link.textContent = cleanTitle;
+        document.querySelector('aside nav').appendChild(link);
+        setEditing(editing);
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      function escapeHtml(value) {
+        const node = document.createElement('div');
+        node.textContent = value;
+        return node.innerHTML;
+      }
+      function filterSections(term) {
+        const query = term.trim().toLowerCase();
+        doc.querySelectorAll('section').forEach((section) => {
+          const haystack = (section.dataset.search + ' ' + section.textContent).toLowerCase();
+          section.classList.toggle('hidden', Boolean(query) && !haystack.includes(query));
+        });
+      }
+      editBtn.addEventListener('click', () => setEditing(!editing));
+      saveBtn.addEventListener('click', saveDraft);
+      exportBtn.addEventListener('click', exportHtml);
+      pdfBtn.addEventListener('click', exportPdf);
+      addSectionBtn.addEventListener('click', addSection);
+      addTocBtn.addEventListener('click', addSection);
+      resetBtn.addEventListener('click', () => {
+        if (confirm('清除本地草稿并恢复文件内的已发布内容？')) {
+          localStorage.removeItem(storageKey);
+          location.reload();
+        }
+      });
+      randomBtn.addEventListener('click', () => {
+        const items = Array.from(doc.querySelectorAll('#qa details'));
+        if (!items.length) return;
+        const picked = items[Math.floor(Math.random() * items.length)];
+        items.forEach((item) => { item.open = item === picked; });
+        picked.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+      search.addEventListener('input', (event) => filterSections(event.target.value));
+      // 打开时套用你「保存草稿」过的内容；想回到文件原始版本点顶栏「恢复已发布版」
+      restoreDraft();
+      setEditing(false);
+    })();
+  </script>
+
+</body></html>
