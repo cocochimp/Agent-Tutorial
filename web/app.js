@@ -72,31 +72,26 @@ async function detectModeAndRestore() {
 $('login').onclick = async () => {
   const username = $('username').value.trim();
   const password = $('password').value;
-  if (staticMode) {
-    // 主账号优先（永不过期）
-    if (username === STATIC_ACCOUNT.username && password === STATIC_ACCOUNT.password) {
-      localStorage.setItem('agent_tutorial_login', '1');
-      loggedIn({user_id: STATIC_ACCOUNT.username, role: 'master'});
-      return;
-    }
-    // 子账号：拉取随站点发布的加密数据文件校验
-    try {
-      const r = await fetch('static/sub-accounts.json', {cache: 'no-store'});
-      if (!r.ok) throw new Error('fetch');
-      const data = await r.json();
-      const result = await verifySubAccount(username, password, data.accounts || []);
-      if (result.status === 'ok') {
-        localStorage.setItem('agent_tutorial_login', '1');
-        loggedIn({user_id: username, role: 'student'});
-        return;
-      }
-      if (result.status === 'expired') { error({message: '账号已过期，请联系管理员重新开通'}); return; }
-    } catch (e) { /* 数据文件拉取失败 → 落到统一错误提示 */ }
-    error({message: '账号或密码错误'});
+  // 主账号优先（写死比对，永不过期；本地与 Pages 行为一致）
+  if (username === STATIC_ACCOUNT.username && password === STATIC_ACCOUNT.password) {
+    if (staticMode) localStorage.setItem('agent_tutorial_login', '1');
+    loggedIn({user_id: STATIC_ACCOUNT.username, role: 'master'});
     return;
   }
-  try { loggedIn(await post('/api/login', {username, password})); }
-  catch (e) { error(e); }
+  // 子账号：前端遍历哈希校验 + 过期（与部署模式无关，拉取随站点发布的加密数据文件）
+  try {
+    const r = await fetch('static/sub-accounts.json', {cache: 'no-store'});
+    if (!r.ok) throw new Error('fetch');
+    const data = await r.json();
+    const result = await verifySubAccount(username, password, data.accounts || []);
+    if (result.status === 'ok') {
+      if (staticMode) localStorage.setItem('agent_tutorial_login', '1');
+      loggedIn({user_id: username, role: 'student'});
+      return;
+    }
+    if (result.status === 'expired') { error({message: '账号已过期，请联系管理员重新开通'}); return; }
+  } catch (e) { /* 数据文件拉取失败 → 落到统一错误提示 */ }
+  error({message: '账号或密码错误'});
 };
 $('logout').onclick = async () => {
   if (staticMode) localStorage.removeItem('agent_tutorial_login');
