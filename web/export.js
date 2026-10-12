@@ -118,10 +118,6 @@
   <button id="btn-save" class="primary" onclick="saveHtml()">💾 保存导出</button>
 </div>
 <div class="page" style="padding-top:60px">
-  <div class="page-head">
-    <h1>${esc(title)}</h1>
-    <p>导出自教学网站 · 点右上角「编辑」可修改内容，改完点「保存导出」下载新版本</p>
-  </div>
   ${body}
   <div class="foot">导出于豆包 · 学员教学网站</div>
 </div>
