@@ -4,7 +4,8 @@
 GitHub Pages 无法运行 FastAPI 后端，教学站需以纯静态方式发布。
 本脚本把 web/ 目录转换为 Pages 兼容结构（site_pages/）：
 - web/index.html            -> site_pages/index.html
-- web/ 其余所有文件         -> site_pages/static/（保持 /static/* 引用不变）
+- web/ 其余所有文件/目录    -> site_pages/static/（保持 /static/* 引用不变；
+                              web/projects/ 递归复制为 static/projects/）
 
 这样 index.html 中的 /static/style.css、/static/*.js、/static/*.json
 等绝对路径在 Pages 上直接成立；本地 FastAPI 的 /static 挂载不受影响。
@@ -31,7 +32,13 @@ def main() -> None:
     copied = 0
     for name in sorted(os.listdir(WEB)):
         src = os.path.join(WEB, name)
-        if name == "index.html" or not os.path.isfile(src):
+        if name == "index.html":
+            continue
+        if os.path.isdir(src):
+            shutil.copytree(src, os.path.join(STATIC, name))
+            copied += 1
+            continue
+        if not os.path.isfile(src):
             continue
         shutil.copy2(src, os.path.join(STATIC, name))
         copied += 1
