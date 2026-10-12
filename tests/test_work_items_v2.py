@@ -1,7 +1,7 @@
 import json
 import pytest
 
-WEB = 'web'
+WEB = 'web/projects/estate-agent'
 
 
 @pytest.fixture(scope='module')

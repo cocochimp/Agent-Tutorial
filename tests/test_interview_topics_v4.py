@@ -1,6 +1,6 @@
 import json
 
-WEB = 'web'
+WEB = 'web/projects/estate-agent'
 
 
 def load():
@@ -8,19 +8,26 @@ def load():
         return json.load(f)
 
 
-def test_five_topics_and_counts():
+def test_project_and_recording_topics():
     data = load()
     ids = [t['id'] for t in data['topics']]
-    assert ids == ['project', 'recording', 'agent', 'rag', 'llm']
+    assert ids == ['project', 'recording']
+    proj = next(t for t in data['topics'] if t['id'] == 'project')
+    assert proj['groups'] and len(proj['groups']) == 5
+    for g in proj['groups']:
+        assert len(g['questions']) >= 10, g['id']
+    rec = next(t for t in data['topics'] if t['id'] == 'recording')
+    assert 'questions' in rec
+
+
+def test_common_eight_legs():
+    """八股（agent/rag/llm）在共享文件，各 ≥20 题。"""
+    with open('web/static/interview-common.json', encoding='utf-8') as f:
+        data = json.load(f)
+    ids = [t['id'] for t in data['topics']]
+    assert ids == ['agent', 'rag', 'llm']
     for t in data['topics']:
-        if t['id'] == 'project':
-            assert t['groups'] and len(t['groups']) == 5
-            for g in t['groups']:
-                assert len(g['questions']) >= 10, g['id']
-        else:
-            assert 'questions' in t
-            if t['id'] != 'recording':
-                assert len(t['questions']) >= 20, t['id']
+        assert len(t['questions']) >= 20, t['id']
 
 
 def test_question_shape():

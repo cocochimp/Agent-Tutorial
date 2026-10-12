@@ -1,0 +1,15 @@
+{
+  "version": "1.0",
+  "projects": [
+    {
+      "id": "estate-agent",
+      "name": "房产经纪经营AI",
+      "tagline": "经营分析 Agent · RAG · Tool Calling · LangGraph"
+    },
+    {
+      "id": "photo-q",
+      "name": "拍照搜题Agent",
+      "tagline": "Agent 编排 · 多模态 · 混合检索 · 解题生成"
+    }
+  ]
+}

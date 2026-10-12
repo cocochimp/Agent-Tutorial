@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 def test_handbook_present_and_complete():
-    h = Path('web/handbook.html').read_text(encoding='utf-8')
+    h = Path('web/projects/estate-agent/handbook.html').read_text(encoding='utf-8')
     assert len(re.findall(r'<section ', h)) == 22
     assert '<section ' in h and 'id="work1"' in h and 'id="cheatsheet"' in h
     assert 'contenteditable' in h  # 可编辑能力
@@ -21,7 +21,7 @@ from pathlib import Path
 
 
 def test_graph_json_present_and_valid():
-    d = json.loads(Path('web/graph.json').read_text(encoding='utf-8'))
+    d = json.loads(Path('web/projects/estate-agent/graph.json').read_text(encoding='utf-8'))
     assert 'svg' in d and len(d['svg']) > 5000
     assert d['svg'].count('data-node') >= 15
     assert '<svg' in d['svg'] and 'data-node' in d['svg']
