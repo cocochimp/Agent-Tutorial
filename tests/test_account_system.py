@@ -41,15 +41,17 @@ def generate_id(i, date='20261012'):
 
 
 def verify(account, password, accounts, now_ms):
-    """登录校验：主账号优先；子账号哈希比对 + 过期优先。返回 'master'/'student'/False。"""
+    """登录校验：主账号优先；子账号遍历各条目哈希匹配 + 过期优先。
+
+    数据文件不存账号名（字段白名单无 account），登录时对每个条目用其
+    salt 计算 hash(输入账号:输入密码) 比对。返回 'master'/'student'/False。
+    """
     if account == 'chaoyang' and password == 'demo-chaoyang':
         return 'master'
     for a in accounts:
-        if a.get('account') != account:
-            continue
         salt = a['hash'].split('$')[1]
         if a['hash'] != hash_of(account, password, salt):
-            return False
+            continue
         if now_ms >= a['expiresAt']:
             return False
         return 'student'
@@ -119,19 +121,22 @@ def test_batch_ids_unique_and_never_master_name():
 def test_verify_student_uses_hash_and_expiry():
     salt = 'b' * 32
     created = 1730000000000
-    acc = {'id': 'stu-001', 'account': 'stu_abc1',
+    acc = {'id': 'stu-001', 'note': '',
            'hash': hash_of('stu_abc1', 'Passw0rd!', salt),
            'createdAt': created, 'expiresAt': created + 60 * 86400000}
     assert verify('stu_abc1', 'Passw0rd!', [acc], now_ms=created + 10 * 86400000) == 'student'
     assert verify('stu_abc1', 'wrong', [acc], now_ms=created + 10 * 86400000) is False
     assert verify('stu_abc1', 'Passw0rd!', [acc], now_ms=created + 61 * 86400000) is False
+    # 数据文件无 account 字段：账号名也不落盘
+    assert 'account' not in acc and 'password' not in acc
 
 
 def test_master_account_never_expires_and_wins_over_student_same_name():
     assert verify('chaoyang', 'demo-chaoyang', [], now_ms=10 ** 15) == 'master'
-    acc = {'id': 'stu-001', 'account': 'chaoyang', 'hash': hash_of('chaoyang', 'x', 'c' * 32),
+    salt = 'c' * 32
+    acc = {'id': 'stu-001', 'note': '', 'hash': hash_of('chaoyang', 'x', salt),
            'createdAt': 1, 'expiresAt': 2}
-    # 即使子账号列表里有同名 chaoyang，主账号凭证也优先
+    # 即使子账号列表里有同名 chaoyang 的哈希，主账号凭证也优先
     assert verify('chaoyang', 'demo-chaoyang', [acc], now_ms=10 ** 15) == 'master'
 
 

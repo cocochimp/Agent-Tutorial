@@ -23,9 +23,10 @@ $('nav-interview').onclick = () => showView('interview');
 
 function loggedIn(user){
   document.body.classList.remove('logged-out');
-  $('who').textContent = user.user_id + ' · 学员';
+  $('who').textContent = user.user_id + (user.role === 'master' ? ' · 管理员' : ' · 学员');
   $('login-card').hidden = true;
   $('logout').hidden = false;
+  $('create-account-btn').hidden = user.role !== 'master';
   showView('guide');
   loadProjects();
   if (window.Guide) window.Guide.init();
@@ -34,10 +35,25 @@ function loggedIn(user){
 }
 
 // —— Pages 静态模式支持 ——
-// GitHub Pages 无法运行 FastAPI 后端，登录改为前端校验（账号密码与本地 accounts.json 一致）。
+// GitHub Pages 无法运行 FastAPI 后端，登录改为前端校验（主账号写死 + 子账号哈希比对）。
 // 后端模式（本地部署）：走真实 /api/login 会话；静态模式（Pages）：前端比对后本地标记登录。
 const STATIC_ACCOUNT = {username: 'chaoyang', password: 'demo-chaoyang'};
 let staticMode = false;
+
+async function verifySubAccount(account, password, accounts) {
+  // 数据文件不存账号名：遍历各条目，用条目 salt 计算 hash(输入账号:输入密码) 比对
+  for (const a of accounts) {
+    const parts = String(a.hash || '').split('$');
+    if (parts.length !== 3) continue;
+    const salt = parts[1];
+    const h = await window.Accounts.hashOf(account, password, salt);
+    if (h === a.hash) {
+      if (Date.now() >= a.expiresAt) return {status: 'expired'};
+      return {status: 'ok'};
+    }
+  }
+  return {status: 'notfound'};
+}
 
 async function detectModeAndRestore() {
   try {
@@ -45,11 +61,11 @@ async function detectModeAndRestore() {
     if (r.status === 404) { staticMode = true; }          // 无后端（Pages）
     else {
       const value = await r.json();
-      if (value && value.user) { loggedIn(value.user); return; }
+      if (value && value.user) { loggedIn(Object.assign({role: 'master'}, value.user)); return; }
     }
   } catch (e) { staticMode = true; }
   if (staticMode && localStorage.getItem('agent_tutorial_login') === '1') {
-    loggedIn({user_id: STATIC_ACCOUNT.username});
+    loggedIn({user_id: STATIC_ACCOUNT.username, role: 'master'});
   }
 }
 
@@ -57,12 +73,26 @@ $('login').onclick = async () => {
   const username = $('username').value.trim();
   const password = $('password').value;
   if (staticMode) {
+    // 主账号优先（永不过期）
     if (username === STATIC_ACCOUNT.username && password === STATIC_ACCOUNT.password) {
       localStorage.setItem('agent_tutorial_login', '1');
-      loggedIn({user_id: STATIC_ACCOUNT.username});
-    } else {
-      error({message: '账号或密码错误'});
+      loggedIn({user_id: STATIC_ACCOUNT.username, role: 'master'});
+      return;
     }
+    // 子账号：拉取随站点发布的加密数据文件校验
+    try {
+      const r = await fetch('static/sub-accounts.json', {cache: 'no-store'});
+      if (!r.ok) throw new Error('fetch');
+      const data = await r.json();
+      const result = await verifySubAccount(username, password, data.accounts || []);
+      if (result.status === 'ok') {
+        localStorage.setItem('agent_tutorial_login', '1');
+        loggedIn({user_id: username, role: 'student'});
+        return;
+      }
+      if (result.status === 'expired') { error({message: '账号已过期，请联系管理员重新开通'}); return; }
+    } catch (e) { /* 数据文件拉取失败 → 落到统一错误提示 */ }
+    error({message: '账号或密码错误'});
     return;
   }
   try { loggedIn(await post('/api/login', {username, password})); }
