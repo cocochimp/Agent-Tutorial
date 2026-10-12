@@ -18,13 +18,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 守卫：仅处理发布单；非管理员提交的发布单直接忽略并关闭
+      # 识别发布单（body 为合法账号数据 JSON）+ 管理员守卫；普通 issue 直接忽略
       - name: Guard
+        id: guard
         env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "${{ github.event.issue.title }}" != "ACCOUNTS-PUBLISH" ]; then
-            echo "非发布单，忽略。"
+          IS_PUBLISH=$(python3 -c "
+import json,sys
+try:
+    d=json.loads(sys.stdin.read())
+    ok=isinstance(d,dict) and d.get('version')==2 and isinstance(d.get('accounts'),list)
+except Exception:
+    ok=False
+print('yes' if ok else 'no')
+" <<< "$ISSUE_BODY")
+          echo "is_publish=$IS_PUBLISH" >> "$GITHUB_OUTPUT"
+          if [ "$IS_PUBLISH" != "yes" ]; then
+            echo "非账号发布单，忽略。"
             exit 0
           fi
           if [ "${{ github.actor }}" != "cocochimp" ]; then
@@ -33,9 +45,9 @@ jobs:
             exit 0
           fi
 
-      # 校验并写入账号数据（失败则关闭发布单并退出）
+      # 校验并写入账号数据（契约校验失败则关闭发布单并退出）
       - name: Validate and write accounts
-        if: github.event.issue.title == 'ACCOUNTS-PUBLISH' && github.actor == 'cocochimp'
+        if: steps.guard.outputs.is_publish == 'yes'
         env:
           ISSUE_BODY: ${{ github.event.issue.body }}
           GH_TOKEN: ${{ github.token }}
@@ -50,7 +62,7 @@ jobs:
 
       # 提交并推送（无变更则跳过）
       - name: Commit and push
-        if: success() && github.event.issue.title == 'ACCOUNTS-PUBLISH' && github.actor == 'cocochimp'
+        if: success() && steps.guard.outputs.is_publish == 'yes'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -65,7 +77,7 @@ jobs:
 
       # 收尾：关闭发布单
       - name: Close issue
-        if: always() && github.event.issue.title == 'ACCOUNTS-PUBLISH' && github.actor == 'cocochimp'
+        if: always() && steps.guard.outputs.is_publish == 'yes'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
