@@ -212,7 +212,7 @@
   window.Export = {
     async guide() {
       // 导出「完整实习复盘手册」：原样输出手册副本（正文可编辑），学员可下载后自定义项目内容。
-      const r = await fetch('projects/' + pid() + '/handbook.html', {cache: 'no-cache'});
+      const r = await fetch('static/projects/' + pid() + '/handbook.html', {cache: 'no-cache'});
       if (!r.ok) throw new Error('手册数据加载失败');
       const html = await r.text();
       download(html, (projectName() ? projectName() + '_' : '') + '实习复盘手册.html');
@@ -220,7 +220,7 @@
     workItem() {
       const item = window.Teaching && window.Teaching.getCurrent();
       if (!item) return;
-      const r = fetch('projects/' + pid() + '/tutorial-data.json', {cache: 'no-cache'});
+      const r = fetch('static/projects/' + pid() + '/tutorial-data.json', {cache: 'no-cache'});
       r.then(res => res.ok ? res.json() : {files: {}}).then(({files}) => {
         download(shell(item.title + ' · 学习页', workBody(item, files)), nameOf(item));
       });
@@ -231,7 +231,7 @@
       if (!t) return;
       const catName = t.title;
       const [proj, common] = await Promise.all([
-        fetch('projects/' + pid() + '/interview-topics.json', {cache: 'no-cache'}).then(r => r.ok ? r.json() : {topics: []}),
+        fetch('static/projects/' + pid() + '/interview-topics.json', {cache: 'no-cache'}).then(r => r.ok ? r.json() : {topics: []}),
         fetch('static/interview-common.json', {cache: 'no-cache'}).then(r => r.ok ? r.json() : {topics: []})
       ]);
       const topic = [...(proj.topics || []), ...(common.topics || [])].find(x => x.id === t.id);

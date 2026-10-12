@@ -13,8 +13,8 @@
 
   async function loadData() {
     const [a, b] = await Promise.all([
-      fetch('projects/' + pid() + '/work-items.json', {cache: 'no-cache'}).then(r => { if (!r.ok) throw new Error('工作项数据加载失败'); return r.json(); }),
-      fetch('projects/' + pid() + '/tutorial-data.json', {cache: 'no-cache'}).then(r => { if (!r.ok) throw new Error('教程数据加载失败'); return r.json(); })
+      fetch('static/projects/' + pid() + '/work-items.json', {cache: 'no-cache'}).then(r => { if (!r.ok) throw new Error('工作项数据加载失败'); return r.json(); }),
+      fetch('static/projects/' + pid() + '/tutorial-data.json', {cache: 'no-cache'}).then(r => { if (!r.ok) throw new Error('教程数据加载失败'); return r.json(); })
     ]);
     workItems = a.workItems || [];
     files = b.files || {};
@@ -80,7 +80,7 @@
     if (svgCache) { host.replaceChildren(svgCache); return; }
     let data = null;
     try {
-      const r = await fetch('projects/' + pid() + '/graph.json', {cache: 'no-cache'});
+      const r = await fetch('static/projects/' + pid() + '/graph.json', {cache: 'no-cache'});
       if (r.ok) data = await r.json();
     } catch (e) { /* 静态文件不可用时回退后端 */ }
     if (!data) {

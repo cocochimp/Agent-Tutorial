@@ -15,7 +15,7 @@
     if (topics) return topics;
     // 项目面试题（project/recording）按项目加载；八股题（agent/rag/llm）全局共享
     const [proj, common] = await Promise.all([
-      fetch('projects/' + pid() + '/interview-topics.json', {cache: 'no-cache'}).then(r => { if (!r.ok) throw new Error('面试题数据加载失败'); return r.json(); }),
+      fetch('static/projects/' + pid() + '/interview-topics.json', {cache: 'no-cache'}).then(r => { if (!r.ok) throw new Error('面试题数据加载失败'); return r.json(); }),
       fetch('static/interview-common.json', {cache: 'no-cache'}).then(r => r.ok ? r.json() : {topics: []})
     ]);
     topics = [...(proj.topics || []), ...(common.topics || [])];

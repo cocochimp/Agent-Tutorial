@@ -22,7 +22,7 @@ def test_project_and_recording_topics():
 
 def test_common_eight_legs():
     """八股（agent/rag/llm）在共享文件，各 ≥20 题。"""
-    with open('web/static/interview-common.json', encoding='utf-8') as f:
+    with open('web/interview-common.json', encoding='utf-8') as f:
         data = json.load(f)
     ids = [t['id'] for t in data['topics']]
     assert ids == ['agent', 'rag', 'llm']

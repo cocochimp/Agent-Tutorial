@@ -5,7 +5,7 @@ from pathlib import Path
 WEB = Path('web')
 PROJECTS = WEB / 'projects'
 ESTATE = PROJECTS / 'estate-agent'
-COMMON = WEB / 'static' / 'interview-common.json'
+COMMON = WEB / 'interview-common.json'
 
 
 def test_projects_index_registry():
@@ -63,14 +63,14 @@ def test_project_switcher_ui_and_state():
 def test_views_load_current_project():
     """三个视图按当前项目加载（projects/<pid>/ 拼接 + reload 接口 + 八股合并）。"""
     t = (WEB / 'teaching.js').read_text(encoding='utf-8')
-    assert "projects/' + pid() + '/work-items.json" in t
-    assert "projects/' + pid() + '/graph.json" in t
+    assert "static/projects/' + pid() + '/work-items.json" in t
+    assert "static/projects/' + pid() + '/graph.json" in t
     assert 'reload()' in t and 'svgCache = null' in t
     g = (WEB / 'guide.js').read_text(encoding='utf-8')
-    assert "projects/' + pid() + '/guide-data.json" in g
+    assert "static/projects/' + pid() + '/guide-data.json" in g
     assert 'reload' in g
     i = (WEB / 'interview.js').read_text(encoding='utf-8')
-    assert "projects/' + pid() + '/interview-topics.json" in i
+    assert "static/projects/' + pid() + '/interview-topics.json" in i
     assert 'static/interview-common.json' in i
     assert 'reload' in i
     a = (WEB / 'app.js').read_text(encoding='utf-8')
@@ -80,8 +80,8 @@ def test_views_load_current_project():
 def test_export_uses_current_project():
     """导出逻辑按当前项目加载并带项目名前缀。"""
     e = (WEB / 'export.js').read_text(encoding='utf-8')
-    assert "projects/' + pid() + '/handbook.html" in e
-    assert "projects/' + pid() + '/tutorial-data.json" in e
-    assert "projects/' + pid() + '/interview-topics.json" in e
+    assert "static/projects/' + pid() + '/handbook.html" in e
+    assert "static/projects/' + pid() + '/tutorial-data.json" in e
+    assert "static/projects/' + pid() + '/interview-topics.json" in e
     assert 'static/interview-common.json' in e
     assert 'projectName()' in e

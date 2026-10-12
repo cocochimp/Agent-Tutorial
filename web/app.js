@@ -119,7 +119,7 @@ function setProject(p) {
 async function loadProjects() {
   if (projectRegistry.length) return;
   try {
-    const r = await fetch('projects/index.json', {cache: 'no-cache'});
+    const r = await fetch('static/projects/index.json', {cache: 'no-cache'});
     if (!r.ok) throw new Error('项目注册表加载失败');
     const data = await r.json();
     projectRegistry = data.projects || [];
