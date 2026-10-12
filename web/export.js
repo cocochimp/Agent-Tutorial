@@ -90,19 +90,76 @@
   .guide-html .flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:13px 0}
   .guide-html .flow span{padding:7px 10px;border:1px solid #b9d5d8;border-radius:5px;color:var(--navy);background:#f0fbfb;font-weight:700;font-size:12px}
   .foot{margin-top:34px;padding-top:14px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
-  @media print{.page{padding:20px 8px}}
-  @media (max-width:700px){.story-step{grid-template-columns:1fr;gap:4px}}
+  /* 左侧目录导航 */
+  .layout{display:flex;gap:24px;align-items:flex-start}
+  .sidebar{flex:0 0 220px;position:sticky;top:20px;max-height:calc(100vh - 40px);overflow-y:auto;padding:16px 12px;background:var(--paper);border:1px solid var(--line);border-radius:10px;box-shadow:0 5px 18px rgba(23,50,77,.04)}
+  .sidebar h4{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:14px 0 6px;padding:0 8px}
+  .sidebar h4:first-child{margin-top:0}
+  .sidebar a{display:block;padding:6px 10px;border-radius:5px;font-size:12.5px;color:var(--ink);text-decoration:none;line-height:1.5;margin:2px 0}
+  .sidebar a:hover{background:#eef6f7;color:var(--teal)}
+  .sidebar a.active{background:var(--teal);color:#fff}
+  .main{flex:1;min-width:0}
+  /* 右上角浮动工具栏 */
+  .toolbar{position:fixed;top:20px;right:20px;display:flex;gap:8px;z-index:999}
+  .toolbar button{padding:8px 16px;border-radius:6px;border:1px solid var(--line);background:var(--paper);color:var(--navy);font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 3px 12px rgba(23,50,77,.12)}
+  .toolbar button:hover{background:#eef6f7}
+  .toolbar button.primary{background:var(--teal);color:#fff;border-color:var(--teal)}
+  .toolbar button.primary:hover{background:#0a8a98}
+  @media (max-width:900px){.sidebar{display:none}.layout{display:block}}
+  @media print{.page{padding:20px 8px}.sidebar,.toolbar{display:none}}
 </style>
 </head>
 <body>
-<div class="page">
+<div class="layout">
+<nav class="sidebar" id="toc"><div style="font-size:13px;font-weight:800;color:var(--navy);padding:0 8px 10px;border-bottom:1px solid var(--line);margin-bottom:6px">📑 目录</div></nav>
+<main class="main">
+<div class="toolbar">
+  <button id="btn-edit" onclick="toggleEdit()">✏️ 编辑</button>
+  <button id="btn-save" class="primary" onclick="saveHtml()">💾 保存导出</button>
+</div>
+<div class="page" style="padding-top:60px">
   <div class="page-head">
-    <h1 contenteditable="true" class="editable">${esc(title)}</h1>
-    <p contenteditable="true" class="editable">导出自教学网站 · 本页正文均可直接编辑修改</p>
+    <h1>${esc(title)}</h1>
+    <p>导出自教学网站 · 点右上角「编辑」可修改内容，改完点「保存导出」下载新版本</p>
   </div>
   ${body}
   <div class="foot">导出于豆包 · 学员教学网站</div>
 </div>
+</main>
+</div>
+<script>
+let editing = false;
+function toggleEdit(){
+  editing = !editing;
+  document.querySelectorAll('.editable').forEach(el => { el.contentEditable = editing; });
+  document.getElementById('btn-edit').textContent = editing ? '✅ 完成编辑' : '✏️ 编辑';
+  document.getElementById('btn-edit').classList.toggle('primary', editing);
+}
+function saveHtml(){
+  editing = false;
+  document.querySelectorAll('.editable').forEach(el => { el.contentEditable = false; });
+  document.getElementById('btn-edit').textContent = '✏️ 编辑';
+  const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = document.title.replace(/[·\s]/g,'_') + '_edited.html';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+// 目录高亮
+document.addEventListener('scroll', () => {
+  const links = document.querySelectorAll('.sidebar a');
+  const sections = [];
+  links.forEach(a => {
+    const t = document.querySelector(a.getAttribute('href'));
+    if (t) sections.push({a, t});
+  });
+  let cur = sections[0];
+  sections.forEach(s => { if (s.t.getBoundingClientRect().top < 120) cur = s; });
+  sections.forEach(s => s.a.classList.toggle('active', s === cur));
+});
+</script>
 </body>
 </html>`;
 
@@ -224,12 +281,13 @@
       const files = tut.files || {};
 
       const out = [];
+      const toc = [];
       // Hero
       if (guide.hero) {
         out.push(`<div class="page-head" style="margin-top:0">`);
         out.push(`<p style="font-size:11px;letter-spacing:2px;color:#7fb3bb;margin:0 0 8px">${esc(guide.hero.eyebrow || '')}</p>`);
-        out.push(`<h1 contenteditable="true" class="editable">${esc(guide.hero.title || projectName() || '')}</h1>`);
-        out.push(`<p contenteditable="true" class="editable" style="margin:10px 0 0">${esc(guide.hero.desc || '')}</p>`);
+        out.push(`<h1 contenteditable="false" class="editable">${esc(guide.hero.title || projectName() || '')}</h1>`);
+        out.push(`<p contenteditable="false" class="editable" style="margin:10px 0 0">${esc(guide.hero.desc || '')}</p>`);
         if (guide.hero.facts && guide.hero.facts.length) {
           out.push(`<div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">`);
           guide.hero.facts.forEach(f => out.push(`<div style="background:rgba(255,255,255,.12);border-radius:6px;padding:8px 14px"><div style="font-size:10px;color:#9fc4cb">${esc(f.label)}</div><div style="font-size:12px;color:#fff;font-weight:700">${esc(f.value)}</div></div>`));
@@ -238,21 +296,27 @@
         out.push(`</div>`);
       }
       // 导读章节
-      out.push(`<h2 style="margin-top:30px">📖 项目导读</h2>`);
+      out.push(`<h2 id="guide" style="margin-top:30px">📖 项目导读</h2>`);
+      toc.push({href:'#guide', label:'📖 项目导读'});
       (guide.chapters || []).forEach((ch, idx) => {
-        out.push(`<div class="card guide-html" contenteditable="true" class="editable">`);
+        const cid = 'guide-' + idx;
+        out.push(`<div class="card guide-html" id="${cid}" contenteditable="false" class="editable">`);
         out.push(`<h3 style="margin-top:0">${esc(ch.title || ('第' + (idx+1) + '章'))}</h3>`);
         out.push(ch.html || '');
         out.push(`</div>`);
+        toc.push({href:'#'+cid, label: ch.title || ('第'+(idx+1)+'章')});
       });
       // 五个工作项
-      out.push(`<h2 style="margin-top:36px">💼 实习项目 · 五个工作项</h2>`);
-      (work.workItems || []).forEach(item => {
-        out.push(`<div style="margin-top:24px;padding-top:18px;border-top:3px solid var(--navy)">`);
+      out.push(`<h2 id="works" style="margin-top:36px">💼 实习项目 · 五个工作项</h2>`);
+      toc.push({href:'#works', label:'💼 实习项目'});
+      (work.workItems || []).forEach((item, idx) => {
+        const wid = 'work-' + (idx+1);
+        out.push(`<div id="${wid}" style="margin-top:24px;padding-top:18px;border-top:3px solid var(--navy)">`);
         out.push(`<h3 style="font-size:18px;color:var(--navy);margin:0 0 10px">${esc(item.title || item.id)}</h3>`);
+        toc.push({href:'#'+wid, label: (item.title || item.id).slice(0,20)});
         // 简历简介
         if (item.resume) {
-          out.push(`<div class="card" contenteditable="true" class="editable">`);
+          out.push(`<div class="card" contenteditable="false" class="editable">`);
           out.push(`<p style="margin:0;color:#2c3b46;line-height:1.85">${esc(item.resume.text || '')}</p>`);
           out.push(`</div>`);
         }
@@ -260,11 +324,9 @@
         if (item.resume && item.resume.metricDetails && item.resume.metricDetails.length) {
           out.push(`<h4 style="margin:18px 0 8px;color:var(--teal);font-size:14px">📊 量化指标详解</h4>`);
           item.resume.metricDetails.forEach(md => {
-            out.push(`<div class="card" style="border-left:3px solid var(--teal)" contenteditable="true" class="editable">`);
+            out.push(`<div class="card" style="border-left:3px solid var(--teal)" contenteditable="false" class="editable">`);
             out.push(`<div style="font-weight:800;color:var(--navy);margin-bottom:8px">${esc(md.title)}</div>`);
-            // 面试话术（多段）
             String(md.design || '').split(/\n\n+/).filter(Boolean).forEach(p => out.push(`<p style="margin:8px 0;font-size:13px;line-height:1.85;color:#2c3b46">${esc(p)}</p>`));
-            // 关键数字
             const nums = md.numbers || [];
             if (nums.length) {
               out.push(`<ul style="margin:10px 0 0 20px;padding:0">`);
@@ -276,17 +338,26 @@
         }
         // 内容介绍（原手册章节）
         out.push(`<h4 style="margin:18px 0 8px;color:var(--teal);font-size:14px">📝 内容介绍</h4>`);
-        out.push(`<div class="card guide-html" contenteditable="true" class="editable">${item.introHtml || ''}</div>`);
+        out.push(`<div class="card guide-html" contenteditable="false" class="editable">${item.introHtml || ''}</div>`);
         // 子主题
         if (item.subTopics && item.subTopics.length) {
           item.subTopics.forEach(st => {
             out.push(`<h4 style="margin:16px 0 6px;color:var(--orange);font-size:13px">📌 ${esc(st.title)}</h4>`);
-            out.push(`<div class="card guide-html" contenteditable="true" class="editable">${st.html || ''}</div>`);
+            out.push(`<div class="card guide-html" contenteditable="false" class="editable">${st.html || ''}</div>`);
           });
         }
         out.push(`</div>`);
       });
-      download(shell(projectName() + ' · 实习复盘手册', out.join('\n')), (projectName() || '项目') + '_实习复盘手册.html');
+      // 填充目录
+      const tocHtml = '<div style="font-size:13px;font-weight:800;color:var(--navy);padding:0 8px 10px;border-bottom:1px solid var(--line);margin-bottom:6px">📑 目录</div>'
+        + '<h4>导读</h4>'
+        + toc.filter(t => t.href.startsWith('#guide')).map(t => `<a href="${t.href}">${esc(t.label)}</a>`).join('')
+        + '<h4>工作项</h4>'
+        + toc.filter(t => t.href.startsWith('#work')).map(t => `<a href="${t.href}">${esc(t.label)}</a>`).join('');
+      const finalHtml = shell(projectName() + ' · 实习复盘手册', out.join('\n'));
+      // 替换 sidebar 占位
+      const finalWithToc = finalHtml.replace('<div style="font-size:13px;font-weight:800;color:var(--navy);padding:0 8px 10px;border-bottom:1px solid var(--line);margin-bottom:6px">📑 目录</div>', tocHtml);
+      download(finalWithToc, (projectName() || '项目') + '_实习复盘手册.html');
     },
     workItem() {
       const item = window.Teaching && window.Teaching.getCurrent();
