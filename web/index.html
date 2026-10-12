@@ -25,7 +25,7 @@
   <div class="sidebar-bottom"><div class="local-indicator"><i></i><span>学员教学环境</span><span class="version">V3.0</span></div><p>业务数据与制度为虚构样例</p></div>
 </aside>
 <div class="app-shell">
-<header class="app-header"><div class="breadcrumb"><span>工作空间</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg><strong id="page-crumb">实习项目教程</strong></div><div class="header-actions"><span class="environment-tag">DEMO</span><span class="header-divider"></span><span class="user-avatar" aria-hidden="true">U</span><span id="who">未登录</span><button id="logout" hidden>退出</button></div></header>
+<header class="app-header"><div class="breadcrumb"><span>工作空间</span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg><strong id="page-crumb">实习项目教程</strong></div><div class="header-actions"><span class="environment-tag">DEMO</span><button id="create-account-btn" class="header-btn" hidden>创建子账号</button><span class="header-divider"></span><span class="user-avatar" aria-hidden="true">U</span><span id="who">未登录</span><button id="logout" hidden>退出</button></div></header>
 <main>
   <section class="card login-card" id="login-card">
     <div class="login-emblem"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2 9 4v6c0 5-9 10-9 10S3 17 3 12V6Zm-4 9 3 3 5-5"/></svg></div>
@@ -123,12 +123,40 @@
   <div class="dialog-head"><h2 id="node-dialog-title">节点详情</h2><button class="dialog-close" id="node-dialog-close" type="button">关闭 ✕</button></div>
   <div class="dialog-body" id="node-dialog-body"></div>
 </dialog>
+<dialog id="account-panel" class="node-dialog account-panel" aria-label="创建子账号">
+  <div class="dialog-head"><h2>创建子账号</h2><button class="dialog-close" id="account-panel-close" type="button">关闭 ✕</button></div>
+  <div class="dialog-body">
+    <div class="account-intro"><p>批量生成随机账号密码，<strong>一次性明文展示</strong>；系统只保存不可逆哈希，关闭后不可找回。忘记密码请删除后重新创建。</p></div>
+    <div class="account-batch">
+      <label for="batch-count">本次创建数量（1~10）</label>
+      <div class="batch-controls">
+        <button id="batch-minus" type="button" class="secondary step-btn">−</button>
+        <input id="batch-count" type="number" min="1" max="10" value="3" aria-label="创建数量">
+        <button id="batch-plus" type="button" class="secondary step-btn">＋</button>
+        <button id="gen-batch-btn" type="button" class="primary">生成账号</button>
+      </div>
+    </div>
+    <div class="cred-list" id="batch-result" hidden>
+      <div class="cred-list-head"><strong>本次生成的账号密码（仅此一次可见，请立即复制保存）</strong><button id="copy-all-btn" type="button" class="secondary">一键复制全部</button></div>
+      <div id="cred-rows"></div>
+    </div>
+    <div class="account-draft">
+      <div class="cred-list-head"><strong>草稿区（已生成、待导出的账号，仅显示 id 与有效期）</strong><button id="draft-clear-btn" type="button" class="secondary">清空草稿</button></div>
+      <div id="draft-list"><p class="small muted">暂无草稿。生成后账号会进入草稿区，导出时一并写入数据文件。</p></div>
+    </div>
+    <div class="account-export">
+      <button id="export-accounts-btn" type="button" class="primary">导出 sub-accounts.json</button>
+      <p class="small muted" id="export-status">导出后请放入项目 <code>web/</code> 目录并 push 部署，学员即可在线登录（数据文件仅含不可逆哈希，无任何明文）。</p>
+    </div>
+  </div>
+</dialog>
 <footer class="footer"><span>析 · AI 经营分析 Agent 教学中心</span><span>本地教学环境 / 业务数据与制度为虚构样例</span></footer>
 </div>
-<script src="static/app.js?v=20261012a"></script>
-<script src="static/guide.js?v=20261012a"></script>
-<script src="static/teaching.js?v=20261012a"></script>
-<script src="static/interview.js?v=20261012a"></script>
-<script src="static/export.js?v=20261012a"></script>
+<script src="static/accounts.js?v=20261012b"></script>
+<script src="static/app.js?v=20261012b"></script>
+<script src="static/guide.js?v=20261012b"></script>
+<script src="static/teaching.js?v=20261012b"></script>
+<script src="static/interview.js?v=20261012b"></script>
+<script src="static/export.js?v=20261012b"></script>
 </body>
 </html>

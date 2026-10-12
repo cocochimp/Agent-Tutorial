@@ -474,3 +474,25 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.9; background: #f
 .iq-step-text { margin: 0; font-size: 12.5px; line-height: 1.85; color: #2c3b46; }
 .iq-step-text-only { padding-top: 2px; }
 .muted { color: var(--muted); font-size: 12px; }
+
+/* —— 账号体系：创建子账号面板 —— */
+.header-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--navy); background: #fff; border: 1px solid #c7d6d4; border-radius: 7px; padding: 7px 12px; cursor: pointer; }
+.header-btn:hover { background: #eef4f3; }
+.account-panel { width: min(620px, 92vw); }
+.account-intro p { margin: 0 0 12px; font-size: 12.5px; line-height: 1.8; color: #2c3b46; }
+.account-batch { margin: 10px 0 16px; }
+.account-batch label { display: block; font-size: 12px; font-weight: 700; color: #1d4a52; margin-bottom: 8px; }
+.batch-controls { display: flex; align-items: center; gap: 8px; }
+.batch-controls .step-btn { width: 34px; height: 34px; padding: 0; font-size: 16px; }
+.batch-controls input { width: 64px; height: 34px; border: 1px solid #c7d6d4; border-radius: 7px; text-align: center; font-size: 14px; }
+.cred-list { border: 1px solid #d9e5e2; border-radius: 10px; background: #f7faf9; padding: 12px 14px; margin-bottom: 16px; }
+.cred-list-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
+.cred-list-head strong { font-size: 12.5px; color: #1d4a52; }
+.cred-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px dashed #d9e5e2; }
+.cred-line:last-child { border-bottom: none; }
+.cred-line code { font: 13px Consolas, Menlo, monospace; color: #123; user-select: all; }
+.account-draft { margin-bottom: 16px; }
+.draft-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px dashed #e2ecea; }
+.draft-id { font: 12px Consolas, Menlo, monospace; color: #2c3b46; }
+.account-export .primary { margin-top: 4px; }
+.account-export code { font-family: Consolas, Menlo, monospace; background: #eef4f3; border-radius: 4px; padding: 1px 5px; }

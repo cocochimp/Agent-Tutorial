@@ -146,4 +146,88 @@
     mergeWithPublished, buildExport, downloadExport, expired,
     EXPIRY_DAYS, MASTER_ACCOUNT
   };
+
+  /* —— 创建子账号面板 UI 绑定 —— */
+  function el(id) { return document.getElementById(id); }
+
+  function fmtTime(ms) {
+    const d = new Date(ms);
+    const p = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  function renderDraft() {
+    const host = el('draft-list');
+    const draft = window.Accounts.loadDraft();
+    if (!draft.length) {
+      host.innerHTML = '<p class="small muted">暂无草稿。生成后账号会进入草稿区，导出时一并写入数据文件。</p>';
+      return;
+    }
+    host.replaceChildren();
+    draft.forEach(a => {
+      const row = document.createElement('div');
+      row.className = 'draft-row';
+      row.innerHTML = '<span class="draft-id">' + a.id + '</span><span class="small muted">创建 ' + fmtTime(a.createdAt) + ' · 过期 ' + fmtTime(a.expiresAt) + '</span>';
+      host.append(row);
+    });
+  }
+
+  function copyText(text) {
+    return navigator.clipboard.writeText(text).then(() => true).catch(() => false);
+  }
+
+  async function onGenerate() {
+    const n = Math.max(1, Math.min(10, parseInt(el('batch-count').value, 10) || 1));
+    const batch = await window.Accounts.generateBatch(n);
+    // 一次性明文展示
+    const rows = el('cred-rows');
+    rows.replaceChildren();
+    batch.forEach(b => {
+      const row = document.createElement('div');
+      row.className = 'cred-line';
+      const code = document.createElement('code');
+      code.textContent = b.account + '　' + b.password;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'secondary';
+      btn.textContent = '复制';
+      btn.onclick = () => { copyText(b.account + ' ' + b.password); btn.textContent = '已复制'; setTimeout(() => { btn.textContent = '复制'; }, 1500); };
+      row.append(code, btn);
+      rows.append(row);
+    });
+    el('batch-result').hidden = false;
+    // 写入草稿（仅哈希等无明文字段）
+    window.Accounts.saveDraft(batch);
+    renderDraft();
+  }
+
+  function initCreatePanel() {
+    const btn = el('create-account-btn');
+    const panel = el('account-panel');
+    if (!btn || !panel) return;
+    btn.onclick = () => { renderDraft(); panel.showModal(); };
+    el('account-panel-close').onclick = () => panel.close();
+    el('batch-minus').onclick = () => { const v = parseInt(el('batch-count').value, 10) || 1; el('batch-count').value = Math.max(1, v - 1); };
+    el('batch-plus').onclick = () => { const v = parseInt(el('batch-count').value, 10) || 1; el('batch-count').value = Math.min(10, v + 1); };
+    el('gen-batch-btn').onclick = onGenerate;
+    el('copy-all-btn').onclick = () => {
+      const texts = Array.from(el('cred-rows').querySelectorAll('code')).map(c => c.textContent.replace(/\u3000/g, ' '));
+      copyText(texts.join('\n')).then(ok => {
+        el('copy-all-btn').textContent = ok ? '已复制全部' : '复制失败';
+        setTimeout(() => { el('copy-all-btn').textContent = '一键复制全部'; }, 1500);
+      });
+    };
+    el('draft-clear-btn').onclick = () => { window.Accounts.clearDraft(); renderDraft(); };
+    el('export-accounts-btn').onclick = async () => {
+      const out = await window.Accounts.buildExport(window.Accounts.loadDraft());
+      window.Accounts.downloadExport(out);
+      el('export-status').textContent = '已导出 ' + out.accounts.length + ' 个账号（仅哈希）。请放入 web/ 目录 push 部署。';
+    };
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCreatePanel);
+  } else {
+    initCreatePanel();
+  }
 })();
