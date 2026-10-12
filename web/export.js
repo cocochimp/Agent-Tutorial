@@ -123,11 +123,9 @@
 <main class="main">
 <div class="toolbar">
   <button id="btn-edit" onclick="toggleEdit()">✏️ 编辑</button>
-  <button id="btn-save" class="primary" onclick="saveHtml()">💾 保存导出</button>
 </div>
 <div class="page" style="padding-top:60px">
   ${body}
-  <div class="foot">导出于豆包 · 学员教学网站</div>
 </div>
 </main>
 </div>
@@ -147,29 +145,8 @@ function toggleEdit(){
   var btn = document.getElementById('btn-edit');
   btn.textContent = editing ? '✅ 完成编辑' : '✏️ 编辑';
   btn.classList.toggle('danger', editing);
-  showToast(editing ? '已进入编辑模式，直接点击内容修改' : '已退出编辑模式');
+  showToast(editing ? '已进入编辑模式，直接点击内容修改；改完用浏览器「另存为」保存' : '已退出编辑模式');
 }
-function saveHtml(){
-  document.querySelectorAll('[data-editable]').forEach(function(el){ el.contentEditable = false; });
-  document.body.classList.remove('editing');
-  editing = false;
-  document.getElementById('btn-edit').textContent = '✏️ 编辑';
-  document.getElementById('btn-edit').classList.remove('danger');
-  var html = '<!DOCTYPE html>\\n' + document.documentElement.outerHTML;
-  var blob = new Blob([html], {type:'text/html;charset=utf-8'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = document.title.replace(/[·\s]/g,'_') + '_edited.html';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
-  showToast('✅ 已导出新版本，请到下载目录查看');
-}
-// Ctrl+S 保存
-document.addEventListener('keydown', function(e){
-  if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); saveHtml(); }
-});
 // 目录平滑滚动
 document.querySelectorAll('.sidebar a').forEach(function(a){
   a.addEventListener('click', function(e){
