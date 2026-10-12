@@ -8,7 +8,7 @@
       "summary": "把知识检索、SQL 查询、异常分析、指标计算、报表生成封装为 6 类 Function Calling Tools，用 LangGraph StateGraph 管理状态、条件边、重试、Checkpoint 与人工审批，在动态决策节点用 ReAct。",
       "resume": {
         "label": "Agent Runtime / 工作流",
-        "text": "将知识检索、SQL 查询、异常分析、指标计算、报表生成等能力封装为 6 类 Function Calling Tools，以 LangGraph StateGraph 管理状态、条件边、重试、Checkpoint 与 Human-in-the-loop，在动态决策节点使用 ReAct。",
+        "text": "将知识检索、SQL 查询、异常分析、指标计算、报表生成等能力封装为 6 类 Function Calling Tools，以 LangGraph StateGraph 管理状态、条件边、重试、Checkpoint 与 Human-in-the-loop，在动态决策节点使用 ReAct；在 260 条多步任务评测集上，Tool Selection Accuracy 由 86.8% 提升至 94.1%，端到端 Task Success Rate 由 73.5% 提升至 89.2%，重复 Tool Call 比例由 7.6% 降至 2.1%。",
         "metrics": "Tool Selection Accuracy 86.8%→94.1% · Task Success Rate 73.5%→89.2% · 重复 Tool Call 7.6%→2.1%",
         "metricDetails": [
           {
@@ -250,7 +250,7 @@
       "summary": "从 Dense 单路召回升级为 Query Rewrite → ACL/Metadata 预过滤 → Dense+BM25 → RRF → Reranker → MMR → Dynamic TopK 的混合检索链路，让制度、指标口径从“能搜到”到“搜得准、搜得安全”。",
       "resume": {
         "label": "企业 RAG / 检索优化",
-        "text": "构建 Parent-Child Chunk + Metadata/ACL 文档体系，在线采用 Query Rewrite → ACL/Metadata Pre-Filter → Dense + BM25 → RRF → Cross-Encoder Reranker → Authority/Validity → MMR → Dynamic TopK。",
+        "text": "构建 Parent-Child Chunk + Metadata/ACL 文档体系，在线采用 Query Rewrite → ACL/Metadata Pre-Filter → Dense + BM25 → RRF → Cross-Encoder Reranker → Authority/Validity → MMR → Dynamic TopK；在 420 条人工标注 Query上，Recall@20 从 79.0% 提升至 94.0%，MRR 从 0.61 提升至 0.78，nDCG@10 从 0.69 提升至 0.84。",
         "metrics": "Recall@20 79.0%→94.0% · MRR 0.61→0.78 · nDCG@10 0.69→0.84（420 条标注 Query）",
         "metricDetails": [
           {
@@ -361,7 +361,7 @@
       "summary": "引入 Schema Retrieval 只给模型相关表字段与指标口径，SQL 执行前做 AST 校验、SELECT-only、表/字段白名单、超时与行数限制，用只读账号；同比、排序、聚合交给确定性代码，LLM 只解释结构化结果。",
       "resume": {
         "label": "Text-to-SQL / 安全查数",
-        "text": "引入 Schema Retrieval、指标口径检索、只读账号、表/字段白名单、SQL AST 校验、超时与行数限制，LLM 只生成受约束查询计划，实际统计由数据库/确定性代码完成。",
+        "text": "引入 Schema Retrieval、指标口径检索、只读账号、表/字段白名单、SQL AST 校验、超时与行数限制，LLM 只生成受约束查询计划，实际统计由数据库/确定性代码完成；在 180 条 SQL Gold Case上 Execution Accuracy 达 90.6%，高风险 SQL 测试集拦截率 100%，无效 SQL 比例由 14.4% 降至 5.0%。",
         "metrics": "Execution Accuracy 90.6% · 高风险 SQL 拦截率 100% · 无效 SQL 14.4%→5.0%（180 条 Gold Case）",
         "metricDetails": [
           {
@@ -519,12 +519,12 @@
     },
     {
       "id": "work-4",
-      "title": "工作四 · 可信生成与幻觉治理",
+      "title": "工作四 · 可信生成 / 幻觉治理",
       "short": "可信生成与幻觉治理",
       "summary": "关键数字从 Tool Result 结构化字段注入、引用绑定 Evidence ID、独立 Verifier 复算并核对引用，低置信或高风险结论转人工审批，把幻觉从知识/数据/工具/逻辑/权限五类分别治理。",
       "resume": {
         "label": "可信生成 / 幻觉治理",
-        "text": "对数字、时间范围、制度条款等关键结论强制绑定 Tool Result / Evidence ID，加入引用一致性校验、事实核查、业务规则校验与低置信度转人工。",
+        "text": "对数字、时间范围、制度条款等关键结论强制绑定 Tool Result / Evidence ID，加入引用一致性校验、事实核查、业务规则校验与低置信度转人工；在 300 条回答评测集上 Faithfulness 由 87.3% 提升至 96.1%，无依据结论率由 6.8% 降至 1.9%。",
         "metrics": "Faithfulness 87.3%→96.1% · 无依据结论率 6.8%→1.9%（300 条回答评测）",
         "metricDetails": [
           {
@@ -695,12 +695,12 @@
     },
     {
       "id": "work-5",
-      "title": "工作五 · Evals & Observability",
+      "title": "工作五 · Evals & Observability / 性能优化",
       "short": "Evals & Observability",
       "summary": "把一次请求拆成 request_id 下的多段 Trace（模型/Prompt 版本/检索参数/Tool I/O/SQL/错误码/Token/耗时），建约 500 条分层回归用例，用缓存、上下文裁剪与动态 TopK 压 P95 延迟。",
       "resume": {
         "label": "Evals & Observability / 性能优化",
-        "text": "建设约 500 条分层回归用例，覆盖 Query、Retriever、Reranker、Tool、SQL 与 Agent End-to-End；Trace 记录模型/Prompt/检索参数/Tool I/O/错误码/Token/耗时，并通过缓存、上下文裁剪和动态 TopK 优化性能。",
+        "text": "建设约 500 条分层回归用例，覆盖 Query、Retriever、Reranker、Tool、SQL 与 Agent End-to-End；Trace 记录模型/Prompt/检索参数/Tool I/O/错误码/Token/耗时，并通过缓存、上下文裁剪和动态 TopK 将示例复杂任务 P95 延迟由 5.2s 降至 3.8s，平均 Prompt Token 下降约 28%。",
         "metrics": "500 条分层回归用例 · P95 延迟 5.2s→3.8s · 平均 Prompt Token 下降约 28%",
         "metricDetails": [
           {

@@ -63,6 +63,39 @@ def test_work_items_match_resume_order():
             assert 'Text-to-SQL' in by_id['work-3']['title'], pid
 
 
+def test_work_resume_follows_template():
+    """实习经历模版卡：title/resume.label/resume.text 与模版工作内容 ol 一一对应（三个项目）。"""
+    import re
+    import html as h
+    CN = ['一', '二', '三', '四', '五']
+    for pid in ('estate-agent', 'photo-q', 'air-ticket'):
+        wi = load(f'web/projects/{pid}/work-items.json')
+        gd = load(f'web/projects/{pid}/guide-data.json')
+        resume_ch = next(c for c in gd['chapters'] if c['id'] == 'resume')
+        ol = re.search(r'<ol[^>]*>(.*?)</ol>', resume_ch['html'], re.S)
+        lis = re.findall(r'<li>(.*?)</li>', ol.group(1), re.S)
+        assert len(lis) == 5 == len(wi['workItems']), pid
+        for i, (w, li) in enumerate(zip(wi['workItems'], lis)):
+            li = li.strip()
+            m = re.match(r'<(?:b|strong)>(.*?)</(?:b|strong)>', li, re.S)
+            if m:
+                title = h.unescape(re.sub(r'<[^>]+>', '', m.group(1))).strip().rstrip('：:')
+            else:
+                txt = h.unescape(re.sub(r'<[^>]+>', ' ', li))
+                title = re.sub(r'\s+', ' ', txt).strip().split('：')[0]
+            exp_title = f'工作{CN[i]} · {title}'
+            assert w['title'] == exp_title, (pid, w['id'], w['title'], exp_title)
+            assert w['resume']['label'] == title, (pid, w['id'], w['resume']['label'], title)
+            assert '🎯' not in w['resume']['text'], (pid, w['id'])
+            assert len(w['resume']['text']) >= 40, (pid, w['id'])
+        # interview groups 标题跟随 work
+        it = load(f'web/projects/{pid}/interview-topics.json')
+        proj = next(t for t in it['topics'] if t['id'] == 'project')
+        by_id = {x['id']: x['title'] for x in wi['workItems']}
+        for g in proj['groups']:
+            assert g['title'] == by_id[g['id']], (pid, g['id'])
+
+
 def test_all_project_questions_are_six_stage():
     for pid in ('estate-agent', 'photo-q', 'air-ticket'):
         it = load(f'web/projects/{pid}/interview-topics.json')
