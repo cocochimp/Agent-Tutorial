@@ -85,3 +85,16 @@ def test_export_uses_current_project():
     assert "static/projects/' + pid() + '/interview-topics.json" in e
     assert 'static/interview-common.json' in e
     assert 'projectName()' in e
+
+
+def test_estate_agent_code_refs_cover_all_nodes():
+    """全链路节点图：每个工作项每个节点都必须有实例代码（严禁无代码）。"""
+    import json as _json
+    from pathlib import Path as _Path
+    d = _json.loads((_Path('web/projects/estate-agent/work-items.json')).read_text(encoding='utf-8'))
+    for it in d['workItems']:
+        refs = it['codeRefs']
+        covered = {r['node'] for r in refs if r['node']}
+        assert set(it['nodes']) <= covered, (it['id'], set(it['nodes']) - covered)
+        for r in refs:
+            assert 'node' in r and r['text'] and len(r['text']) >= 20, r

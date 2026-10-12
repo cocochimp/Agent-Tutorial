@@ -81,3 +81,15 @@ def test_air_registered_in_index():
     idx = json.loads(Path('web/projects/index.json').read_text(encoding='utf-8'))
     ids = [p['id'] for p in idx['projects']]
     assert 'air-ticket' in ids
+
+
+def test_air_ticket_code_refs_cover_all_nodes():
+    """全链路节点图：每个工作项每个节点都必须有实例代码（严禁无代码）。"""
+    import json as _json
+    d = load('work-items.json')
+    for it in d['workItems']:
+        refs = it['codeRefs']
+        covered = {r['node'] for r in refs}
+        assert set(it['nodes']) <= covered, (it['id'], set(it['nodes']) - covered)
+        for r in refs:
+            assert r['node'] and r['text'] and len(r['text']) >= 20, r

@@ -75,3 +75,15 @@ def test_photo_graph_svg_valid():
     svg = d.get('svg', '')
     assert svg and svg.lstrip().startswith('<svg')
     assert len(re.findall(r'data-node="', svg)) >= 15
+
+
+def test_photo_q_code_refs_cover_all_nodes():
+    """全链路节点图：每个工作项每个节点都必须有实例代码（严禁无代码）。"""
+    import json as _json
+    d = load('work-items.json')
+    for it in d['workItems']:
+        refs = it['codeRefs']
+        covered = {r['node'] for r in refs}
+        assert set(it['nodes']) <= covered, (it['id'], set(it['nodes']) - covered)
+        for r in refs:
+            assert r['node'] and r['text'] and len(r['text']) >= 20, r

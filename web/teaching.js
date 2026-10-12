@@ -178,9 +178,12 @@
       d.append(ioBody); body.append(d);
     }
     if (item.codeRefs.length) {
-      hasContent = true;
-      body.append(make('h3', '实例代码'));
-      item.codeRefs.forEach(ref => body.append(renderCode(ref)));
+      const refs = item.codeRefs.filter(ref => ref.node === name);
+      if (refs.length) {
+        hasContent = true;
+        body.append(make('h3', '实例代码'));
+        refs.forEach(ref => body.append(renderCode(ref)));
+      }
     }
     if (!hasContent) body.append(make('p', '该节点暂无输入输出与实例代码，可在「内容介绍」中学习其思路。', 'dialog-empty'));
     el('node-dialog').showModal();
@@ -258,10 +261,12 @@
 
   function renderCode(ref) {
     const file = files[ref.path];
-    if (!file) return make('p', '源码文件缺失：' + ref.path, 'code-empty');
-    const lines = file.text.replace(/\r\n/g, '\n').split('\n');
-    if (lines.at(-1) === '') lines.pop();
-    const start = ref.start, end = Math.min(ref.end, lines.length);
+    const lines = ref.text !== undefined ? ref.text.replace(/\r\n/g, '\n').split('\n')
+      : (file ? file.text.replace(/\r\n/g, '\n').split('\n') : []);
+    if (lines.length && lines.at(-1) === '') lines.pop();
+    const start = ref.text !== undefined ? 1 : ref.start;
+    const end = ref.text !== undefined ? lines.length : Math.min(ref.end, lines.length);
+    if (!lines.length) return make('p', '源码文件缺失：' + ref.path, 'code-empty');
     const block = make('div', undefined, 'code-block');
     const head = make('div', undefined, 'code-head');
     head.append(make('span', ref.path, 'code-path'), make('span', 'L' + start + '–' + end, 'code-range'));
