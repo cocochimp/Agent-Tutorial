@@ -223,24 +223,29 @@
       window.Accounts.downloadExport(out);
       el('export-status').textContent = '已导出 ' + out.accounts.length + ' 个账号（仅哈希）。请放入 web/ 目录 push 部署。';
     };
-    // 确认提交 · 自动部署：本地后端模式由 app.js 控制可见性（仅主账号）
+    // 确认提交 · 自动部署：两环境均可见（仅主账号）；线上走 GitHub Issue 一键发布
     const pubBtn = el('publish-accounts-btn');
     if (pubBtn) {
       pubBtn.onclick = async () => {
         const draft = window.Accounts.loadDraft();
         if (!draft.length) { el('export-status').textContent = '请先生成账号，再点击确认提交。'; return; }
-        // 线上浏览模式（GitHub Pages 无后端）无法直接提交 → 给出本地版引导
-        if (window.APP_STATIC_MODE === true) {
-          el('export-status').innerHTML = '当前是线上浏览模式，无法直接提交（网页没有 GitHub 写权限）。请在<strong>本地开发版</strong>操作：项目目录运行 <code>./.venv/bin/python launch.py</code>，然后打开 <code>http://127.0.0.1:8765</code> 用主账号登录后点此按钮即可自动提交上线。';
-          return;
-        }
-        if (!confirm('确认提交 ' + draft.length + ' 个新账号并自动部署到 GitHub 线上？\n提交后立即生效、不可撤销。')) return;
-        pubBtn.disabled = true;
-        pubBtn.textContent = '提交部署中…';
         try {
           const r = await fetch('static/sub-accounts.json', {cache: 'no-store'});
           const published = r.ok ? await r.json() : {version: 2, algorithm: 'sha256$salt$hash(salt:account:password)', accounts: []};
           const merged = window.Accounts.mergeWithPublished(draft, published.accounts || []);
+          // 线上浏览模式：打开预填的 GitHub 发布单，Actions 自动校验并部署
+          if (window.APP_STATIC_MODE === true) {
+            const payload = {version: 2, algorithm: 'sha256$salt$hash(salt:account:password)', accounts: merged};
+            const issueUrl = 'https://github.com/cocochimp/Agent-Tutorial/issues/new?title='
+              + encodeURIComponent('ACCOUNTS-PUBLISH')
+              + '&body=' + encodeURIComponent(JSON.stringify(payload, null, 2));
+            window.open(issueUrl, '_blank');
+            el('export-status').innerHTML = '已打开 GitHub 发布单，请点击「Submit new issue」提交。GitHub Actions 会自动校验并上线（约 1~2 分钟），完成后发布单自动关闭。';
+            return;
+          }
+          if (!confirm('确认提交 ' + draft.length + ' 个新账号并自动部署到 GitHub 线上？\n提交后立即生效、不可撤销。')) return;
+          pubBtn.disabled = true;
+          pubBtn.textContent = '提交部署中…';
           const res = await fetch('/api/accounts/publish', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -254,7 +259,7 @@
             ? '已是最新（无变更）。当前线上共 ' + data.count + ' 个账号。'
             : '部署成功！commit ' + data.commit + '，线上共 ' + data.count + ' 个账号。';
         } catch (err) {
-          el('export-status').textContent = '提交失败：' + (err.message || err) + '（数据已写入本地 web/sub-accounts.json，可稍后重试或手动 push）';
+          el('export-status').textContent = '提交失败：' + (err.message || err) + '（草稿仍保留，可重试或导出后手动处理）';
         } finally {
           pubBtn.disabled = false;
           pubBtn.textContent = '确认提交 · 自动部署';

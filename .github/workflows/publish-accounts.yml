@@ -1,0 +1,72 @@
+name: Publish Sub-Accounts via Issue
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: publish-accounts
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 守卫：仅处理发布单；非管理员提交的发布单直接忽略并关闭
+      - name: Guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event.issue.title }}" != "ACCOUNTS-PUBLISH" ]; then
+            echo "非发布单，忽略。"
+            exit 0
+          fi
+          if [ "${{ github.actor }}" != "cocochimp" ]; then
+            gh issue close "${{ github.event.issue.number }}" -c "非管理员提交的发布单，已自动忽略并关闭。"
+            echo "非管理员发布单已关闭。"
+            exit 0
+          fi
+
+      # 校验并写入账号数据（失败则关闭发布单并退出）
+      - name: Validate and write accounts
+        if: github.event.issue.title == 'ACCOUNTS-PUBLISH' && github.actor == 'cocochimp'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          if python3 .github/scripts/publish_accounts.py; then
+            gh issue comment "$ISSUE_NUMBER" --body "✅ 数据校验通过，正在提交并触发部署…"
+          else
+            gh issue close "$ISSUE_NUMBER" -c "❌ 发布失败：数据校验未通过（详见 Actions 运行日志）。请检查数据后重新发起。"
+            exit 1
+          fi
+
+      # 提交并推送（无变更则跳过）
+      - name: Commit and push
+        if: success() && github.event.issue.title == 'ACCOUNTS-PUBLISH' && github.actor == 'cocochimp'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/sub-accounts.json
+          if git diff --cached --quiet; then
+            echo "无变更：数据与线上一致。"
+          else
+            git commit -m "feat: 学员账号更新（issue #${{ github.event.issue.number }}）"
+            git push origin main
+            echo "已推送 main，Pages 将自动重新部署。"
+          fi
+
+      # 收尾：关闭发布单
+      - name: Close issue
+        if: always() && github.event.issue.title == 'ACCOUNTS-PUBLISH' && github.actor == 'cocochimp'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue close "${{ github.event.issue.number }}" -c "✅ 流程完成：账号数据已提交（若数据无变化则无需重新部署），线上约 1~2 分钟后生效。"
