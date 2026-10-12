@@ -1,0 +1,891 @@
+<!doctype html>
+<html lang="zh-CN"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>机票退改签 Agent · Agent 开发校招辅导课件（v2）</title>
+  <style>
+    :root {
+      --ink: #1d2a35;
+      --muted: #5f6d78;
+      --line: #d7e0e5;
+      --paper: #ffffff;
+      --wash: #f4f7f8;
+      --navy: #17324d;
+      --teal: #087f8c;
+      --orange: #c7682e;
+      --green: #2d7c61;
+      --shadow: 0 14px 38px rgba(23, 50, 77, 0.10);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--wash);
+      font: 15px/1.7 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    .topbar {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      padding: 12px max(22px, calc((100vw - 1380px) / 2));
+      color: #fff; background: var(--navy); box-shadow: 0 4px 16px rgba(0,0,0,.16);
+    }
+    .brand { font-weight: 800; letter-spacing: .02em; margin-right: auto; }
+    .brand small { display: block; color: #bcd0df; font-weight: 500; letter-spacing: 0; font-size: 11px; }
+    .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .toolbar button, .toolbar input {
+      border: 1px solid rgba(255,255,255,.28); border-radius: 6px; padding: 7px 11px;
+      color: #fff; background: rgba(255,255,255,.10);
+    }
+    .toolbar input { width: 185px; background: #fff; color: var(--ink); }
+    .toolbar button:hover { background: rgba(255,255,255,.20); }
+    .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); max-width: 1380px; margin: 0 auto; }
+    aside { position: sticky; top: 68px; align-self: start; height: calc(100vh - 68px); overflow: auto; padding: 22px 14px 30px 22px; }
+    aside h2 { margin: 0 0 10px; font-size: 13px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+    aside > button { margin: 0 0 10px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 5px; color: var(--teal); background: #fff; }
+    aside > button:hover { background: #e7f1f2; }
+    aside a { display: block; padding: 7px 9px; color: var(--muted); text-decoration: none; border-left: 2px solid transparent; }
+    aside a:hover, aside a.active { color: var(--teal); border-left-color: var(--teal); background: #e7f1f2; }
+    main { min-width: 0; padding: 30px 28px 80px; }
+    .hero { padding: 34px 38px; color: #fff; background: var(--navy); border-radius: 8px; box-shadow: var(--shadow); }
+    .hero .eyebrow { color: #8fd2d5; text-transform: uppercase; letter-spacing: .12em; font-size: 12px; font-weight: 700; }
+    .hero h1 { margin: 8px 0 10px; font-size: clamp(28px, 4vw, 48px); line-height: 1.18; }
+    .hero p { max-width: 850px; margin: 0; color: #d9e7ef; font-size: 16px; }
+    .hero-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 22px; align-items: end; }
+    .hero-note { border-left: 3px solid #8fd2d5; padding-left: 15px; color: #c8dce7; font-size: 14px; }
+    section { margin-top: 30px; padding: 28px 30px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 5px 18px rgba(23,50,77,.04); }
+    section h2 { margin: 0 0 13px; color: var(--navy); font-size: 25px; line-height: 1.3; }
+    section h3 { margin: 24px 0 8px; color: var(--teal); font-size: 18px; }
+    section h4 { margin: 18px 0 6px; color: var(--orange); font-size: 15px; }
+    p { margin: 8px 0; }
+    ul, ol { margin: 8px 0 12px 22px; padding: 0; }
+    li { margin: 4px 0; }
+    code { padding: 1px 5px; border-radius: 4px; color: #8c431d; background: #fff1e8; font-family: "SFMono-Regular", Consolas, monospace; font-size: .92em; }
+    pre { overflow: auto; margin: 12px 0; padding: 15px 17px; color: #e9f2f5; background: #172833; border-radius: 6px; font: 13px/1.6 "SFMono-Regular", Consolas, monospace; }
+    .callout { margin: 16px 0; padding: 13px 16px; border-left: 4px solid var(--teal); background: #edf8f8; }
+    .callout.warn { border-left-color: var(--orange); background: #fff5ed; }
+    .callout.good { border-left-color: var(--green); background: #eef8f2; }
+    .grid-2, .grid-3 { display: grid; gap: 16px; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .mini { padding: 15px 16px; border: 1px solid var(--line); border-radius: 6px; background: #fbfcfc; }
+    .mini strong { color: var(--navy); }
+    table { width: 100%; border-collapse: collapse; margin: 13px 0; font-size: 14px; }
+    th, td { padding: 9px 10px; text-align: left; vertical-align: top; border: 1px solid var(--line); }
+    th { color: var(--navy); background: #eef3f5; }
+    .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0; }
+    .flow span { padding: 8px 11px; border: 1px solid #b9d5d8; border-radius: 5px; color: var(--navy); background: #f0fbfb; font-weight: 700; }
+    .flow b { color: var(--orange); }
+    .resume { padding: 22px 24px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfc; }
+    .resume-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding-bottom: 12px; border-bottom: 2px solid var(--navy); }
+    .resume-head .who { font-size: 18px; font-weight: 800; color: var(--navy); }
+    .resume-head .who span { color: var(--teal); }
+    .resume-head .when { color: var(--muted); font-size: 14px; }
+    .resume p { margin: 10px 0; }
+    .resume ol { margin: 10px 0 4px 20px; }
+    .resume ol li { margin: 8px 0; }
+    .resume .k { color: var(--navy); font-weight: 700; }
+    .case { margin: 16px 0; border: 1px solid #cfe0e2; border-radius: 8px; background: #fbfdfd; }
+    .case-title { padding: 10px 14px; background: #e7f1f2; color: var(--navy); font-weight: 800; border-bottom: 1px solid #cfe0e2; border-radius: 8px 8px 0 0; }
+    .case-title small { font-weight: 600; color: var(--teal); }
+    .case-body { padding: 8px 16px 12px; }
+    .case-body .row { display: flex; gap: 10px; margin: 9px 0; }
+    .case-body .lbl { flex: 0 0 84px; height: fit-content; padding: 2px 8px; border-radius: 4px; background: #e2f2f3; color: #245d65; font-size: 12px; font-weight: 700; text-align: center; }
+    .case-body .lbl.warn { background: #fbe6d6; color: #9c4a1e; }
+    .case-body .row > div:last-child { flex: 1; min-width: 0; }
+    .qa { border-top: 1px solid var(--line); }
+    .qa details { padding: 11px 0; border-bottom: 1px solid var(--line); }
+    .qa summary { cursor: pointer; color: var(--navy); font-weight: 750; }
+    .qa summary::marker { color: var(--orange); }
+    .answer { margin: 9px 0 2px; padding: 12px 14px; background: #f7fafb; border-left: 3px solid #9ab5be; }
+    .tag { display: inline-block; margin: 0 5px 5px 0; padding: 2px 8px; border-radius: 99px; color: #245d65; background: #e2f2f3; font-size: 12px; }
+    .score { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border-radius: 5px; color: #315848; background: #e5f4eb; font-weight: 700; }
+    .edit-hint { margin-top: 8px; color: var(--muted); font-size: 13px; }
+    [contenteditable="true"] { outline: 2px dashed #6db8be; outline-offset: 3px; }
+    .hidden { display: none !important; }
+    mark { padding: 0 2px; background: #ffe18e; }
+    footer { margin: 30px 0 0; color: var(--muted); text-align: center; font-size: 13px; }
+    @media (max-width: 900px) {
+      .layout { display: block; }
+      aside { position: static; height: auto; padding: 12px 18px; border-bottom: 1px solid var(--line); background: #fff; }
+      aside nav { display: flex; gap: 4px; overflow-x: auto; }
+      aside a { white-space: nowrap; border-left: 0; border-bottom: 2px solid transparent; }
+      aside a:hover, aside a.active { border-left: 0; border-bottom-color: var(--teal); }
+      main { padding: 18px 14px 60px; }
+      section { padding: 21px 18px; }
+      .hero { padding: 25px 22px; }
+      .hero-grid, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .case-body .row { flex-direction: column; gap: 3px; }
+      .toolbar { width: 100%; }
+      .toolbar input { flex: 1; width: auto; }
+    }
+    @media print {
+      @page { margin: 12mm; }
+      body { background: #fff; }
+      .topbar, aside { display: none; }
+      .layout { display: block; }
+      main { padding: 0; }
+      section, .hero { box-shadow: none; break-inside: avoid; }
+      [contenteditable="true"] { outline: 0; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">机票退改签 Agent<small>Agent 案例 · RAG 实战 · 面试讲解</small></div>
+    <div class="toolbar">
+      <input id="search" type="search" placeholder="搜索问题或关键词" aria-label="搜索">
+      <button id="editBtn" type="button" aria-pressed="false">开启编辑</button>
+      <button id="saveBtn" type="button">保存草稿</button>
+      <button id="exportBtn" type="button">导出新 HTML</button>
+      <button id="pdfBtn" type="button">导出 PDF</button>
+      <button id="addSectionBtn" type="button">新增章节</button>
+      <button id="resetBtn" type="button">恢复已发布版</button>
+      <button id="randomBtn" type="button">随机抽题</button>
+    </div>
+  </header>
+  <div class="layout">
+    <aside>
+      <h2>目录</h2>
+      <button id="addTocBtn" type="button">新增目录项</button>
+      <nav>
+        <a href="#resume">实习经历模板</a>
+        <a href="#opening">项目总览 &amp; 开场</a>
+        <a href="#architecture">整体架构与检索漏斗</a>
+        <a href="#rag">RAG 核心概念（底座）</a>
+        <a href="#work1">工作一 · Agent 编排</a>
+        <a href="#work2">工作二 · 意图理解与 Query 改写</a>
+        <a href="#work3">工作三 · 混合检索与精排</a>
+        <a href="#work4">工作四 · 生成与质量保障</a>
+        <a href="#memory">工作五 · 上下文与记忆系统</a>
+        <a href="#deepdive">检索漏斗逐层拆解</a>
+        <a href="#eval">评测体系</a>
+        <a href="#qa">高频面试追问</a>
+        <a href="#pitfalls">答题易错点</a>
+        <a href="#cheatsheet">指标与术语速查</a>
+      </nav>
+    </aside>
+    <main id="document">
+      <div class="hero">
+        <div class="hero-grid">
+          <div>
+            <div class="eyebrow">Campus-hire coaching · Agent + RAG</div>
+            <h1>机票退改签智能 Agent</h1>
+            <p>用「机票退改签」这一个案例串起 RAG 全链路（意图理解 → 粗召回 → 精排 → 去冗余 → 生成 → 记忆），<span style="font-family: Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, sans-serif;">每一层都配真实场景、参数取舍、理论底座与面试追问</span></p>
+          </div>
+          <div class="hero-note">自然语言 + 订单输入 · 检索增强 · 记忆增强 · 生成可控<br>机票售后退改签与多轮咨询场景</div>
+        </div>
+      </div>
+
+      <section id="resume" data-search="实习经历 模板 简历 项目 工作内容 携程 机票 退改签">
+        <h2>实习经历模板（可直接放进简历）</h2>
+        <div class="resume">
+          <div class="resume-head">
+            <div class="who">携程｜机票售后经营组　·　<span>AI Agent 应用开发实习生</span></div>
+            <div class="when">2026.02 – 2026.08</div>
+          </div>
+          <p><span class="k">项目：</span>面向机票售后的「退改签智能 Agent」（退改签规则库约数十万篇政策文档，支持自然语言咨询、政策问答与多轮改签比价）。</p>
+          <p><span class="k">项目背景：</span>面向机票退改签咨询与办理场景，解决通用大模型「政策记错、差价报错、多轮咨询断片、费用金额编造」四类问题，构建覆盖「意图理解 → 检索 → 记忆 → 生成」全链路的垂直领域智能体。</p>
+          <p class="k">工作内容：</p>
+          <ol>
+            <li><strong>ReAct 规划编排：</strong>将航班状态查询、差价计算、退改签规则检索、方案生成、出票封装为<strong> Function Calling 工具</strong>，基于<strong> ReAct</strong> 做多步推理与工具调度，并用<strong> LangGraph</strong> 编排「解析→检索→确认→生成→校验」状态机（含置信度阈值与 human-in-the-loop）；工具调用准确率<strong> ≥92%</strong>。（<b>PS：</b><strong>让系统自己会「查状态 → 找政策 → 算差价 → 讲清楚」：</strong>用户一句口语诉求，拆成可单独调用的工具，让系统自己判断先做哪一步、出错如何重试，减少调错和跳步，工具调用准确率做到 92%。）</li>
+            <li><b>多模态/增强 Query 理解：</b>自然语言诉求经订单字段对齐后，再做上下文改写、一句话多诉求拆解、HyDE、Step-back 政策泛化，输出「意图/航司/舱位/票价产品」结构化字段驱动下游 filter，复杂场景检索解决率提升 25%。（<b>PS：</b><strong>先把诉求读懂，再去检索：</strong>解决「一句话里又想退又想改」「『它』指哪张票」这类情况——先把诉求拆清、把没说完整的追问补全，复杂场景下正确匹配到政策的比例提升 25%）</li>
+            <li><strong>混合检索与结果精排：</strong>搭建<b>语义检索<span> BGE</span></b>与<b>关键词检索<span> BM25</span></b>双路并行、<b>融合排序RRF</b>与相关性精排的规则库匹配方案，政策命中率提升 18%。（<b>PS：</b><strong>让政策搜得到、也搜得准：</strong>针对「用户口语和规则文档写法差很远」，把「按语义搜」和「按关键词搜」结合，再对结果重新排序。这一段是<b>重难点</b>，可细化为：<strong>稠密向量召回（BGE + HNSW）+ 稀疏 BM25</strong> 双路（各 topK=60）经 <strong>RRF 融合</strong>取 Top 40，<strong>BGE-Reranker（Cross-Encoder）</strong>精排至 Top 10，再叠加多维度排序 + <strong>MMR 去冗余</strong>；粗召回 <strong>Recall@100 84%→96%</strong>）</li>
+            <li><strong>上下文与记忆系统：</strong>建设多轮会话短期记忆与用户长期画像，配合上下文动态注入与压缩，多轮追问理解准确率提升 30%，单次会话 Token 成本下降约 70%。（PS<b>：</b><strong>让它记得住上下文，也越用越懂这个用户：</strong>既记得上一轮讲了哪张票、哪个方案（多轮追问不断片），也逐步记住该用户的常出行航线与退改偏好（越用越贴合），同时控制每次携带的信息量，多轮追问理解准确率提升 30%，单次对话成本下降约 70%。<b>如何搭建？</b>短期会话记忆（多轮指代消解 + 滑动窗口摘要压缩，Redis 缓存会话状态）与长期用户画像（常旅客等级、历史退改偏好，向量化存储、检索时作个性化 boost）；设计 token 预算分配与上下文动态注入。）</li>
+            <li><strong>方案生成与质量保障：</strong>以检索政策与工具返回差价为唯一依据约束模型输出，引入金额结构化校验、政策事实核查与人工兜底，并建设分航司/舱位的"金标准"评测集，方案正确率提升至 96%（<b>PS：</b><strong>保证答得对、不编价：</strong>只允许模型依据检索到的真实政策和引擎算的差价作答，再加一道金额与政策引用的核查，拿不准就转人工；并整理了一套覆盖多航司/舱位的用例用于验证效果，方案正确率做到 96%。<b>如何实现？</b>以检索/工具命中内容为唯一数据源，LLM 强制 JSON 结构化输出 + 金额逐项校验（正则抽金额与工具字段比对）；引入 Fact-Checker（阈值 0.85） + 硬规则后过滤，低于阈值触发 Self-Refinement；构建分航司/舱位评测集（金标准 + 禁止错误类型），方案正确率 ≥96%，单次对话 Token 成本降 60%–80%、P99 ≤ 1.2s。）</li>
+          </ol>
+          <p><span class="k" style="color: rgb(23, 50, 77);">技术栈：</span>Python、LangGraph、Function Calling、检索增强（向量 + 关键词混合检索、融合排序、精排/重排）、自然语言 + 订单结构化输入理解、Prompt 工程、事实核查与结构化输出、Redis。</p>
+        </div>
+        <p class="edit-hint">数字为教学示意值，正式使用时请替换为你项目的真实测量数据；下方各章节是对每条工作内容的展开、理论底座与追问准备。</p>
+      </section>
+
+      <section id="opening" data-search="开场 30秒 项目介绍 总结 四个关键词 RAG 是什么">
+        <h2>项目总览 &amp; 30 秒开场</h2>
+        <div class="callout good"><strong>建议背熟的开场：</strong>我实习做的是一个机票售后的「退改签 Agent」——用户在订单页问一句「我这票能退吗 / 改到后天补多少钱」，系统要先理解他的诉求、从退改签规则库里找到适用的政策、再调用引擎算出真实差价，并且支持多轮追问。我主要负责把它当成一个「智能体」来搭：从工具编排、意图理解、混合检索、上下文与记忆，到最后的方案生成与质量把关这条完整链路。</div>
+        <h3>先建立一个概念：什么是 RAG，为什么退改签非用它不可</h3>
+        <p><strong>RAG（检索增强生成）</strong>＝「先检索、再生成」：不让大模型凭记忆直接答，而是<strong>先从可信规则库里检索出适用的退改签政策、从引擎拿到真实差价，再让模型基于这些材料作答</strong>。退改签是资金流场景——说错手续费、报错差价就是客诉和资损，模型凭记忆很容易把政策记错、把差价报偏，所以答案必须<strong>可溯源、可校验</strong>，这正是 RAG 的用武之地。RAG 的两大主力就是后面反复出现的<strong>「粗召回（解决召回率，别漏）」和「精排（解决准确率，排准）」</strong>。</p>
+        <h3>四个关键词（记住这四个，任何追问都能回到主线）</h3>
+        <div class="grid-2">
+          <div class="mini"><strong>多源输入理解</strong><br>用户说的是口语 + 订单里的结构化字段（航司/舱位/票价产品），要先对齐、补全，变成机器能检索的结构化诉求。</div>
+          <div class="mini"><strong>检索增强</strong><br>政策不能靠模型编，必须先从规则库检索到适用条文；差价必须调引擎，不许模型自己算。</div>
+          <div class="mini"><strong>记忆增强</strong><br>多轮咨询要记得上一句，长期要记住这个用户的常航线与退改偏好，本质都是上下文管理。</div>
+          <div class="mini"><strong>生成可控</strong><br>结论必须可溯源、可校验：唯一数据源 + 金额校验 + 政策事实核查，低置信度转人工。</div>
+        </div>
+        <p class="edit-hint">面试时先用这段 30 秒讲清「是什么、我做了哪条链路」，再等追问逐层展开。</p>
+      </section>
+
+      <section id="architecture" data-search="架构 链路 漏斗 topK 召回 精排 检索 流程 60 40">
+        <h2>整体架构与检索漏斗</h2>
+        <p>整条链路可以用一句话概括：<strong>把一句口语化的退改签诉求，一步步收敛成一条可作答的政策与差价</strong>。每一环都是「上一环的输出，下一环的输入」。</p>
+        <div class="flow">
+          <span>用户诉求</span><b>→</b><span>意图理解 / 改写</span><b>→</b><span>混合召回</span><b>→</b><span>精排 / 去重</span><b>→</b><span>记忆注入</span><b>→</b><span>方案生成</span><b>→</b><span>校验</span>
+        </div>
+        <h3>检索漏斗：为什么层层收敛</h3>
+        <p>核心思想是<strong>「用便宜的方法多召回，用贵的方法精挑」</strong>。候选数量逐层收敛，越往后用的模型越强、越贵，但处理的候选越少（下面的取值与 RAG 实战文档一致：双路 Top-60、融合 Top-40、精排到个位数）：</p>
+        <pre>退改签规则库（各航司/舱位/票价产品文档）
+  │  ① 意图理解：1 句诉求 → 1~2 个子诉求（+ 结构化过滤条件）
+  ▼
+每个子诉求并行两路检索：
+  ├─ 语义（向量）检索   取前 60
+  └─ 关键词（BM25）检索 取前 60
+  │  ② 归一化 + 加权融合（或 RRF）去重 → 前 40   （粗召回出口）
+  ▼
+③ 精排模型（Cross-Encoder）重排 40 条 → 前 10（动态截断：分≥0.6，最多10，至少2）
+  │  ④ 多维度排序 + MMR 去冗余 → 前 5
+  ▼
+⑤ 注入作答上下文：前 3</pre>
+        <div class="callout"><strong>一句话记忆：</strong>60 → 40 → 10 → 5 → 3。粗召回决定系统效果的<strong>上限</strong>（漏了就再也找不回），精排只能逼近它、无法超越——所以前面宁可多召回，后面再慢慢精挑。</div>
+        <p class="edit-hint">下一章先补 RAG 核心概念作为「理论底座」，随后五个「工作内容」章节会分别展开这条链路里我负责的每一环。</p>
+      </section>
+
+
+      <section id="rag" data-search="RAG 核心概念 粗召回 精排 重排 Query理解 向量 BM25 RRF 加权融合 HyDE Step-back QA子切片 Cross-Encoder Bi-Encoder MMR 双塔 交叉">
+        <h2>RAG 核心概念（后面各章的理论底座）</h2>
+        <p>这一章把「机票退改签」用到的检索理论一次讲透，后面工作章节直接引用，不再重复。一句话分工：<div><strong>1、粗召回解决「召回率（别漏）」</strong></div><div><strong>2、精排解决「准确率（排准）」</strong></div><div><strong>3、Query 理解在最前面决定「怎么搜」。</strong></div></p>
+
+        <h3>一、粗召回：解决召回率问题</h3>
+        <div class="callout"><strong>北极星：</strong>召回侧用<strong>双塔（Bi-Encoder）</strong>——query 与文档各自离线编码成向量、在线用 ANN 近邻检索，<strong>重速度</strong>（深度交互太贵，召回阶段付不起）。</div>
+        <p>核心链路（与实战文档一致）：</p>
+        <pre>输入 Query
+  → Filter 过滤（航司/舱位/票价产品等结构化元数据，硬筛选，不打分）
+  → Query 扩写（语义 ×3 / 关键字 ×3，救回口语化、残缺、歧义）
+  → 双路召回：向量(Top-60，余弦∈[0,1]) ＋ BM25(Top-60，分∈[0,20])
+  → Min-Max 归一化 → 加权混合 Final = α·sparse + (1-α)·dense（α≈0.3~0.7）
+  → 取前 40 送精排</pre>
+        <div class="grid-2">
+          <div class="mini"><strong>向量召回（BGE + ANN）</strong><br>匹配<strong>语义</strong>而非字面，「我这票能改吗」能召回「Y 舱免费改期规则」；抗同义词、抗改写。弱点：吃不准航司代码、舱位代码、具体票价产品名。</div>
+          <div class="mini"><strong>关键字召回（BM25）</strong><br>基于词频的<strong>字面精确匹配</strong>：航司代码（MU/CA）、舱位代码（Y/B/M）、票价产品名命中极准，快、便宜、可解释。弱点：完全不懂语义，换个说法就漏召。</div>
+          <div class="mini"><strong>Filter 结构化过滤</strong><br>用订单元数据（航司/舱位/票价产品/出行日期）做硬筛，缩小候选、更快更准；本质是「确定性关卡」，不参与相关性打分。依赖订单字段质量。</div>
+          <div class="mini"><strong>QA 子切片（泛化召回）</strong><br>离线为每篇政策切片用 LLM 生成 3~5 个「用户可能会问的问题」，每个问题独立编码入库并关联父切片 ID。让「问题 vs 问题」而不是「问题 vs 文档」匹配，召回更准。</div>
+        </div>
+        <div class="callout good"><strong>HyDE（假设性文档）：</strong>先让 LLM 对 query「假想写一段答案/相似政策条文」，再用这段假想条文去做向量召回——因为<strong>「答案 vs 答案」的向量比「问题 vs 答案」更接近</strong>。属于 Query 扩写的一种，专治「用户问法和规则文档写法差很远」。</div>
+
+        <h3>二、精排 / 重排：解决准确率问题</h3>
+        <div class="callout"><strong>北极星：</strong>精排侧用<strong>交叉编码器（Cross-Encoder）</strong>——把 query 和 doc 拼在一起在线逐对打分，<strong>重精度</strong>（候选量已经很小，付得起）。链路：<code>query + doc[Top-40] → 精/重排 → Top 2~10 → 组装 context → LLM</code>。</div>
+        <h4>相关性排序的四种做法（面试高频对比）</h4>
+        <table>
+          <thead><tr><th>类型</th><th>代表</th><th>打分方式</th><th>精度 / 延迟</th><th>适用</th></tr></thead>
+          <tbody>
+            <tr><td>Cross-Encoder 型</td><td>BGE-Reranker</td><td><code>[CLS] query [SEP] doc [SEP]</code> 编码，取 [CLS] 过线性头输出标量分</td><td>精度很高 / 延迟高</td><td>主流精排主力</td></tr>
+            <tr><td>生成式改造型</td><td>Qwen3-Reranker</td><td>指令模板让模型答 yes/no，<strong>取 "yes" token 的概率</strong>作分数</td><td>天花板最高 / 中</td><td>强可解释、终排</td></tr>
+            <tr><td>LLM 提示词型</td><td>RankGPT</td><td>让 LLM 直接读候选列表输出排序/打分</td><td>高 / 很高</td><td>领域定制、终排</td></tr>
+            <tr><td>特征工程 + 轻量模型</td><td>XGBoost</td><td>BM25/覆盖率/实体命中等特征 → 判别式打分</td><td>受特征限 / 极低</td><td>先廉价压候选</td></tr>
+          </tbody>
+        </table>
+        <div class="callout"><strong>级联漏斗：</strong>先用轻量模型把上百候选廉价压到几十 → BGE-Reranker 精排到十几个 → Qwen3/LLM 给最前排做终排。<strong>量级递减、精度递增、计算递增</strong>，把延迟预算花在刀刃上。</div>
+        <h4>多维度排序：相关性只是一维</h4>
+        <div class="grid-2">
+          <div class="mini"><strong>权威度</strong><br>维护来源表给每种 source_type 一个 [0,1] 先验权重（航司官方 1.0 &gt; 携程规则库 0.8 &gt; 代理说明 0.5 &gt; 转载 0.2），入库打标、精排查表。</div>
+          <div class="mini"><strong>时效性</strong><br>用衰减因子建模：越新规则分越高，但平滑递减（新政策 1.0、半年前≈0.9、一年前≈0.81），不一票否决稍旧但仍生效的规则。</div>
+          <div class="mini"><strong>质量分</strong><br>离线预计算 <code>quality = α₁·完整性 + α₂·准确性 + α₃·可读性</code>。</div>
+          <div class="mini"><strong>丰富度（MMR）</strong><br>贪心地每次选「既相关、又和已选不相似」的一条，去冗余（见下）。</div>
+        </div>
+        <div class="callout good"><strong>动态截断（代替固定 Top-K）：</strong>不再死取 Top-5，而是「取 Final 分 ≥ 0.6 的候选，最多 10 条、至少保 2 条」——高置信时多给、低置信时宁缺毋滥。</div>
+
+        <h3>三、Query 理解：三大块</h3>
+        <div class="grid-3">
+          <div class="mini"><strong>① 改写与拆解</strong><br>上下文改写（「那退票呢」→ 补成完整诉求）、纠错顺句、一句话多诉求拆解（又退又改拆成多条子 query）、扩写（HyDE / 同义变体）。</div>
+          <div class="mini"><strong>② 问题理解（只决策不检索）</strong><br>判是改签还是退票 → 路由到对应规则库；判时效态度 → 要不要加生效日期过滤；判偏精确还是偏语义 → 调融合权重 α。</div>
+          <div class="mini"><strong>③ 关键信息提取</strong><br>把散落属性抽成结构化实体 <code>{航司,舱位,票价产品,出行日期}</code> 喂 Filter；时间归一化「下周」→ 具体日期段。</div>
+        </div>
+
+        <h3>四、融合方法之辩：RRF vs 加权归一化（面试会追）</h3>
+        <table>
+          <thead><tr><th>方法</th><th>怎么算</th><th>优点</th><th>短板 / 适用</th></tr></thead>
+          <tbody>
+            <tr><td><strong>加权归一化</strong></td><td>各路分数先 Min-Max 归一化，再 <code>Final=α·sparse+(1-α)·dense</code></td><td>保留分数「强弱」信息，可按 query 特性调 α</td><td>需可靠归一化；min/max 受异常值影响，需调 α</td></tr>
+            <tr><td><strong>RRF</strong></td><td>只看排名：<code>score = Σ 1/(k + rank)</code>，k 常取 60</td><td>无需归一化、对异构分数<strong>鲁棒</strong>，工程简单</td><td>丢弃分数强度信息；适合分数不可比/难归一化时</td></tr>
+          </tbody>
+        </table>
+        <div class="callout"><strong>本项目选型：</strong>退改签两路分数量纲差异大且波动，优先用 <strong>RRF</strong> 保稳（鲁棒、少调参）；当需要按「这条规则偏精确 / 偏语义」动态调侧重时，再切到<strong>加权归一化 + 动态 α</strong>。两者不是二选一的对错，而是「稳 vs 细」的取舍。</div>
+        <p class="edit-hint">以上概念在后面各章会以「机票退改签」的具体场景落地，看到术语可回本章速查。</p>
+      </section>
+
+
+      <section id="work1" data-search="工作一 Agent 工具编排 ReAct Function Calling LangGraph 多步规划 状态机">
+        <h2>工作一 · Agent 工具编排与流程规划</h2>
+        <div class="callout good"><strong>🎯 真实需求场景：</strong>用户在订单页发一句「<em>帮我看下这票现在啥情况，能改到后天吗，补多少钱</em>」。这件事没法用一条写死的流程搞定：有的票不能改、有的要先查航班状态、用户没说改到哪天还要追问。于是需要让系统像人一样「自己决定下一步调用哪个工具」，这就是 Agent 编排要解决的问题。</div>
+        <div class="flow"><span>用户输入</span><b>→</b><span>模型规划下一步</span><b>→</b><span>调用工具</span><b>→</b><span>看结果再规划</span><b>→</b><span>直到给出答案</span></div>
+        <h3>我做了什么</h3>
+        <div class="grid-3">
+          <div class="mini"><strong>工具封装</strong><br>把查航班状态、算退改差价、规则库检索、方案生成、出票封装成统一可调用工具，入参出参用固定 Schema 约束。</div>
+          <div class="mini"><strong>多步规划（ReAct）</strong><br>让模型「思考 → 行动 → 观察结果 → 再思考」循环，自主决定调用哪个工具、按什么顺序调。</div>
+          <div class="mini"><strong>流程编排（LangGraph）</strong><br>用状态机把「解析 → 检索 → 确认 → 生成 → 校验」串起来，关键节点设置置信度阈值和人工兜底。</div>
+        </div>
+        <h3>为什么这么做 + 关键设计</h3>
+        <table>
+          <thead><tr><th>做法</th><th>为什么</th><th>参数 / 指标</th></tr></thead>
+          <tbody>
+            <tr><td>工具入参出参强制 Schema</td><td>模型经常传错字段、漏参数，不约束就会调用失败或答非所问。</td><td>Schema 校验 + 错误重试，工具调用准确率提升至 <strong>92%</strong>。</td></tr>
+            <tr><td>强制先检索再作答</td><td>不强制的话模型会「跳过规则库直接编政策」，这是幻觉的主要来源。</td><td>规则检索工具设为必经节点。</td></tr>
+            <tr><td>用状态机而非一条链</td><td>查不到政策要回退重试、低置信度要转人工、出票要用户确认——固定链路表达不了这些分支。</td><td>关键节点置信度阈值 + human-in-the-loop。</td></tr>
+          </tbody>
+        </table>
+        <h3>面试追问</h3>
+        <div class="qa">
+          <details><summary>ReAct 和「写死的流程（workflow）」有什么区别？</summary><div class="answer">写死的 workflow 是固定顺序，适合流程确定的场景；ReAct 让模型每一步看着上一步的结果，自己决定下一步做什么，适合「一句话里又想退又想改、要不要追问日期、调哪个工具」这种不确定分支。代价是更耗 token、也更难预测，所以我用状态机把边界框住，只在需要判断的节点交给模型。</div></details>
+          <details><summary>为什么工具要做 Schema 约束？不约束会怎样？</summary><div class="answer">模型输出是自然语言概率分布，不约束就可能传错类型、漏字段、编造不存在的参数，导致查错航班、算错差价。用固定 Schema + 校验 + 失败重试，能把工具调用准确率显著拉高到 92%。</div></details>
+        </div>
+        <div class="grid-2">
+          <div class="mini"><span class="tag">不要说</span>「Agent 就是让大模型自动干活。」<br><span class="tag">应该说</span>Agent 是「模型做大脑 + 工具做手脚 + 编排框边界」，我负责把工具和编排这层做稳。</div>
+          <div class="mini"><span class="tag">不要说</span>「流程我用 if-else 串起来的。」<br><span class="tag">应该说</span>用状态机编排，把重试、转人工、出票确认这些分支显式表达出来。</div>
+        </div>
+      </section>
+
+      <section id="work2" data-search="工作二 意图理解 自然语言 订单字段 指代消解 拆解 HyDE Step-back 多诉求 改写 结构化输出 那退票呢">
+        <h2>工作二 · 意图理解与 Query 改写</h2>
+        <div class="callout good"><strong>🎯 真实需求场景：</strong>两个真实痛点——① 用户咨询完改签紧接着问「<em>那退票呢，手续费多少</em>」，「退票」到底指退哪张？② 一句话里塞了俩诉求「这票太贵了我想退，要不你看看改签到明天划不划算」。如果不先把诉求「读懂、拆清、补全」，后面检索再强也白搭，因为送进去的 query 本身就是残缺的。</div>
+        <div class="flow"><span>口语诉求</span><b>→</b><span>订单字段对齐</span><b>→</b><span>诉求拆解</span><b>→</b><span>指代消解 / 补全</span><b>→</b><span>关键信息提取</span><b>→</b><span>结构化诉求</span></div>
+        <h3>我做了什么（对应 RAG 的 Query 理解三大块）</h3>
+        <div class="grid-3">
+          <div class="mini"><strong>改写与拆解</strong><br>一句话多诉求拆成多条子 query；追问做上下文改写与指代消解；必要时 HyDE 扩写、Step-back 政策泛化。</div>
+          <div class="mini"><strong>问题理解（决策）</strong><br>判改签/退票 → 路由规则库；判偏精确/偏语义 → 调融合侧重；判时效 → 要不要加生效日期过滤。</div>
+          <div class="mini"><strong>关键信息提取</strong><br>抽出 <code>{航司, 舱位, 票价产品, 出行日期}</code> 结构化字段，喂给 Filter 硬过滤、喂给精排做加权。</div>
+        </div>
+        <h4>Query 理解的结构化输出（示例）</h4>
+        <pre>{
+  "sub_queries": ["Y 舱特价票改签到明天的手续费规则"],
+  "intent": "改签-手续费",
+  "filters": { "airline": "MU", "cabin": "Y", "fare_product": "特价舱", "travel_date": "2026-09-26" },
+  "dense_sparse": "偏语义",      // 决定融合权重 α
+  "time_sensitivity": "需核对生效日期",
+  "rewrite_confidence": 0.91      // 低于阈值则回退用原始 query
+}</pre>
+
+        <div class="case">
+          <div class="case-title">场景① · 一句话又想退又想改　<small>Query 理解 / 拆解 + 指代消解</small></div>
+          <div class="case-body">
+            <div class="row"><div class="lbl">场景</div><div>用户说：「<strong>这票太贵了我想退，要不你看看改签到明天划不划算？</strong>」——一句话里既问退票、又问改签比价，且「这票」「它」都依赖当前订单上下文。</div></div>
+            <div class="row"><div class="lbl">处理流程</div><div>① 从当前订单对齐出 <code>{航司 MU, 舱位 Y, 票价产品 特价舱, 出行日期}</code>；② 拆成 2 条子 query：「退票手续费规则」「改签到明天差价」各自独立检索；③ 检测到追问里的「它/这票」依赖当前订单，<strong>不直接检索</strong>，先把订单字段回填进子 query；④ 补全后的完整 query 再走检索与作答。</div></div>
+            <div class="row"><div class="lbl">关键决策</div><div>为什么不把退改拼一起检索？——会互相干扰、谁都搜不准。为什么要按诉求拆开？——退票和改签是两套规则、两个工具（退票规则检索 / 差价计算），数据依赖不同，需按依赖顺序求解。</div></div>
+            <div class="row"><div class="lbl warn">失败兜底</div><div>若订单上下文缺失/低置信，补全失败 → 不硬编一个假设，而是<strong>提示用户确认是哪张票</strong>；指代对象有歧义（多个待出行订单）时，回退为「向用户澄清」。</div></div>
+          </div>
+        </div>
+
+        <div class="callout warn"><strong>易踩的坑（语义漂移）：</strong>改写不能「过度」。把诉求改得太多会偏离原意反而搜错。所以每次改写都带<strong>置信度</strong>，低于阈值就<strong>回退用原始 query</strong>；并用「改写前后一致性」做离线评测，防止改写模块偷偷把召回带坏。</div>
+        <h3>面试追问</h3>
+        <div class="qa">
+          <details><summary>为什么不直接把用户这句话丢给大模型，让它一步到位答？</summary><div class="answer">可以做一版基线，但直出有两个问题：一是它「读懂了」不等于「查到了当前订单适用的真实政策」，仍会编；二是一句话多诉求时容易答一半漏一半。所以把「意图理解」和「检索作答」拆开：理解只负责把诉求变成可检索的结构化问题，作答交给检索增强来保证可溯源。</div></details>
+          <details><summary>追问里的「那退票呢」你怎么让系统知道指的是哪张票？</summary><div class="answer">靠短期会话记忆做指代消解：把最近几轮对话里出现过的订单对象保留下来，追问时把「这张票/它」绑定到当前订单，再补全成完整 query 去检索。多个候选有歧义时宁可向用户澄清。</div></details>
+          <details><summary>什么是 HyDE？退改签里怎么用？</summary><div class="answer">HyDE 是先让 LLM 对问题「假想写一段答案/相似政策条文」，再拿这段去做向量召回，因为「答案 vs 答案」的向量比「问题 vs 答案」更接近。用户问法很口语（「我这票亏了能退点钱不」）和规则文档写法差很远时，用 HyDE 生成一段规范政策条文再检索，能显著提召回。</div></details>
+        </div>
+      </section>
+
+      <section id="work3" data-search="工作三 混合召回 向量 BM25 RRF 融合 精排 Cross-Encoder Reranker MMR 去冗余 Recall nDCG 60 40">
+        <h2>工作三 · 混合检索与结果精排</h2>
+        <div class="callout good"><strong>🎯 真实需求场景：</strong>线上反馈了一个 bug——「用户问『我这经济舱打折票能改吗』，系统搜出来一堆通用退改总则，就是没找到他这张特价舱位适用的那条规则」。排查发现：纯语义检索擅长「意思相近」，但对航司代码、舱位代码、票价产品名这种<strong>精确匹配</strong>不敏感。于是我加了关键词检索来补这一刀（理论见 <a href="#rag">RAG 核心概念</a>）。</div>
+        <div class="flow"><span>子问题</span><b>→</b><span>语义 60</span><span>+</span><span>关键词 60</span><b>→</b><span>融合 40</span><b>→</b><span>精排 10</span><b>→</b><span>去冗余 5</span><b>→</b><span>注入 3</span></div>
+        <h3>我做了什么</h3>
+        <div class="grid-3">
+          <div class="mini"><strong>双路召回</strong><br>语义（向量）检索懂「换了说法也能找到」，关键词（BM25）检索懂「航司/舱位代码精确匹配」，两路各取 Top-60 并行互补。</div>
+          <div class="mini"><strong>融合排序</strong><br>两路分数不可比，默认用只看排名的 <strong>RRF</strong> 融合去重取前 40，再按航司/舱位结构化过滤；需要动态调侧重时切加权归一化。</div>
+          <div class="mini"><strong>精排 + 去冗余</strong><br>用 Cross-Encoder（BGE-Reranker）对 40 条逐条精判取前 10，再用 MMR 去掉近似重复规则取前 5，注入前 3。</div>
+        </div>
+
+        <div class="case">
+          <div class="case-title">场景② · 换个说法的同一条规则　<small>向量召回 vs BM25 谁能命中</small></div>
+          <div class="case-body">
+            <div class="row"><div class="lbl">场景</div><div>用户问的是「<strong>我这经济舱打折票，改签到后天要补多少钱</strong>」，而规则库里存的是同一条规则的另一种写法「<strong>MU 航空 Y 舱特价产品（T  fare），改期收取票价差额 + 票面 20% 手续费</strong>」。字面几乎不重叠（"经济舱打折票" vs "Y 舱特价产品 T fare"、"改签" vs "改期"）。</div></div>
+            <div class="row"><div class="lbl">处理流程</div><div>① <strong>向量召回</strong>：能理解「经济舱打折票 ≈ Y 舱特价产品」「改签 ≈ 改期」，语义相近，<strong>大概率命中</strong>，是这题的主力；② <strong>BM25</strong>：靠字面，"MU""Y 舱"这些代码仍有部分重叠，作补充；③ 若配合 <strong>HyDE</strong>（先假想写出规则条文）或 <strong>QA 子切片</strong>（规则库离线已生成「打折票改期怎么收费」这类问句），命中更稳。</div></div>
+            <div class="row"><div class="lbl">关键决策</div><div>这题体现向量召回的价值——<strong>跨写法的语义匹配</strong>正是 BM25 的盲区；反过来「MU5101 这班」「Y 舱」「T fare」这类精确代码才是 BM25 的主场。所以必须双路都上，靠融合取长补短。</div></div>
+            <div class="row"><div class="lbl warn">失败兜底</div><div>若 embedding 对「舱位代码↔口语」不敏感导致向量也没召回 → 用 QA 子切片泛化召回补救；仍搜不到则判为「无适用规则」，走「不返回错规则，转人工并明确标注'未匹配到您这张票的规则'」，而不是硬塞一条通用总则。</div></div>
+          </div>
+        </div>
+
+        <div class="case">
+          <div class="case-title">场景③ · 粗召回回来 5 条，精排怎么排　<small>Cross-Encoder + 多维度 + MMR</small></div>
+          <div class="case-body">
+            <div class="row"><div class="lbl">场景</div><div>某条诉求粗召回返回 5 条候选：<strong>A、B</strong> 是同航司同舱位的近似重复规则（有效期差几天），<strong>C</strong> 是相邻舱位的规则（B 舱 vs 原 Y 舱），<strong>D</strong> 是关键词重叠但舱位不对的规则（都含"退票"但是头等舱），<strong>E</strong> 是真正适用当前订单的那条规则。</div></div>
+            <div class="row"><div class="lbl">处理流程</div><div>① Cross-Encoder 逐条把 query 与候选拼一起打分：E 最高、A/B 次之、C 中等、<strong>D 因舱位不符被打低分</strong>（这正是精排比粗召回强的地方——D 是关键词骗过了 BM25，精排能识破）；② 多维度加权：E 若来自航司官方再加权威度分、A/B 取生效日期最新的；③ <strong>MMR 去冗余</strong>：A、B 高度相似，只保留其一。</div></div>
+            <div class="row"><div class="lbl">关键决策</div><div>最终顺序约为 <strong>E &gt; A（或B）&gt; C</strong>，D 被过滤、B（与A重复）被 MMR 去掉。C 保留是因为「相邻舱位规则」对解释差异有价值，但排在适用规则之后。λ 取 0.7 偏相关、留一点多样性。</div></div>
+            <div class="row"><div class="lbl warn">失败兜底</div><div>若精排把 D 误判为高分（业务偏移）→ 归因到精排层，注入业务提示词或加难负例重训；若 E 根本没进这 5 条（漏召）→ <strong>不在精排调，回去查粗召回</strong>（扩 Top-K / 调融合 / 检查 Filter 是否过紧）。</div></div>
+          </div>
+        </div>
+
+        <h3>为什么每层 topK 是这个数</h3>
+        <table>
+          <thead><tr><th>环节</th><th>取值</th><th>为什么这么定</th></tr></thead>
+          <tbody>
+            <tr><td>每路召回</td><td>前 60</td><td>太小（如 20）正确规则可能没进候选，效果上限被锁死；太大后面精排又慢又贵。看 Recall@K 曲线在 50~100 区间收益变平，实战取 60。</td></tr>
+            <tr><td>融合出口</td><td>前 40</td><td>给精排一个「够用又不过量」的候选池；粗召回的目标是「别漏」，精排的目标才是「排准」。</td></tr>
+            <tr><td>精排出口</td><td>前 10（动态截断）</td><td>Cross-Encoder 把问题和候选拼一起联合判断，精度高但很贵。用「分≥0.6、最多10、至少2」动态截断，代替死取 Top-K。</td></tr>
+            <tr><td>去冗余出口</td><td>前 5 → 注入 3</td><td>规则库多近似重复文档，MMR 兼顾相关性与多样性；注入越多噪声越大、成本越高，Top-3 覆盖绝大多数适用规则。</td></tr>
+          </tbody>
+        </table>
+        <div class="callout"><strong>成效：</strong>加了关键词检索 + 融合 + 精排后，政策命中率提升 <strong>18%</strong>，「找不到当前订单适用规则」的问题基本解决。</div>
+        <h3>面试追问</h3>
+        <div class="qa">
+          <details><summary>为什么要「向量 + 关键词」两路，只用一路不行吗？</summary><div class="answer">向量检索懂语义、换个说法也能命中（见场景②），但对航司/舱位代码、票价产品名这种精确 token 不敏感；关键词检索正好相反，擅长精确匹配但不懂近义。两者互补，所以做混合检索再融合。</div></details>
+          <details><summary>Cross-Encoder 为什么比向量召回准，却不能拿来扫全库？</summary><div class="answer">向量召回是双塔：query 和 doc 各自编码再算距离，没有交互，快但粗。Cross-Encoder 把 query 和 doc 拼一起送进模型做全程自注意力交互，精度高但每一对都要跑一次前向，很贵，只能处理粗召回筛出来的几十条。</div></details>
+          <details><summary>融合你用 RRF 还是加权归一化？怎么选？</summary><div class="answer">默认 RRF——只看排名、无需归一化，对两路量纲不一的分数最鲁棒，少调参。当要按「这条规则偏精确还是偏语义」动态调侧重时，改用 Min-Max 归一化 + 加权（Final=α·sparse+(1-α)·dense）。取舍是「稳 vs 细」。</div></details>
+        </div>
+      </section>
+
+
+      <section id="work4" data-search="工作四 方案生成 幻觉治理 唯一数据源 JSON 结构化 金额校验 政策引用 Fact-Checker Self-Refinement 后过滤 评测集">
+        <h2>工作四 · 方案生成、幻觉治理与质量把关</h2>
+        <div class="callout good"><strong>🎯 真实需求场景：</strong>出过一次线上事故——「模型编造了一条不存在的『航空公司新政策』，还把差价算成了 200 元，实际引擎是 580 元」。退改签是资金流，报错手续费、报偏差价就是客诉和资损。所以这一环的核心不是「答得多漂亮」，而是「<strong>可溯源、可校验、错了能拦住</strong>」。</div>
+        <div class="flow"><span>检索政策 + 工具差价</span><b>→</b><span>约束生成（唯一数据源）</span><b>→</b><span>金额 / 政策校验</span><b>→</b><span>事实核查</span><b>→</b><span>过关 / 自我修正 / 转人工</span></div>
+        <h3>我做了什么（治幻觉三板斧）</h3>
+        <div class="grid-3">
+          <div class="mini"><strong>唯一数据源</strong><br>作答只能引用检索到的政策与工具返回的差价，不许模型自由发挥、凭记忆编政策或自己算钱。</div>
+          <div class="mini"><strong>结构化 + 金额校验</strong><br>强制模型按固定结构输出（是否可改、手续费、政策依据分字段），金额逐项与工具返回比对。</div>
+          <div class="mini"><strong>事实核查 + 兜底</strong><br>对生成结果打置信度，低于阈值触发自我修正重试，仍不过关就转人工，绝不硬输出。</div>
+        </div>
+        <h4>先把幻觉分类，再对症下药</h4>
+        <table>
+          <thead><tr><th>幻觉类型</th><th>例子</th><th>主要拦截手段</th></tr></thead>
+          <tbody>
+            <tr><td>无中生有</td><td>编造一条不存在的「航司新规」</td><td>唯一数据源约束 + 事实核查（比对检索材料里有没有这条依据）</td></tr>
+            <tr><td>张冠李戴</td><td>把别的舱位/航司的规则套到这张票</td><td>唯一数据源 + 精排保证注入的是适用规则（见工作三场景③）</td></tr>
+            <tr><td>金额错误</td><td>报 200，引擎实际是 580</td><td>金额不进生成、模板回填 + 正则抽数与工具字段逐项比对</td></tr>
+            <tr><td>格式错误</td><td>JSON 字段缺失、政策引用悬空</td><td>Schema 校验 + 引用对齐，失败即触发重试</td></tr>
+          </tbody>
+        </table>
+
+        <div class="case">
+          <div class="case-title">场景④ · 回复里编了个「新规」，金额还对不上　<small>Fact-Checker + Self-Refinement + 金额后验</small></div>
+          <div class="case-body">
+            <div class="row"><div class="lbl">场景</div><div>模型生成的回复里：① 结尾写了「根据<strong>航司本月新规</strong>，您可以免费改期」——检索材料里根本没这条；② 正文写「只需补 <strong>200</strong> 元」，但 <code>recalc_change_fee</code> 工具返回的是 <strong>580</strong>。</div></div>
+            <div class="row"><div class="lbl">处理流程</div><div>① <strong>金额后验</strong>：正则抽出回复里的「200」，与工具字段 580 比对 → 不一致，标记 <code>quote_mismatch</code>；② <strong>事实核查</strong>：把「航司本月新规」拿去和检索命中的政策比对，材料里查无此条 → 标记 <code>unsupported_claim</code>，整体置信度被拉到阈值 0.85 以下；③ <strong>Self-Refinement</strong>：把「金额必须引用工具的 580、删掉无依据的新规」作为反馈回灌，要求只依据材料重写；④ 重试通过校验后放行。</div></div>
+            <div class="row"><div class="lbl">关键决策</div><div>为什么阈值定 0.85？——在评测集上扫阈值看「漏放错误 vs 误拦正确」的 PR 曲线，0.85 是「几乎不漏放硬伤、又不过度误拦」的拐点。为什么金额用代码校验而不是再调个 LLM？——金额比对是确定性问题，代码又快又准，不会跟着幻觉走。</div></div>
+            <div class="row"><div class="lbl warn">失败兜底</div><div><strong>重试上限（如 2 次）</strong>防死循环：重试仍不过关 → 不硬输出，<strong>转人工客服 / 回复「这条我需要帮您确认下，稍等」</strong>。资金流场景宁可不确定，也不能报错价。</div></div>
+          </div>
+        </div>
+
+        <h3>为什么这么做 + 关键设计</h3>
+        <table>
+          <thead><tr><th>做法</th><th>为什么</th><th>参数 / 指标</th></tr></thead>
+          <tbody>
+            <tr><td>唯一数据源约束</td><td>幻觉的根源是模型「没检索到也硬答」，锁死数据源就锁死大部分幻觉。</td><td>只允许引用检索政策与工具差价。</td></tr>
+            <tr><td>金额模板回填 + 后验校验</td><td>金额是钱，不进模型生成；代码正则抽数与工具字段比对。</td><td>不一致即重生成，金额绑 tool_call_id 可追溯。</td></tr>
+            <tr><td>置信度阈值 + 自我修正</td><td>低置信结果直接给用户风险太高，宁可重试或转人工。</td><td>阈值 0.85（PR 曲线拐点），重试上限 2 次。</td></tr>
+            <tr><td>硬规则 + 语义后过滤</td><td>有些错误（金额、明显矛盾）用规则就能拦，不必都靠模型。</td><td>规则 + 语义双重把关。</td></tr>
+            <tr><td>建评测集</td><td>没有评测集的「优化」都是拍脑袋（详见评测体系章）。</td><td>分航司/舱位，金标准答案 + 禁止错误类型。</td></tr>
+          </tbody>
+        </table>
+        <div class="callout"><strong>成效：</strong>方案正确率提升至 <strong>96%</strong>，配合缓存与上下文动态注入，单次会话 Token 成本下降约 <strong>70%</strong>。</div>
+        <h3>面试追问</h3>
+        <div class="qa">
+          <details><summary>幻觉是怎么产生的？你怎么治？</summary><div class="answer">幻觉主要来自「模型没有依据也硬答」。先把幻觉分类（无中生有 / 张冠李戴 / 金额错 / 格式错），再三板斧：唯一数据源、结构化输出 + 金额校验、事实核查打置信度低于阈值就自我修正或转人工。资金流场景宁可不答也不能报错价。</div></details>
+          <details><summary>Fact-Checker 的置信度阈值怎么定的？</summary><div class="answer">不是拍的。在评测集上扫不同阈值，画「漏放错误率 vs 误拦正确率」的 PR 曲线，取二者平衡的拐点（约 0.85）。阈值调高会拦得更严但误伤正确答案，调低会漏放硬伤，取决于业务对「错答」和「不答」的容忍度。</div></details>
+          <details><summary>Self-Refinement 会不会一直重试、卡死？</summary><div class="answer">设重试上限（如 2 次）＋每次都带上「具体哪里错」的结构化反馈。超限仍不过关就转人工或礼貌拒答，绝不无限循环，也绝不硬输出没通过校验的内容。</div></details>
+        </div>
+      </section>
+
+      <section id="memory" data-search="工作五 上下文 记忆 短期 长期 会话状态 用户画像 常旅客 退改偏好 token 预算 指代 多轮咨询">
+        <h2>工作五 · 上下文与记忆系统设计</h2>
+        <div class="callout good"><strong>🎯 真实需求场景：</strong>两个需求推动了这块——① 用户会<strong>连续追问</strong>：「那退票呢」「改到后天呢」，系统必须记得上一轮讲了哪张票、哪个方案；② 用户<strong>反复来办退改</strong>，产品希望针对他<strong>常走的航线和退改偏好</strong>给更贴合的话术。前者是「这一轮记得上一轮」（短期），后者是「越用越懂这个用户」（长期）。</div>
+        <h3>记忆系统的三层结构</h3>
+        <pre>上下文与记忆系统
+├─ 短期记忆（会话级）
+│   ├─ 会话状态：当前订单栈（正在办哪张票）、咨询进度（问到第几步）
+│   ├─ 多轮指代消解：「那它 / 退票呢」→ 绑定订单栈里的对象
+│   └─ 滑动窗口 + 摘要压缩：对话过长时旧内容压成摘要，只留最近几轮原文
+├─ 长期记忆（用户级 / 跨会话）
+│   ├─ 用户画像：常旅客等级、常出行航线、历史退改偏好、价格敏感度
+│   └─ 去重写入：内容做指纹 + 状态锁，避免同一条记忆重复写
+└─ 上下文预算管理
+    └─ token 有限，按优先级注入：系统提示 &gt; 当前诉求 &gt; 检索政策/差价 &gt; 画像
+       （短期会话状态用 Redis 缓存，高频读写又快又省）</pre>
+        <h3>三块怎么建（校招够讲的深度）</h3>
+        <div class="grid-3">
+          <div class="mini"><strong>会话状态（短期）</strong><br>维护「当前订单栈 + 咨询进度」，让追问能定位到对象；这也是工作二指代消解的数据来源。会话结束即释放。</div>
+          <div class="mini"><strong>用户画像（长期）</strong><br>记录常旅客等级、常走航线、历史退改偏好（更倾向退票还是改签比价）、价格敏感度，向量化存储、检索时作个性化 boost。</div>
+          <div class="mini"><strong>预算与回流</strong><br>画像不是全量塞进上下文，而是<strong>按当前订单/航线检索出最相关的几条</strong>再注入（画像也当一路「召回」）。历史行为回流成个性化 boost。</div>
+        </div>
+        <div class="callout"><strong>画像建模（概念级，不必上重模型）：</strong>把它理解成一个随行为累积、随时间衰减的信号即可——<strong>常走某航线 → 加权；连续多次问退票 → 标记价格敏感；长期不用 → 缓慢回落</strong>。面试讲清「怎么更新、拿它干嘛（驱动话术详略与推荐）」比套公式更重要。</div>
+
+        <div class="case">
+          <div class="case-title">场景⑤ · 一个用户一周内 3 次问同一条航线的退改　<small>画像累积 → 偏好识别 → 个性化话术</small></div>
+          <div class="case-body">
+            <div class="row"><div class="lbl">场景</div><div>同一用户在一周内<strong>连续 3 次咨询上海—北京航线的退改</strong>，每次都先问退票手续费、再嫌贵，最后问改签差价。</div></div>
+            <div class="row"><div class="lbl">处理流程</div><div>① 每次咨询完，把「上海—北京航线、价格敏感、爱比较退改」写入用户画像（做<strong>去重写入</strong>避免 3 条重复）；② 识别出该用户对价格敏感、在犹豫退还是改；③ 下次再来时，<strong>主动同时给出退票费和改签差价两个数</strong>，并在话术里直接对比，省得他来回追问。</div></div>
+            <div class="row"><div class="lbl">关键决策</div><div>为什么用「多次行为」而不仅「一次」作信号？——偶尔问一次不等于偏好。为什么要主动给对比？——他已经表现出纠结退改，一次性答全比多轮追问体验更好。</div></div>
+            <div class="row"><div class="lbl warn">失败兜底</div><div>样本太少易误判（偶尔手滑 ≠ 偏好）→ 画像更新用<strong>平滑/多次确认</strong>；画像与作答<strong>解耦</strong>：即使画像判断错，也只影响话术排序的加权，不会把错的政策当依据（正确性仍由工作四的唯一数据源 + 校验兜底）。</div></div>
+          </div>
+        </div>
+
+        <h3>为什么这么做 + 关键设计</h3>
+        <table>
+          <thead><tr><th>做法</th><th>为什么</th><th>参数 / 指标</th></tr></thead>
+          <tbody>
+            <tr><td>短期会话记忆 + 订单栈</td><td>追问里的「那它/退票呢」不记住上文与当前对象就无法回答。</td><td>保留最近若干轮 + 当前订单栈，多轮追问理解准确率提升 <strong>30%</strong>。</td></tr>
+            <tr><td>滑动窗口 + 摘要压缩</td><td>对话越长全塞进去 token 越贵、噪声越多，还可能超窗。</td><td>旧内容压成摘要，Prompt token 下降约 <strong>40%</strong> 且质量不降。</td></tr>
+            <tr><td>用户画像 + 偏好</td><td>把「越用越懂用户」变成可量化的信号，驱动个性化话术。</td><td>常航线/退改偏好随行为累积、随时间衰减。</td></tr>
+            <tr><td>画像按需检索注入</td><td>画像全量注入会挤爆上下文，且大多与当前订单无关。</td><td>按当前航线/订单检索最相关几条，画像当一路召回。</td></tr>
+            <tr><td>Redis 缓存会话状态</td><td>会话栈读写频繁，放内存缓存降延迟、降存储成本。</td><td>高频只读状态 P99 ~800ms → ~120ms。</td></tr>
+          </tbody>
+        </table>
+        <div class="callout"><strong>一句话理解：</strong>短期记忆解决「这一轮听得懂上一轮」，长期记忆解决「越用越懂这个用户」；两者本质都和检索一样——<strong>把对的信息，在对的时候，用最省 token 的方式塞进上下文</strong>。</div>
+        <h3>面试追问</h3>
+        <div class="qa">
+          <details><summary>对话太长、token 要爆了怎么办？为什么用摘要而不是直接截断？</summary><div class="answer">直接截断会丢掉早期关键信息（比如最初那张票）。用滑动窗口保留最近几轮原文，更早内容让模型压成摘要保留要点，既控 token 又不丢关键上下文；摘要失败还有兜底。再配 token 预算按优先级注入。</div></details>
+          <details><summary>用户画像你怎么建模、拿它干嘛？</summary><div class="answer">记录常旅客等级、常走航线、退改偏好、价格敏感度，随行为累积、长期不用缓慢衰减。它驱动两件事：话术（敏感用户主动给退改对比）和检索加权（偏好航线规则优先）。更新要平滑，避免一次波动就误判。</div></details>
+          <details><summary>长期记忆会不会把用户的错误答案当依据、导致答错？</summary><div class="answer">不会——画像/记忆只影响话术与加权，<strong>不作为作答的数据源</strong>。作答的正确性仍由工作四的「唯一数据源 + 金额校验 + 事实核查」保证。两条链路解耦，画像判断错顶多话术不贴，不会答错题。</div></details>
+        </div>
+      </section>
+
+
+      <section id="deepdive" data-search="逐层拆解 topK 60 40 10 5 3 HyDE Step-back RRF Cross-Encoder MMR lambda nDCG 评测 迭代 召回 精排 bad case 归因">
+        <h2>检索漏斗逐层拆解：每层为什么这么调</h2>
+        <p>架构章讲了「60 → 40 → 10 → 5 → 3」这条漏斗，这一章回答面试官最爱追的问题——<strong>每一层的数字、阈值、参数到底怎么来的</strong>。核心永远是：在「效果、延迟、成本」之间做权衡，每个参数都能讲清为什么。</p>
+
+        <h3>① 意图理解层 —— 为什么放在最前面？</h3>
+        <div class="callout"><strong>为什么做：</strong>用户诉求常有「那它/退票呢」这类指代，或一句话塞了多个诉求。不理解就直接检索，等于用一句残缺的话去查规则库，后面召回再强也救不回来——它是<strong>投入产出比最高</strong>的一层。</div>
+        <div class="grid-3">
+          <div class="mini"><strong>拆解</strong><br>一句话若含多诉求 → 拆成 1~2 个子 query，各自独立走检索。</div>
+          <div class="mini"><strong>HyDE</strong><br>先让模型「假设写一段政策条文」，再拿这段去做向量召回——「条文 vs 条文」的向量比「问题 vs 条文」更接近。</div>
+          <div class="mini"><strong>Step-back</strong><br>把具体诉求抽象成规则维度（如「Y 舱特价票改期」），用于规则召回。</div>
+        </div>
+        <div class="callout good"><strong>指标：</strong>复杂 / 多诉求场景解决率 +25%。改写要设<strong>置信度兜底</strong>——低置信度就用原始 query，避免「过度改写」导致语义漂移。</div>
+
+        <h3>② 粗召回层 —— topK 为什么是 60？</h3>
+        <p><strong>为什么两路一起：</strong>向量召回懂「语义相近」（换了说法也能找到），但对精确 token（航司/舱位代码、票价产品名）不敏感；BM25 正好相反，擅长精确匹配。两者互补，所以做混合召回。</p>
+        <table>
+          <thead><tr><th>topK 取值</th><th>会怎样</th></tr></thead>
+          <tbody>
+            <tr><td>太小（如 20）</td><td>正确规则可能根本没进候选，召回率上限被锁死，后面精排再强也无用。</td></tr>
+            <tr><td>太大（如 500）</td><td>Reranker 要逐对打分，延迟和成本线性上涨（Cross-Encoder 很贵）。</td></tr>
+            <tr><td><strong>60（选它）</strong></td><td>看 Recall@K 曲线：K 在 50~100 区间收益已趋平（边际递减），实战取 60，是「召回率 vs 成本」的平衡点。</td></tr>
+          </tbody>
+        </table>
+        <div class="callout"><strong>融合两法（详见 <a href="#rag">RAG 核心概念</a>）：</strong>默认 <strong>RRF</strong>（<code>score = Σ 1/(k + rank)</code>，k≈60，只看排名、最鲁棒）；需要按 query 特性动态调侧重时用 <strong>Min-Max 归一化 + 加权</strong>（<code>Final=α·sparse+(1-α)·dense</code>，α≈0.3~0.7）。融合去重后取 Top 40。</div>
+        <div class="callout good"><strong>指标：</strong>Recall@40 从 84% → 96%（BM25 + QA 子切片 + Query 改写的累计提升）。记住一句话：<strong>粗召回决定系统性能上限，精排只能逼近它、无法超越。</strong></div>
+
+        <h3>③ 精排 / 重排层 —— 为什么 40 → 10？</h3>
+        <div class="callout"><strong>为什么需要：</strong>粗召回的分数「跨路不可比、噪声多」。Cross-Encoder 把 query 和 doc 拼在一起做全程自注意力交互，判断精度远高于粗召回的「各自编码算余弦」，但很贵——不能扫全库，只能扫粗召回出来的 40 条。</div>
+        <ul>
+          <li><strong>延迟预算：</strong>Cross-Encoder 单对约几~十几 ms，40 条可批处理并行，整体控制在端到端 P99（≤1.2s）的预算内；这也是「为什么是 40 而不是 500」的硬约束。</li>
+          <li><strong>动态截断：</strong>不死取 Top-K，而是「Final 分 ≥ 0.6、最多 10、至少 2」，高置信多给、低置信宁缺毋滥。</li>
+          <li><strong>多维度加权：</strong>相关性只是一维，再叠加权威度（航司官方&gt;代理说明）、质量分、时效性（新规则优先），避免「相关但过期/低质」排在前面。</li>
+        </ul>
+        <div class="callout good"><strong>指标：</strong>政策 Top-1 命中率 +18%，nDCG@10 +0.12（nDCG 衡量「越相关的排越前」，比单纯命中率更能反映排序质量）。</div>
+
+        <h3>④ 去冗余（MMR）—— 为什么 10 → 5，λ 怎么定？</h3>
+        <div class="callout"><strong>为什么做：</strong>规则库里有大量「近似重复文档」。若 Top 5 全是同一条规则的不同版本，等于给模型喂了 5 份重复信息，浪费上下文窗口、推高 token 成本。</div>
+        <pre>MMR 每一步选：  argmax [ λ·相关性(d, query) − (1−λ)·max 相似度(d, 已选) ]</pre>
+        <table>
+          <thead><tr><th>λ 取值</th><th>偏向</th><th>后果</th></tr></thead>
+          <tbody>
+            <tr><td>λ → 1</td><td>只看相关性</td><td>退化成普通排序，近似重复规则全进来</td></tr>
+            <tr><td>λ → 0</td><td>只看多样性</td><td>为了不重复把相关性也丢了，可能选进不适用的舱位规则</td></tr>
+            <tr><td><strong>λ ≈ 0.7</strong></td><td>相关为主、留一点多样</td><td>在评测集上扫 λ，看「覆盖率 vs 相关性」，0.7 附近最平衡</td></tr>
+          </tbody>
+        </table>
+        <p><strong>N 的消融（示意）：</strong>注入 Top-3 已覆盖约 9 成适用规则，Top-5 提升有限却明显增 token，Top-8 几乎不再涨——所以精排留 5、注入 3。</p>
+
+        <h3>⑤ 生成 + 幻觉治理 —— 为什么只注入 Top 3？</h3>
+        <div class="callout"><strong>为什么不把 5 条全喂进去：</strong>上下文越长，成本越高、噪声越多、越容易被无关内容带偏。经评测，Top 3 已覆盖绝大多数适用规则，性价比最高。</div>
+        <div class="grid-3">
+          <div class="mini"><strong>唯一数据源</strong><br>作答只能引用检索政策与工具差价，不许模型自由发挥。</div>
+          <div class="mini"><strong>结构化输出</strong><br>强制 JSON（是否可改、手续费、政策依据分字段），金额模板回填不进生成。</div>
+          <div class="mini"><strong>Fact-Checker</strong><br>对结果打置信度，阈值 0.85（PR 曲线拐点）——低于就触发 Self-Refinement（重试上限 2 次）或转人工。</div>
+        </div>
+        <div class="callout good"><strong>指标：</strong>方案正确率 ≥ 96%。</div>
+
+        <h3>⑥ Bad case 归因 —— 出问题先定位在哪一层</h3>
+        <div class="callout warn"><strong>面试杀手锏：</strong>能按「现象 → 根因层 → 调哪里」定位 bad case，比只会背参数强得多。切忌「哪层出问题都去调精排」。</div>
+        <table>
+          <thead><tr><th>Bad case 现象</th><th>根因层</th><th>调整方向</th></tr></thead>
+          <tbody>
+            <tr><td>漏召：适用规则根本没进候选集</td><td>粗召层</td><td>回查粗召（扩 Top-K / 调融合权重 / 检查 Filter 是否过紧），<strong>别动精排</strong></td></tr>
+            <tr><td>错排：适用规则在候选里但没进 Top-K</td><td>精排层</td><td>提升相关性权重，检查多维特征是否压过了相关性</td></tr>
+            <tr><td>噪声：Top-K 混入舱位不符的规则</td><td>精排层</td><td>压低截断 K 或提高分数阈值，加强难负例训练</td></tr>
+            <tr><td>冗余：Top-K 几条高度重复</td><td>重排层</td><td>调高 MMR 多样性权重（降 λ）</td></tr>
+            <tr><td>过时：排前的是已失效规则</td><td>多维度层</td><td>提升时效权重，检查规则生效日期过滤</td></tr>
+            <tr><td>业务偏移：某类舱位持续「看似相关实则不对」</td><td>精排层</td><td>注入业务提示词或领域微调</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+
+      <section id="eval" data-search="评测体系 评测集 指标 定义 Recall nDCG Top-1 端到端 正确率 分层评测 离线回归 可复现 迭代">
+        <h2>评测体系：把「优化」从拍脑袋变成可量化</h2>
+        <div class="callout"><strong>一句话：</strong>没有评测集的「优化」都是拍脑袋。每改一个参数（topK、λ、阈值、融合权重）都要跑评测，看指标是升是降，才敢上线。</div>
+
+        <h3>指标定义卡（每个指标量什么、在哪一层用）</h3>
+        <table>
+          <thead><tr><th>指标</th><th>量什么</th><th>怎么算（直觉）</th><th>用在哪层</th></tr></thead>
+          <tbody>
+            <tr><td>Recall@K</td><td>适用规则有没有进前 K 个候选</td><td>命中的正确规则数 ÷ 应召回总数</td><td>粗召回（保「别漏」）</td></tr>
+            <tr><td>nDCG@10</td><td>相关的有没有排在前面</td><td>按位置加权的相关性得分，越靠前权重越高，再归一化</td><td>精排（保「排准」）</td></tr>
+            <tr><td>Top-1 命中率</td><td>第 1 条就是适用规则的比例</td><td>Top-1 命中数 ÷ 总数</td><td>精排 / 端到端体验</td></tr>
+            <tr><td>端到端正确率</td><td>最终作答对不对（政策引用准 + 金额对）</td><td>人工/金标准判定是否正确</td><td>整链路（含生成与治理）</td></tr>
+          </tbody>
+        </table>
+
+        <h3>评测集怎么构建（可复现的关键）</h3>
+        <div class="grid-2">
+          <div class="mini"><strong>数据来源</strong><br>抽真实线上咨询（覆盖各航司/舱位/票价产品），加上人工构造的难例（口语改写、一句话多诉求、指代追问）。</div>
+          <div class="mini"><strong>标注规范</strong><br>每条标注：适用规则（金标准）、该条航司/舱位、<strong>禁止出现的错误类型</strong>（如编造新规、报错价）；标注需双人校验。</div>
+          <div class="mini"><strong>规模与版本</strong><br>固定一个带版本号的评测集（如 v1.0 共 N 条），改动只对比同一版本，保证<strong>可复现</strong>。</div>
+          <div class="mini"><strong>更新机制</strong><br>线上 bad case 定期回流补进评测集，但发版时冻结版本，避免「边改题边考试」。</div>
+        </div>
+
+        <h3>分层评测矩阵 —— 每层单独可量化</h3>
+        <table>
+          <thead><tr><th>层</th><th>主指标</th><th>离线怎么评</th></tr></thead>
+          <tbody>
+            <tr><td>意图理解</td><td>改写前后一致性 / 拆解正确率</td><td>标注「应拆成几条、指代指谁」，比对</td></tr>
+            <tr><td>粗召回</td><td>Recall@40</td><td>金标准规则是否在 40 条内</td></tr>
+            <tr><td>精排</td><td>nDCG@10 / Top-1</td><td>金标准相关性排序对比</td></tr>
+            <tr><td>生成 + 治理</td><td>端到端正确率 / 幻觉拦截率</td><td>金标准答案 + 禁止错误类型比对（金额对齐工具返回）</td></tr>
+          </tbody>
+        </table>
+
+        <h3>迭代路径（面试可讲的故事线）</h3>
+        <div class="flow"><span>v1 向量召回<br>Recall@40≈84%</span><b>→</b><span>v2 +BM25+融合<br>≈92%</span><b>→</b><span>v3 +改写+HyDE+子切片<br>≈96%</span><b>→</b><span>v4 +精排<br>Top-1 +18%</span><b>→</b><span>v5 +MMR+治理+缓存<br>正确率96%·成本↓70%</span></div>
+        <table>
+          <thead><tr><th>版本</th><th>做了什么</th><th>效果</th></tr></thead>
+          <tbody>
+            <tr><td>v1</td><td>只做向量召回</td><td>Recall@40 ≈ 84%，舱位代码类老是搜不到</td></tr>
+            <tr><td>v2</td><td>加 BM25 混排 + 融合（RRF）</td><td>Recall 提到 92%（航司/舱位代码精确匹配补上）</td></tr>
+            <tr><td>v3</td><td>加 Query 改写 + HyDE + QA 子切片</td><td>Recall 到 96%</td></tr>
+            <tr><td>v4</td><td>加 Cross-Encoder 精排 + 多维度</td><td>Top-1 命中 +18%、nDCG@10 +0.12</td></tr>
+            <tr><td>v5</td><td>加 MMR + 幻觉治理 + Redis 缓存</td><td>方案正确率 96%、Token 成本 ↓约 70%、P99 ≤ 1.2s</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+
+      <section id="qa" data-search="高频面试追问 问答 面试 随机抽题">
+        <h2>高频面试追问（点「随机抽题」练手）</h2>
+        <div class="qa">
+          <details><summary>Q1：一句话讲清你的项目和你负责的部分。</summary><div class="answer">机票售后的退改签 Agent：用户问能不能退/改、补多少钱，系统理解诉求、从规则库检索适用政策、调引擎算差价、生成清晰解释，支持多轮追问。我负责把它当作一个智能体来搭，覆盖工具编排、意图理解、混合检索、上下文与记忆、方案生成与质量把关这条完整链路。</div></details>
+          <details><summary>Q2：为什么要做成 Agent，而不是一个固定流程？</summary><div class="answer">因为分支太多：一句话多诉求要拆、查不到政策要重试、不同舱位要调不同规则、低置信度要转人工。固定流程表达不了这些动态决策，所以用 ReAct 让模型自主规划，再用状态机把边界框住。</div></details>
+          <details><summary>Q3：退改签为什么不能只靠大模型直接答？</summary><div class="answer">纯直出有两个硬伤：政策会变、模型记不准；差价是实时算出来的、模型会报偏。退改签是资金流，报错价就是资损。所以把理解与作答拆开——理解把诉求变成可检索的结构化问题，作答交给检索增强 + 引擎工具保证可溯源。</div></details>
+          <details><summary>Q4：完整讲一下这条 RAG 链路，60→40→10→5→3 是什么？</summary><div class="answer">双路各召回 Top-60（向量+BM25）→ 融合去重取 40 → Cross-Encoder 精排取 10（动态截断）→ MMR 去冗余取 5 → 注入 3 条给生成。前面便宜多召回保上限，后面贵模型精挑排准。</div></details>
+          <details><summary>Q5：向量召回和 BM25 各解决什么？举个例子。</summary><div class="answer">向量懂语义：「经济舱打折票改期」能召回规则库里的「Y 舱特价产品 T fare 改期收费」；BM25 擅长精确匹配：「MU 航司」「Y 舱」「T fare」这类代码。两者互补，用 RRF 融合。</div></details>
+          <details><summary>Q6：融合为什么用 RRF？和加权归一化怎么选？</summary><div class="answer">RRF 只看排名、无需归一化，对两路量纲不一的分数最鲁棒、少调参，所以默认用它；当要按 query 偏精确/偏语义动态调侧重时，改用 Min-Max 归一化 + 加权（α）。取舍是「稳 vs 细」。</div></details>
+          <details><summary>Q7：Cross-Encoder 为什么准、为什么贵？和双塔啥区别？</summary><div class="answer">双塔（Bi-Encoder）query 和 doc 各自编码再算距离，无交互，快但粗，用于召回；Cross-Encoder 把两者拼一起做全程自注意力交互，精度高但每对都要一次前向，很贵，只能处理粗召回筛出的几十条。</div></details>
+          <details><summary>Q8：HyDE、Step-back、QA 子切片分别解决什么？</summary><div class="answer">HyDE：先假想写政策条文再检索，让「条文 vs 条文」更近；Step-back：把具体诉求抽象成规则维度做泛化召回；QA 子切片：离线为规则切片生成「用户可能会问的问题」入库，让「问题 vs 问题」匹配。三者都是提召回。</div></details>
+          <details><summary>Q9：MMR 的 λ 怎么定？topK 每层怎么定？</summary><div class="answer">都靠评测集扫参：λ≈0.7（相关为主、留点多样，看覆盖率 vs 相关性曲线）；每路召回 60（Recall@K 拐点）、融合 40、精排动态截断到个位数、注入 3（覆盖率消融）。核心是「效果 vs 延迟成本」权衡。</div></details>
+          <details><summary>Q10：多轮对话太长、token 要爆了怎么办？</summary><div class="answer">滑动窗口保留最近几轮原文 + 旧内容压成摘要（不直接截断，免得丢最初那张票），再按 token 预算优先级注入：系统提示 &gt; 当前诉求 &gt; 检索政策/差价 &gt; 画像。</div></details>
+          <details><summary>Q11：短期记忆、长期记忆、用户画像是什么关系？</summary><div class="answer">短期是会话级（订单栈+指代消解），解决「记得上一轮」；长期是用户级画像（常航线+退改偏好），解决「越用越懂这个用户」，驱动个性化话术与检索加权。画像随行为累积、随时间衰减。</div></details>
+          <details><summary>Q12：幻觉怎么治？置信度阈值 0.85 怎么来的？</summary><div class="answer">先分类（无中生有/张冠李戴/金额错/格式错），再三板斧：唯一数据源、结构化+金额校验、Fact-Checker 打分。阈值在评测集上扫 PR 曲线取「漏放 vs 误拦」平衡拐点，约 0.85；低于阈值触发 Self-Refinement（上限 2 次）或转人工。</div></details>
+          <details><summary>Q13：线上出了 bad case，你怎么定位？</summary><div class="answer">按现象归因到层：漏召→查粗召回（别动精排）；错排/噪声→精排；冗余→调 MMR 的 λ；过时→时效权重；某类持续偏→业务提示词或微调。先定位再调，切忌哪出问题都去动精排。</div></details>
+          <details><summary>Q14：你怎么证明优化真的有效？</summary><div class="answer">靠带版本的评测集：分层评（Recall@40/nDCG@10/Top-1/端到端正确率），每改一个参数跑一遍对比同版本，线上 bad case 回流补题但发版冻结版本，保证可复现。</div></details>
+        </div>
+      </section>
+
+      <section id="pitfalls" data-search="易错点 陷阱 不要说 应该说 误区">
+        <h2>答题易错点：面试官很可能继续追</h2>
+        <div class="grid-2">
+          <div class="mini"><span class="tag">不要说</span>「Agent 就是让大模型自动干活。」<br><span class="tag">应该说</span>模型做大脑、工具做手脚、编排框边界，我负责工具和编排这层。</div>
+          <div class="mini"><span class="tag">不要说</span>「检索就是查数据库。」<br><span class="tag">应该说</span>是向量 + 关键词双路召回、融合、精排、去冗余的多级漏斗。</div>
+          <div class="mini"><span class="tag">不要说</span>「topK / λ 我随便设的。」<br><span class="tag">应该说</span>在评测集上扫参、看曲线拐点定的，能讲清每个数为什么。</div>
+          <div class="mini"><span class="tag">不要说</span>「融合就是把两路分数加起来。」<br><span class="tag">应该说</span>两路分数不可比，用 RRF 按排名融合（或先归一化再加权）。</div>
+          <div class="mini"><span class="tag">不要说</span>「Cross-Encoder 又准就拿它扫全库。」<br><span class="tag">应该说</span>它逐对交互太贵，只能精排粗召回筛出的几十条，召回得用双塔。</div>
+          <div class="mini"><span class="tag">不要说</span>「差价让模型算一下。」<br><span class="tag">应该说</span>差价只能来自引擎工具，金额走模板回填 + 代码后验校验。</div>
+          <div class="mini"><span class="tag">不要说</span>「上下文压缩就是删旧消息。」<br><span class="tag">应该说</span>滑动窗口保留近几轮 + 旧内容摘要，按 token 预算分优先级。</div>
+          <div class="mini"><span class="tag">不要说</span>「模型不会说错，正确率很高。」<br><span class="tag">应该说</span>用唯一数据源 + 校验 + Fact-Checker 兜底，低置信度宁可转人工。</div>
+        </div>
+        <h3>可以主动反问面试官的问题</h3>
+        <ol>
+          <li>这个岗位偏「智能体应用开发」（搭产品链路），还是偏「算法/数据」（做检索、评测、数据）？我两块都能聊，但想知道侧重点。</li>
+          <li>你们的 Agent 更接近固定 workflow 的应用侧，还是通用型 Agent？编排框架是自研还是用 LangGraph 这类？</li>
+          <li>线上对「正确率」和「延迟/成本」哪个更敏感？这决定了检索漏斗和模型选型的取舍。</li>
+        </ol>
+      </section>
+
+      <section id="cheatsheet" data-search="指标 术语 速查 topK 阈值 参数 名词解释 HyDE Step-back Cross-Encoder Bi-Encoder MMR nDCG RRF QA子切片">
+        <h2>指标与术语速查</h2>
+        <h3>检索漏斗关键参数</h3>
+        <table>
+          <thead><tr><th>环节</th><th>输入</th><th>输出</th><th>关键点</th></tr></thead>
+          <tbody>
+            <tr><td>意图理解</td><td>1 句诉求 + 订单</td><td>1~2 个子诉求 + 结构化字段</td><td>拆解 + 指代消解 + 低置信度兜底</td></tr>
+            <tr><td>语义 / 关键词召回</td><td>子问题</td><td>各前 60</td><td>Recall 收益拐点，保「别漏」</td></tr>
+            <tr><td>融合排序</td><td>60 + 60</td><td>前 40</td><td>RRF（k=60）或归一化+加权（α）</td></tr>
+            <tr><td>精排重排</td><td>40</td><td>前 10（动态截断）</td><td>Cross-Encoder，分≥0.6、最多10、至少2</td></tr>
+            <tr><td>去冗余</td><td>10</td><td>前 5</td><td>MMR，λ≈0.7</td></tr>
+            <tr><td>注入生成</td><td>5</td><td>前 3</td><td>唯一数据源 + 金额校验 + Fact-Checker(0.85)</td></tr>
+          </tbody>
+        </table>
+        <h3>核心成效（教学示意值）</h3>
+        <p>
+          <span class="score">工具调用准确率 92%</span>&nbsp;
+          <span class="score">复杂场景解决率 +25%</span>&nbsp;
+          <span class="score">政策命中率 +18%</span>&nbsp;
+          <span class="score">多轮追问理解 +30%</span>&nbsp;
+          <span class="score">方案正确率 96%</span>&nbsp;
+          <span class="score">会话 Token 成本 -70%</span>
+        </p>
+        <h3>术语速查</h3>
+        <table>
+          <thead><tr><th>术语</th><th>一句话解释</th></tr></thead>
+          <tbody>
+            <tr><td>ReAct</td><td>让模型「思考→行动→观察→再思考」循环，自主决定调哪个工具。</td></tr>
+            <tr><td>Function Calling</td><td>把外部能力（查状态/算差价/查规则）封装成带固定入参出参的工具，供模型按需调用。</td></tr>
+            <tr><td>RAG（检索增强）</td><td>先检索真实政策/规则，再让模型基于它作答，减少编造。</td></tr>
+            <tr><td>Bi-Encoder（双塔）</td><td>query 和 doc 各自编码成向量再算距离，快，用于召回。</td></tr>
+            <tr><td>Cross-Encoder（交叉）</td><td>query 和 doc 拼一起联合打分，准但贵，用于精排。</td></tr>
+            <tr><td>BM25 / 关键词检索</td><td>基于词频的精确匹配检索，擅长航司/舱位代码、票价产品名。</td></tr>
+            <tr><td>RRF 融合</td><td>只看排名不看分数的融合法（Σ 1/(k+rank)），解决多路分数不可比。</td></tr>
+            <tr><td>加权归一化融合</td><td>各路分数 Min-Max 归一化后按 α 加权，保留分数强弱。</td></tr>
+            <tr><td>HyDE</td><td>先让 LLM 假想写政策条文，再拿它做向量召回（条文 vs 条文更近）。</td></tr>
+            <tr><td>Step-back</td><td>把具体诉求抽象成规则维度，做泛化召回。</td></tr>
+            <tr><td>QA 子切片</td><td>离线为规则切片生成「可能被问的问题」入库，问题 vs 问题匹配。</td></tr>
+            <tr><td>MMR</td><td>相关性与多样性平衡（λ），去掉近似重复规则。</td></tr>
+            <tr><td>nDCG@K</td><td>按位置加权的相关性得分，衡量「越相关越靠前」的排序质量。</td></tr>
+            <tr><td>指代消解</td><td>把「那它」「退票呢」还原成它具体指的订单/诉求。</td></tr>
+            <tr><td>Fact-Checker / Self-Refinement</td><td>对结果打置信度，低于阈值就自我修正重试或转人工，不硬输出。</td></tr>
+            <tr><td>Redis</td><td>缓存高频会话状态/只读数据，降延迟与成本。</td></tr>
+          </tbody>
+        </table>
+        <div class="callout warn"><strong>使用声明：</strong>本课件为校招教学参考示例，所有数字均为示意值，用于说明 AI Agent 应用开发岗（RAG/工具编排方向）的工作结构与讲解方式；正式用于简历或面试前，请务必替换为你自己项目的真实经历与测量数据。</div>
+      </section>
+
+      <footer>Agent 开发校招辅导课件 · 机票退改签 Agent 案例 · 教学参考示例（数字为示意值）</footer>
+    </main>
+  </div>
+  <script>
+    (() => {
+      const doc = document.getElementById('document');
+      const layout = document.querySelector('.layout');
+      const brand = document.querySelector('.brand');
+      const editBtn = document.getElementById('editBtn');
+      const saveBtn = document.getElementById('saveBtn');
+      const exportBtn = document.getElementById('exportBtn');
+      const pdfBtn = document.getElementById('pdfBtn');
+      const addSectionBtn = document.getElementById('addSectionBtn');
+      const addTocBtn = document.getElementById('addTocBtn');
+      const resetBtn = document.getElementById('resetBtn');
+      const randomBtn = document.getElementById('randomBtn');
+      const search = document.getElementById('search');
+      const storageKey = 'flight-change-agent-coaching-v2';
+      let editing = false;
+
+      const editableNodes = () => [
+        brand,
+        ...Array.from(layout.querySelectorAll('h1,h2,h3,h4,p,li,td,th,.mini,.callout,.hero-note,.answer,.flow span,.flow b,.eyebrow,.qa summary,.resume,.case-title,.case-body .row>div:last-child,footer,aside h2,aside a')),
+      ];
+      function setEditing(value) {
+        editing = value;
+        editableNodes().forEach((node) => node.setAttribute('contenteditable', String(value)));
+        editBtn.textContent = value ? '完成编辑' : '开启编辑';
+        editBtn.setAttribute('aria-pressed', String(value));
+      }
+      function serializeDocument() {
+        const snapshot = layout.cloneNode(true);
+        snapshot.querySelectorAll('.hidden').forEach((node) => node.classList.remove('hidden'));
+        snapshot.querySelectorAll('[contenteditable]').forEach((node) => node.removeAttribute('contenteditable'));
+        return JSON.stringify({ layout: snapshot.innerHTML, brand: brand.innerHTML });
+      }
+      function saveDraft() {
+        localStorage.setItem(storageKey, serializeDocument());
+        saveBtn.textContent = '已保存';
+        setTimeout(() => { saveBtn.textContent = '保存草稿'; }, 1400);
+      }
+      function restoreDraft() {
+        const saved = localStorage.getItem(storageKey);
+        if (!saved) return;
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.layout) layout.innerHTML = parsed.layout;
+          if (parsed.brand) brand.innerHTML = parsed.brand;
+        } catch {
+          doc.innerHTML = saved;
+        }
+      }
+      function exportHtml() {
+        const clone = document.documentElement.cloneNode(true);
+        clone.querySelectorAll('.hidden').forEach((node) => node.classList.remove('hidden'));
+        clone.querySelectorAll('[contenteditable]').forEach((node) => node.removeAttribute('contenteditable'));
+        const html = '<!doctype html>\n' + clone.outerHTML;
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const stamp = new Date().toISOString().slice(0, 10);
+        link.href = url;
+        link.download = 'flight-change-agent-coaching-' + stamp + '.html';
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      function exportPdf() {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+          window.print();
+          return;
+        }
+        const clone = document.documentElement.cloneNode(true);
+        clone.querySelectorAll('.hidden').forEach((node) => node.classList.remove('hidden'));
+        clone.querySelectorAll('.topbar, aside, script').forEach((node) => node.remove());
+        clone.querySelectorAll('[contenteditable]').forEach((node) => node.removeAttribute('contenteditable'));
+        const printStyle = '<style>@page { margin: 12mm; } body { background: #fff; } main { padding: 0; }</style>';
+        const html = '<!doctype html>\n' + clone.outerHTML.replace('</head>', printStyle + '</head>');
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.document.title = 'Agent 开发校招辅导课件';
+        printWindow.document.addEventListener('afterprint', () => printWindow.close(), { once: true });
+        window.setTimeout(() => {
+          printWindow.focus();
+          printWindow.print();
+        }, 150);
+      }
+      function addSection() {
+        const title = prompt('请输入新章节标题：', '新章节');
+        if (title === null) return;
+        const cleanTitle = title.trim() || '新章节';
+        const index = document.querySelectorAll('section[id^="custom-section-"]').length + 1;
+        const id = 'custom-section-' + index;
+        const section = document.createElement('section');
+        section.id = id;
+        section.dataset.search = cleanTitle;
+        section.innerHTML = '<h2>' + escapeHtml(cleanTitle) + '</h2>'
+          + '<p>在这里填写本章节的核心结论、真实需求场景与关键取舍。</p>'
+          + '<h3>面试问题</h3>'
+          + '<div class="qa"><details open><summary>这里放一个面试问题</summary><div class="answer">这里填写参考回答、关键边界和可能的追问。</div></details></div>';
+        const footer = doc.querySelector('footer');
+        doc.insertBefore(section, footer);
+        const link = document.createElement('a');
+        link.href = '#' + id;
+        link.textContent = cleanTitle;
+        document.querySelector('aside nav').appendChild(link);
+        setEditing(editing);
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      function escapeHtml(value) {
+        const node = document.createElement('div');
+        node.textContent = value;
+        return node.innerHTML;
+      }
+      function filterSections(term) {
+        const query = term.trim().toLowerCase();
+        doc.querySelectorAll('section').forEach((section) => {
+          const haystack = (section.dataset.search + ' ' + section.textContent).toLowerCase();
+          section.classList.toggle('hidden', Boolean(query) && !haystack.includes(query));
+        });
+      }
+      editBtn.addEventListener('click', () => setEditing(!editing));
+      saveBtn.addEventListener('click', saveDraft);
+      exportBtn.addEventListener('click', exportHtml);
+      pdfBtn.addEventListener('click', exportPdf);
+      addSectionBtn.addEventListener('click', addSection);
+      addTocBtn.addEventListener('click', addSection);
+      resetBtn.addEventListener('click', () => {
+        if (confirm('清除本地草稿并恢复文件内的已发布内容？')) {
+          localStorage.removeItem(storageKey);
+          location.reload();
+        }
+      });
+      randomBtn.addEventListener('click', () => {
+        const items = Array.from(doc.querySelectorAll('#qa details'));
+        if (!items.length) return;
+        const picked = items[Math.floor(Math.random() * items.length)];
+        items.forEach((item) => { item.open = item === picked; });
+        picked.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+      search.addEventListener('input', (event) => filterSections(event.target.value));
+      // 打开时套用你「保存草稿」过的内容；想回到文件原始版本点顶栏「恢复已发布版」
+      restoreDraft();
+      setEditing(false);
+    })();
+  </script>
+
+</body></html>
+<!-- （注：内容由AI生成） -->

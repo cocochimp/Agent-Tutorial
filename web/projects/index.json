@@ -10,6 +10,11 @@
       "id": "photo-q",
       "name": "拍照搜题Agent",
       "tagline": "Agent 编排 · 多模态 · 混合检索 · 解题生成"
+    },
+    {
+      "id": "air-ticket",
+      "name": "机票退改签Agent",
+      "tagline": "退改签 Agent · 意图理解 · 混合检索 · 幻觉治理"
     }
   ]
 }

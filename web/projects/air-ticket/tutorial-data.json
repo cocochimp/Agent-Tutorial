@@ -1,0 +1,53 @@
+{
+  "version": "1.0",
+  "lessons": [
+    {
+      "id": "overview",
+      "title": "从一个退改诉求到可溯源方案",
+      "category": "从这里开始",
+      "summary": "沿着一次「改签比价」咨询，认识工具封装、意图理解、混合检索、记忆与校验的整体链路。",
+      "tags": [
+        "入门",
+        "Function Calling",
+        "LangGraph",
+        "整体流程"
+      ],
+      "chapter": 1,
+      "flow": [
+        "用户口语诉求",
+        "意图理解/改写",
+        "混合检索政策",
+        "引擎算差价",
+        "方案生成与校验",
+        "返回可溯源答复"
+      ],
+      "steps": [
+        "用户发「能改到后天吗补多少钱」，query_understand 拆成「改签到后天的差价规则」子 query 并回填订单字段。",
+        "hybrid_retrieve 双路召回（语义 + BM25）融合后精排，命中适用政策 RULE-10023。",
+        "recalc_change_fee 引擎算出真实差价 580 元（模型不自己算）。",
+        "tool_scheme_gen 基于政策 + 差价生成结构化方案，verify_node 金额后验 + 事实核查（阈值 0.85）。",
+        "通过后返回「可改签，补差价 580 元，依据 RULE-10023」，全程可溯源。"
+      ]
+    }
+  ],
+  "files": {
+    "air_ticket_agent/tools.py": {
+      "text": "# 工具封装：查航班状态 / 算差价 / 查规则 / 生成方案 / 出票\n# 固定 Schema 入参出参 + validate_call 校验（工作一）\nTOOLS = [\n  {\"name\": \"check_flight_status\", \"params\": {\"flight_no\": \"str\", \"date\": \"str\"}},\n  {\"name\": \"recalc_change_fee\",    \"params\": {\"order_id\": \"str\", \"target_date\": \"str\"}},\n  {\"name\": \"retrieve_refund_rule\", \"params\": {\"airline\": \"str\", \"cabin\": \"str\"}},\n  {\"name\": \"gen_change_scheme\",    \"params\": {\"order_id\": \"str\", \"target_date\": \"str\"}},\n  {\"name\": \"issue_ticket\",         \"params\": {\"order_id\": \"str\", \"scheme_id\": \"str\"}},\n]\n\ndef validate_call(tool, args):\n    # 参数类型/必填/枚举校验，失败抛 ToolCallError 触发重试\n    ..."
+    },
+    "air_ticket_agent/graph.py": {
+      "text": "# LangGraph 状态机：解析→检索→确认→生成→校验（工作一）\n# 条件边：查不到政策→重试；低置信度→人工兜底；出票→用户确认\nfrom langgraph.graph import StateGraph\n\ndef build_graph():\n    g = StateGraph(AgentState)\n    g.add_node(\"query_understand\", understand)\n    g.add_node(\"agent_node\", plan_next)          # ReAct 决策\n    g.add_node(\"tool_rule_retrieve\", retrieve)   # 必经节点，防跳步\n    g.add_node(\"verify_node\", verify)            # 金额后验 + Fact-Checker\n    g.add_edge(\"query_understand\", \"agent_node\")\n    g.add_conditional_edges(\"verify_node\", gate, {\n        \"ok\": \"checkpoint_gate\", \"retry\": \"retry_node\", \"human\": \"human_review\"})\n    return g.compile(checkpointer=MemorySaver())"
+    },
+    "air_ticket_agent/query.py": {
+      "text": "# 意图理解与 Query 改写（工作二）\n# 订单字段对齐 → 多诉求拆解 → 指代消解 → 结构化输出\ndef parse_intent(raw, order):\n    sub_queries = split_sub_queries(raw)          # 一句话多诉求拆成多条\n    resolved = resolve_reference(sub_queries, order)  # 「这票/它」回填订单字段\n    return {\n        \"sub_queries\": resolved,\n        \"intent\": classify(resolved[0]),\n        \"filters\": {\"airline\": order.airline, \"cabin\": order.cabin},\n        \"rewrite_confidence\": 0.91,               # 低于阈值回退原始 query\n    }"
+    },
+    "air_ticket_agent/retrieval.py": {
+      "text": "# 混合检索与精排（工作三）：60→40→10→5→3\ndef hybrid_retrieve(query, filters):\n    dense = vector_top60(query)      # 语义召回 Top-60\n    sparse = bm25_top60(query)       # 关键词召回 Top-60（航司/舱位代码）\n    fused = rrf_merge(dense, sparse, k=60)          # 排名融合取前 40\n    filtered = hard_filter(fused, filters)          # 结构化过滤\n    top10 = cross_encoder_rerank(filtered)          # 精排，动态截断\n    top5 = mmr_dedup(top10, lam=0.7)                # 去冗余\n    return top5[:3]                                  # 注入前 3"
+    },
+    "air_ticket_agent/verify.py": {
+      "text": "# 幻觉治理与质量把关（工作四）\ndef verify_scheme(scheme, fee_from_tool, retrieved_rules):\n    quote_ok = extract_amount(scheme.text) == fee_from_tool  # 金额后验\n    claims = split_claims(scheme.text)\n    supported = all(has_evidence(c, retrieved_rules) for c in claims)  # 事实核查\n    confidence = min(quote_ok_score, supported_score)\n    if confidence < 0.85:                       # 阈值 0.85\n        return refine(scheme, errors=collect_errors())   # Self-Refinement\n    return scheme"
+    },
+    "air_ticket_agent/memory.py": {
+      "text": "# 上下文与记忆系统（工作五）\n# 短期：会话栈 + 滑动窗口摘要；长期：用户画像（去重写入）；预算：按优先级注入\ndef inject_context(question, order_stack, profile, budget):\n    pri = [system_prompt, question, retrieved_policy, profile_top3]\n    return fit_into_budget(pri, budget)   # 系统提示 > 当前诉求 > 政策 > 画像"
+    }
+  }
+}
