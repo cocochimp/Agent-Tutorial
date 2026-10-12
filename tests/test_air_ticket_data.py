@@ -18,7 +18,7 @@ def test_air_work_items_five():
         assert it['resume']['label'] and it['resume']['text']
         assert it['resume']['metrics'] and it['resume']['metricDetails']
         for md in it['resume']['metricDetails']:
-            assert md['design'] and md['source']
+            assert md['design'] and len(md['design']) >= 150 and md.get('numbers') and len(md['numbers']) >= 3
         assert it['nodes'], it['id']
         assert it['introHtml'] and it['intro']
         for io in it['io']:

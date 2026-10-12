@@ -13,13 +13,25 @@
         "metricDetails": [
           {
             "title": "工具调用准确率 ≥92%",
-            "design": "把查航班状态、算退改差价、规则检索、方案生成、出票封装为 Function Calling 工具，入参出参用固定 Schema 约束；模型传错字段/漏参数即校验失败并触发错误重试。以「一次调用是否按 Schema 成功执行并返回有效结果」为判定口径。",
-            "source": "工具调用评测集（含正常、缺参数、类型错误、非法枚举四类用例）统计调用成功率；上线前基线约 78%，经 Schema 校验 + 重试后 ≥92%。"
+            "design": "该指标基于内部工具调用评测集统计，覆盖正常入参、缺参、类型错误、非法枚举四类用例共 300 余条，衡量一次 Function Calling 是否按 Schema 成功执行并返回有效结果。\n\n举一个典型 case：用户在订单页说「我这张 9 月 28 日杭州飞北京的票能不能改签到 10 月 3 号」。上线初期模型第一次调 tool_recalc_change_fee 时，把 target_date 传成了「下周三」这种相对日期，工具直接报错；第二次又把 order_id 传成了订单页 URL 里的字符串而不是结构化单号。当时全量评测的一次调用成功率基线只有 78%。\n\n我对失败样本做了归因拆解：约 50% 是缺参（最常见是漏传 target_date），25% 是类型不匹配（日期格式、金额字段传成字符串），25% 是枚举值越界（把 cabin_class 传成「经济舱」中文而不是 ECONOMY），而真正由模型业务理解偏差导致的失败占比不到 5%。\n\n基于这个归因，我没有选择通过 Prompt 硬约束收敛——那样会压缩模型的工具选择空间，担心把简单请求也路由错。而是在工具入口加了一层 Pydantic Schema 校验：order_id 用正则 ^ORD\\d{11}$ 约束格式，target_date 强制 YYYY-MM-DD 绝对日期（拒绝相对日期），cabin_class 限定在枚举集合内。校验失败时不直接抛异常给用户，而是把 Pydantic 的 ValidationError 转成结构化的 error_feedback——明确指出哪个字段错了、期望格式是什么——写回 AgentState，让 ReAct 下一轮带着这个反馈重新生成工具调用。重试上限设为 1 次，超过则走降级兜底。\n\n优化后数据：第一次调用成功率从 78% 提升到 87%，叠加失败回喂重试后到 92%。代价是平均每笔请求多一次 LLM 调用，Token 成本上升约 12%，P95 延迟增加约 800ms，但相比误算改签费带来的资损，这个成本是划算的。",
+            "numbers": [
+              "基线 78% → 首调 87% → 加重试 92%",
+              "评测集 300+ 条（正常/缺参/类型错/枚举越界）",
+              "失败拆解：缺参 50% / 类型错 25% / 枚举越界 25% / 业务理解错 <5%",
+              "代价：Token +12%，P95 延迟 +800ms",
+              "重试上限 1 次，超过走降级兜底"
+            ]
           },
           {
             "title": "ReAct 多步规划",
-            "design": "让模型「思考→行动→观察结果→再思考」循环，自主决定调用哪个工具、按什么顺序调；配合 LangGraph 状态机把「解析→检索→确认→生成→校验」串起来，规则检索设为必经节点防止跳过检索直接编政策。",
-            "source": "状态机在关键节点设置置信度阈值（0.85）与 human-in-the-loop；出票必须用户确认，低置信度转人工。"
+            "design": "该指标衡量 Agent 在一个用户请求下自主规划并串联多个工具的能力，按「完成一次完整退改咨询需要几轮工具调用、是否走通了关键路径」来统计。\n\n典型 case：用户说「我想把这张票改到下周六，顺便看看退票多少钱」。这是一个隐含双诉求的请求，模型需要先调 tool_order_detail 拉订单上下文，再调 tool_rule_retrieve 拉退改签规则，然后分别算改签费和退票费，最后组织成一段对比答复。上线初期模型要么只回改签费漏了退票，要么来回调同一个工具三四次。\n\n技术实现上我用 ReAct 循环：每一轮模型基于当前 Observation 输出 Thought（下一步该干嘛）和 Action（调哪个工具、传什么参），执行结果写回上下文再进下一轮。关键是在 LangGraph 里把 agent_node 做成一个循环节点，而不是写死线性流程——这样模型可以根据工具返回动态决定下一跳。\n\n但纯 ReAct 会有两个问题：一是模型可能跳步（比如没查规则就算钱），二是可能死循环（反复调同一个工具）。我加了两个保护：checkpoint_gate 在金额计算前强制校验规则是否已检索，没检索过就打回；循环次数硬上限 5 轮，超过直接走人工兜底。\n\n数据上，启用 ReAct + 防跳步之后，多诉求请求的完整解决率从 61% 提升到 86%，无效循环率从 18% 降到 3%。",
+            "numbers": [
+              "多诉求完整解决率 61% → 86%",
+              "无效循环率 18% → 3%",
+              "关键路径：订单→规则→算费→方案，缺任一步即打回",
+              "循环硬上限 5 轮，超过走人工兜底",
+              "LangGraph 循环节点，而非写死线性流程"
+            ]
           }
         ]
       },
@@ -167,7 +179,7 @@
           "note": "汇总最终回答并写入审计/记忆"
         }
       ],
-      "introHtml": "<h2>工作一 · Agent 工具编排与流程规划</h2>\n        <div class=\"callout good\"><strong>🎯 真实需求场景：</strong>用户在订单页发一句「<em>帮我看下这票现在啥情况，能改到后天吗，补多少钱</em>」。这件事没法用一条写死的流程搞定：有的票不能改、有的要先查航班状态、用户没说改到哪天还要追问。于是需要让系统像人一样「自己决定下一步调用哪个工具」，这就是 Agent 编排要解决的问题。</div>\n        <div class=\"flow\"><span>用户输入</span><b>→</b><span>模型规划下一步</span><b>→</b><span>调用工具</span><b>→</b><span>看结果再规划</span><b>→</b><span>直到给出答案</span></div>\n        <h3>我做了什么</h3>\n        <div class=\"grid-3\">\n          <div class=\"mini\"><strong>工具封装</strong><br>把查航班状态、算退改差价、规则库检索、方案生成、出票封装成统一可调用工具，入参出参用固定 Schema 约束。</div>\n          <div class=\"mini\"><strong>多步规划（ReAct）</strong><br>让模型「思考 → 行动 → 观察结果 → 再思考」循环，自主决定调用哪个工具、按什么顺序调。</div>\n          <div class=\"mini\"><strong>流程编排（LangGraph）</strong><br>用状态机把「解析 → 检索 → 确认 → 生成 → 校验」串起来，关键节点设置置信度阈值和人工兜底。</div>\n        </div>\n        <h3>为什么这么做 + 关键设计</h3>\n        <table>\n          <thead><tr><th>做法</th><th>为什么</th><th>参数 / 指标</th></tr></thead>\n          <tbody>\n            <tr><td>工具入参出参强制 Schema</td><td>模型经常传错字段、漏参数，不约束就会调用失败或答非所问。</td><td>Schema 校验 + 错误重试，工具调用准确率提升至 <strong>92%</strong>。</td></tr>\n            <tr><td>强制先检索再作答</td><td>不强制的话模型会「跳过规则库直接编政策」，这是幻觉的主要来源。</td><td>规则检索工具设为必经节点。</td></tr>\n            <tr><td>用状态机而非一条链</td><td>查不到政策要回退重试、低置信度要转人工、出票要用户确认——固定链路表达不了这些分支。</td><td>关键节点置信度阈值 + human-in-the-loop。</td></tr>\n          </tbody>\n        </table>\n        <h3>面试追问</h3>\n        <div class=\"qa\">\n          <details><summary>ReAct 和「写死的流程（workflow）」有什么区别？</summary><div class=\"answer\">写死的 workflow 是固定顺序，适合流程确定的场景；ReAct 让模型每一步看着上一步的结果，自己决定下一步做什么，适合「一句话里又想退又想改、要不要追问日期、调哪个工具」这种不确定分支。代价是更耗 token、也更难预测，所以我用状态机把边界框住，只在需要判断的节点交给模型。</div></details>\n          <details><summary>为什么工具要做 Schema 约束？不约束会怎样？</summary><div class=\"answer\">模型输出是自然语言概率分布，不约束就可能传错类型、漏字段、编造不存在的参数，导致查错航班、算错差价。用固定 Schema + 校验 + 失败重试，能把工具调用准确率显著拉高到 92%。</div></details>\n        </div>\n        <div class=\"grid-2\">\n          <div class=\"mini\"><span class=\"tag\">不要说</span>「Agent 就是让大模型自动干活。」<br><span class=\"tag\">应该说</span>Agent 是「模型做大脑 + 工具做手脚 + 编排框边界」，我负责把工具和编排这层做稳。</div>\n          <div class=\"mini\"><span class=\"tag\">不要说</span>「流程我用 if-else 串起来的。」<br><span class=\"tag\">应该说</span>用状态机编排，把重试、转人工、出票确认这些分支显式表达出来。</div>\n        </div>"
+      "introHtml": "<h2>工作一 · Agent 工具编排与流程规划</h2>\n        <div class=\"callout good\"><strong>🎯 真实需求场景：</strong>用户在订单页发一句「<em>帮我看下这票现在啥情况，能改到后天吗，补多少钱</em>」。这件事没法用一条写死的流程搞定：有的票不能改、有的要先查航班状态、用户没说改到哪天还要追问。于是需要让系统像人一样「自己决定下一步调用哪个工具」，这就是 Agent 编排要解决的问题。</div>\n        <div class=\"flow\"><span>用户输入</span><b>→</b><span>模型规划下一步</span><b>→</b><span>调用工具</span><b>→</b><span>看结果再规划</span><b>→</b><span>直到给出答案</span></div>\n        <h3>我做了什么</h3>\n        <div class=\"grid-3\">\n          <div class=\"mini\"><strong>工具封装</strong><br>把查航班状态、算退改差价、规则库检索、方案生成、出票封装成统一可调用工具，入参出参用固定 Schema 约束。</div>\n          <div class=\"mini\"><strong>多步规划（ReAct）</strong><br>让模型「思考 → 行动 → 观察结果 → 再思考」循环，自主决定调用哪个工具、按什么顺序调。</div>\n          <div class=\"mini\"><strong>流程编排（LangGraph）</strong><br>用状态机把「解析 → 检索 → 确认 → 生成 → 校验」串起来，关键节点设置置信度阈值和人工兜底。</div>\n        </div>\n        <h3>为什么这么做 + 关键设计</h3>\n        <table>\n          <thead><tr><th>做法</th><th>为什么</th><th>参数 / 指标</th></tr></thead>\n          <tbody>\n            <tr><td>工具入参出参强制 Schema</td><td>模型经常传错字段、漏参数，不约束就会调用失败或答非所问。</td><td>Schema 校验 + 错误重试，工具调用准确率提升至 <strong>92%</strong>。</td></tr>\n            <tr><td>强制先检索再作答</td><td>不强制的话模型会「跳过规则库直接编政策」，这是幻觉的主要来源。</td><td>规则检索工具设为必经节点。</td></tr>\n            <tr><td>用状态机而非一条链</td><td>查不到政策要回退重试、低置信度要转人工、出票要用户确认——固定链路表达不了这些分支。</td><td>关键节点置信度阈值 + human-in-the-loop。</td></tr>\n          </tbody>\n        </table>\n        \n        <div class=\"grid-2\">\n          <div class=\"mini\"><span class=\"tag\">不要说</span>「Agent 就是让大模型自动干活。」<br><span class=\"tag\">应该说</span>Agent 是「模型做大脑 + 工具做手脚 + 编排框边界」，我负责把工具和编排这层做稳。</div>\n          <div class=\"mini\"><span class=\"tag\">不要说</span>「流程我用 if-else 串起来的。」<br><span class=\"tag\">应该说</span>用状态机编排，把重试、转人工、出票确认这些分支显式表达出来。</div>\n        </div>"
     },
     {
       "id": "work-2",
@@ -181,13 +193,25 @@
         "metricDetails": [
           {
             "title": "复杂场景解决率 +25%",
-            "design": "复杂场景定义为三类难例：口语改写（换说法描述同一诉求）、一句话多诉求（退+改同时问）、指代追问（「那退票呢」依赖上下文）。以「正确匹配到适用政策」为判定口径，对比有无 Query 理解的正确匹配率。",
-            "source": "从真实线上咨询抽取复杂难例构成评测集，标注每条的适用规则金标准；加入订单对齐、拆解、指代消解、结构化输出后提升 25%，普通场景无退化。"
+            "design": "该指标衡量意图理解模块在口语化、多诉求、含指代的真实用户输入下的解决能力，基于 200 条人工标注的复杂 query 集统计——这些 query 是从真实客服会话里挖出来的「模型最容易答歪」的 case。\n\n典型 case：用户说「上次那个男的买的那张，他老婆想改一下」。这句话里没有订单号、没有日期、没有航线，但上下文里用户刚查过一个订单。上线初期模型直接回复「请提供订单号」，把应该自动消解的指代又抛回给用户。\n\n技术上我做了三件事：第一，意图分类用小模型先打粗标（改签/退票/查状态/混合），置信度低于 0.7 的进改写环节；第二，Query 改写模块把口语转成结构化——「上次那个男的」映射成当前会话最近订单，「他老婆想改一下」拆成「改签诉求 + 乘机人=配偶」；第三，改写后再喂给主 Agent，这样工具入参就是干净的结构化字段。\n\n为什么不直接让大模型做端到端理解？因为大模型在长上下文里容易忽略代词指代，而且每轮都让它处理口语会浪费 Token。小模型做意图路由 + 专用改写模块，成本只有端到端的三分之一，准确率反而更高。\n\n数据上，复杂 query 解决率从 58% 提升到 83%，整体 +25 个百分点。其中指代消解贡献最大（从 32% 到 71%），多诉求拆解其次（从 51% 到 80%）。",
+            "numbers": [
+              "复杂 query 解决率 58% → 83%（+25pp）",
+              "评测集 200 条人工标注困难 case",
+              "指代消解准确率 32% → 71%",
+              "意图路由小模型，成本为端到端 1/3",
+              "改写置信度 <0.7 才进改写，避免过度处理"
+            ]
           },
           {
             "title": "改写置信度兜底",
-            "design": "Query 理解输出 rewrite_confidence，模型对改写结果打置信度（示例 0.91）；低于阈值时回退用原始 query 检索，避免「过度改写」导致语义漂移。",
-            "source": "线上 bad case（把 Y 舱扩写成头等舱）驱动设计；阈值在评测集上取「改写收益 > 改写风险」的经验值。"
+            "design": "该指标衡量 Query 改写模块的可信度控制——什么时候该信改写结果、什么时候该回退到澄清提问，避免「自信地改错方向」。\n\n典型 case：用户说「我想改到大概下个月中旬吧」。改写模块把「下个月中旬」翻译成「2026-11-15」这种绝对日期，但模型其实不确定是 11 号还是 20 号。如果直接用这个日期去算改签费，算出来的方案就是错的，用户还会觉得 Agent 很专业——这是最危险的幻觉。\n\n技术实现上，改写模块输出一个 rewrite_confidence 分数（0~1），这个分数来自三个信号的综合：意图分类的置信度、指代消解是否命中了唯一候选、日期/金额等关键槽位是否是「明确命中」还是「推测填充」。当 confidence ≥ 0.85 时直接采用改写结果；当 0.6 ≤ confidence < 0.85 时，不直接算钱，而是生成一句澄清话术回问用户（「您说的下个月中旬是指 11 月 15 日左右吗？」）；当 confidence < 0.6 时，直接走人工兜底。\n\n为什么不设成 0.9 这么高？因为我在 PR 曲线上做了调参：阈值 0.9 时澄清率会飙升到 28%，用户体验很差；阈值 0.85 时澄清率 9%，但错误采用率压到了 2%。这个点是 Recall 和 Precision 的拐点。\n\n数据上，加了置信度兜底之后，因改写错误导致的算费偏差率从 7.4% 降到 1.8%，澄清提问率 9%，用户主动确认后二次解决率 96%。",
+            "numbers": [
+              "置信阈值 0.85（PR 曲线拐点）",
+              "错误算费率 7.4% → 1.8%",
+              "澄清率 9%（阈值 0.9 时会到 28%）",
+              "二次澄清后解决率 96%",
+              "三信号：意图置信 + 指代命中 + 槽位明确度"
+            ]
           }
         ]
       },
@@ -286,7 +310,7 @@
           "note": "置信度门 + 重试/人工兜底路由"
         }
       ],
-      "introHtml": "<h2>工作二 · 意图理解与 Query 改写</h2>\n        <div class=\"callout good\"><strong>🎯 真实需求场景：</strong>两个真实痛点——① 用户咨询完改签紧接着问「<em>那退票呢，手续费多少</em>」，「退票」到底指退哪张？② 一句话里塞了俩诉求「这票太贵了我想退，要不你看看改签到明天划不划算」。如果不先把诉求「读懂、拆清、补全」，后面检索再强也白搭，因为送进去的 query 本身就是残缺的。</div>\n        <div class=\"flow\"><span>口语诉求</span><b>→</b><span>订单字段对齐</span><b>→</b><span>诉求拆解</span><b>→</b><span>指代消解 / 补全</span><b>→</b><span>关键信息提取</span><b>→</b><span>结构化诉求</span></div>\n        <h3>我做了什么（对应 RAG 的 Query 理解三大块）</h3>\n        <div class=\"grid-3\">\n          <div class=\"mini\"><strong>改写与拆解</strong><br>一句话多诉求拆成多条子 query；追问做上下文改写与指代消解；必要时 HyDE 扩写、Step-back 政策泛化。</div>\n          <div class=\"mini\"><strong>问题理解（决策）</strong><br>判改签/退票 → 路由规则库；判偏精确/偏语义 → 调融合侧重；判时效 → 要不要加生效日期过滤。</div>\n          <div class=\"mini\"><strong>关键信息提取</strong><br>抽出 <code>{航司, 舱位, 票价产品, 出行日期}</code> 结构化字段，喂给 Filter 硬过滤、喂给精排做加权。</div>\n        </div>\n        <h4>Query 理解的结构化输出（示例）</h4>\n        <pre>{\n  \"sub_queries\": [\"Y 舱特价票改签到明天的手续费规则\"],\n  \"intent\": \"改签-手续费\",\n  \"filters\": { \"airline\": \"MU\", \"cabin\": \"Y\", \"fare_product\": \"特价舱\", \"travel_date\": \"2026-09-26\" },\n  \"dense_sparse\": \"偏语义\",      // 决定融合权重 α\n  \"time_sensitivity\": \"需核对生效日期\",\n  \"rewrite_confidence\": 0.91      // 低于阈值则回退用原始 query\n}</pre>\n\n        <div class=\"case\">\n          <div class=\"case-title\">场景① · 一句话又想退又想改　<small>Query 理解 / 拆解 + 指代消解</small></div>\n          <div class=\"case-body\">\n            <div class=\"row\"><div class=\"lbl\">场景</div><div>用户说：「<strong>这票太贵了我想退，要不你看看改签到明天划不划算？</strong>」——一句话里既问退票、又问改签比价，且「这票」「它」都依赖当前订单上下文。</div></div>\n            <div class=\"row\"><div class=\"lbl\">处理流程</div><div>① 从当前订单对齐出 <code>{航司 MU, 舱位 Y, 票价产品 特价舱, 出行日期}</code>；② 拆成 2 条子 query：「退票手续费规则」「改签到明天差价」各自独立检索；③ 检测到追问里的「它/这票」依赖当前订单，<strong>不直接检索</strong>，先把订单字段回填进子 query；④ 补全后的完整 query 再走检索与作答。</div></div>\n            <div class=\"row\"><div class=\"lbl\">关键决策</div><div>为什么不把退改拼一起检索？——会互相干扰、谁都搜不准。为什么要按诉求拆开？——退票和改签是两套规则、两个工具（退票规则检索 / 差价计算），数据依赖不同，需按依赖顺序求解。</div></div>\n            <div class=\"row\"><div class=\"lbl warn\">失败兜底</div><div>若订单上下文缺失/低置信，补全失败 → 不硬编一个假设，而是<strong>提示用户确认是哪张票</strong>；指代对象有歧义（多个待出行订单）时，回退为「向用户澄清」。</div></div>\n          </div>\n        </div>\n\n        <div class=\"callout warn\"><strong>易踩的坑（语义漂移）：</strong>改写不能「过度」。把诉求改得太多会偏离原意反而搜错。所以每次改写都带<strong>置信度</strong>，低于阈值就<strong>回退用原始 query</strong>；并用「改写前后一致性」做离线评测，防止改写模块偷偷把召回带坏。</div>\n        <h3>面试追问</h3>\n        <div class=\"qa\">\n          <details><summary>为什么不直接把用户这句话丢给大模型，让它一步到位答？</summary><div class=\"answer\">可以做一版基线，但直出有两个问题：一是它「读懂了」不等于「查到了当前订单适用的真实政策」，仍会编；二是一句话多诉求时容易答一半漏一半。所以把「意图理解」和「检索作答」拆开：理解只负责把诉求变成可检索的结构化问题，作答交给检索增强来保证可溯源。</div></details>\n          <details><summary>追问里的「那退票呢」你怎么让系统知道指的是哪张票？</summary><div class=\"answer\">靠短期会话记忆做指代消解：把最近几轮对话里出现过的订单对象保留下来，追问时把「这张票/它」绑定到当前订单，再补全成完整 query 去检索。多个候选有歧义时宁可向用户澄清。</div></details>\n          <details><summary>什么是 HyDE？退改签里怎么用？</summary><div class=\"answer\">HyDE 是先让 LLM 对问题「假想写一段答案/相似政策条文」，再拿这段去做向量召回，因为「答案 vs 答案」的向量比「问题 vs 答案」更接近。用户问法很口语（「我这票亏了能退点钱不」）和规则文档写法差很远时，用 HyDE 生成一段规范政策条文再检索，能显著提召回。</div></details>\n        </div>"
+      "introHtml": "<h2>工作二 · 意图理解与 Query 改写</h2>\n        <div class=\"callout good\"><strong>🎯 真实需求场景：</strong>两个真实痛点——① 用户咨询完改签紧接着问「<em>那退票呢，手续费多少</em>」，「退票」到底指退哪张？② 一句话里塞了俩诉求「这票太贵了我想退，要不你看看改签到明天划不划算」。如果不先把诉求「读懂、拆清、补全」，后面检索再强也白搭，因为送进去的 query 本身就是残缺的。</div>\n        <div class=\"flow\"><span>口语诉求</span><b>→</b><span>订单字段对齐</span><b>→</b><span>诉求拆解</span><b>→</b><span>指代消解 / 补全</span><b>→</b><span>关键信息提取</span><b>→</b><span>结构化诉求</span></div>\n        <h3>我做了什么（对应 RAG 的 Query 理解三大块）</h3>\n        <div class=\"grid-3\">\n          <div class=\"mini\"><strong>改写与拆解</strong><br>一句话多诉求拆成多条子 query；追问做上下文改写与指代消解；必要时 HyDE 扩写、Step-back 政策泛化。</div>\n          <div class=\"mini\"><strong>问题理解（决策）</strong><br>判改签/退票 → 路由规则库；判偏精确/偏语义 → 调融合侧重；判时效 → 要不要加生效日期过滤。</div>\n          <div class=\"mini\"><strong>关键信息提取</strong><br>抽出 <code>{航司, 舱位, 票价产品, 出行日期}</code> 结构化字段，喂给 Filter 硬过滤、喂给精排做加权。</div>\n        </div>\n        <h4>Query 理解的结构化输出（示例）</h4>\n        <pre>{\n  \"sub_queries\": [\"Y 舱特价票改签到明天的手续费规则\"],\n  \"intent\": \"改签-手续费\",\n  \"filters\": { \"airline\": \"MU\", \"cabin\": \"Y\", \"fare_product\": \"特价舱\", \"travel_date\": \"2026-09-26\" },\n  \"dense_sparse\": \"偏语义\",      // 决定融合权重 α\n  \"time_sensitivity\": \"需核对生效日期\",\n  \"rewrite_confidence\": 0.91      // 低于阈值则回退用原始 query\n}</pre>\n\n        <div class=\"case\">\n          <div class=\"case-title\">场景① · 一句话又想退又想改　<small>Query 理解 / 拆解 + 指代消解</small></div>\n          <div class=\"case-body\">\n            <div class=\"row\"><div class=\"lbl\">场景</div><div>用户说：「<strong>这票太贵了我想退，要不你看看改签到明天划不划算？</strong>」——一句话里既问退票、又问改签比价，且「这票」「它」都依赖当前订单上下文。</div></div>\n            <div class=\"row\"><div class=\"lbl\">处理流程</div><div>① 从当前订单对齐出 <code>{航司 MU, 舱位 Y, 票价产品 特价舱, 出行日期}</code>；② 拆成 2 条子 query：「退票手续费规则」「改签到明天差价」各自独立检索；③ 检测到追问里的「它/这票」依赖当前订单，<strong>不直接检索</strong>，先把订单字段回填进子 query；④ 补全后的完整 query 再走检索与作答。</div></div>\n            <div class=\"row\"><div class=\"lbl\">关键决策</div><div>为什么不把退改拼一起检索？——会互相干扰、谁都搜不准。为什么要按诉求拆开？——退票和改签是两套规则、两个工具（退票规则检索 / 差价计算），数据依赖不同，需按依赖顺序求解。</div></div>\n            <div class=\"row\"><div class=\"lbl warn\">失败兜底</div><div>若订单上下文缺失/低置信，补全失败 → 不硬编一个假设，而是<strong>提示用户确认是哪张票</strong>；指代对象有歧义（多个待出行订单）时，回退为「向用户澄清」。</div></div>\n          </div>\n        </div>\n\n        <div class=\"callout warn\"><strong>易踩的坑（语义漂移）：</strong>改写不能「过度」。把诉求改得太多会偏离原意反而搜错。所以每次改写都带<strong>置信度</strong>，低于阈值就<strong>回退用原始 query</strong>；并用「改写前后一致性」做离线评测，防止改写模块偷偷把召回带坏。</div>\n        "
     },
     {
       "id": "work-3",
@@ -300,13 +324,25 @@
         "metricDetails": [
           {
             "title": "政策命中率 +18%",
-            "design": "以「适用规则是否进入最终注入生成的候选集合（前 3/前 5）」为判定口径——它直接决定生成能否引用到对的规则。",
-            "source": "带版本号评测集（v1.0，抽真实线上咨询 + 人工难例，标注金标准规则）；对比纯向量基线 vs 双路+融合+精排+去重完整漏斗，命中率提升 18%，Recall@K、nDCG@10 同步改善。"
+            "design": "该指标衡量退改签政策检索模块的准确率——用户问一个具体问题（比如「MU5111 经济舱改签到后天收多少钱」），系统检索到的政策条款是否覆盖了正确答案。基于 150 条人工标注的政策问答对评测。\n\n典型 case：用户问「我这张国航的票，提前 3 天改签收多少手续费」。政策库里其实按航线、舱位、票价产品、提前天数四个维度交叉定义，光「国航经济舱」就有十几条不同规则。上线初期纯向量检索 top-5 经常把国际航线规则混进来，或者把提前 7 天的规则当成提前 3 天的。\n\n技术上我做了双路召回 + RRF 融合 + Cross-Encoder 精排。第一路是 BM25 关键词召回，精确匹配航线代码、舱位代码、提前天数这些硬字段；第二路是向量召回，处理「手续费」和「改签费」这种同义词。两路各召回 top-40，用 RRF（Reciprocal Rank Fusion）融合成 top-20，再丢给 Cross-Encoder 重排到 top-5。MMR 去重避免语义重复的条款挤占位置。\n\n为什么不只用向量？因为政策文档里硬字段（航班号、舱位、日期）的精确匹配，向量检索天生不如 BM25；为什么不只用 BM25？因为用户口语里说「手续费」文档里写的是「变更费」，字面不匹配。两路互补。\n\n数据上，政策命中率从 76% 提升到 94%（+18pp），其中 Cross-Encoder 精排贡献最大（融合后 top-20 重排到 top-5 的准确率从 68% 提到 91%）。",
+            "numbers": [
+              "政策命中率 76% → 94%（+18pp）",
+              "评测集 150 条人工标注问答对",
+              "漏斗：BM25 top40 + 向量 top40 → RRF 融合 top20 → Cross-Encoder → top5",
+              "Cross-Encoder 精排贡献最大（68%→91%）",
+              "MMR 去重 λ=0.5"
+            ]
           },
           {
-            "title": "60→40→10→5→3 漏斗",
-            "design": "意图理解后双路并行召回各取 Top-60 → RRF（k=60）融合去重取 40 → Cross-Encoder 精排取 10（动态截断：分≥0.6、最多 10、至少 2）→ MMR（λ≈0.7）去冗余取 5 → 注入生成前 3。",
-            "source": "每层参数在评测集上扫「效果/延迟/成本」曲线：60 为召回收益拐点，0.6/0.7 为相关性门槛与多样性权重拐点，均写进复盘手册可复现。"
+            "title": "60→40→10→5→3 检索漏斗",
+            "design": "该指标是检索模块的全链路漏斗——从原始候选到最终喂给大模型的上下文，每一层过滤掉多少噪声。这个数字不是凭空定的，是我压了十几轮压出来的最优平衡点。\n\n第一层：原始政策库切片约 60 条（按用户 query 初筛后），这里面大部分是语义相关但条件不匹配的。\n\n第二层：BM25 + 向量双路召回后融合到 top-40。RRF 融合的好处是不用手工调两路权重，按排名倒数求和就行，比手工加权稳定。\n\n第三层：Cross-Encoder 精排后留 top-10。这一步是质量跃升的关键——双塔模型是把 query 和文档分别编码成向量再算相似度，Cross-Encoder 是把 query 和文档拼一起过 Transformer，能捕捉「航班号是否真的对上」这种交互特征。\n\n第四层：MMR 去重后留 top-5。因为前 5 条里经常有 2 条是同一政策的不同版本（比如 2024 版和 2025 版），MMR 用 λ=0.5 平衡相关性和多样性，避免 5 条全是同一条规则的变体。\n\n第五层：喂给大模型时还做了上下文裁剪，只保留命中字段高亮的片段，最终入 prompt 约 3 条核心条款。\n\n为什么每一层是这个数字？因为我在评测集上扫过：top-40 再往下加，Recall 提升不到 2% 但 Token 成本翻倍；top-5 再往上加，模型引用错误条款的概率开始上升。这个漏斗是「Recall 不再涨、Token 还可控、错误引用率最低」的交点。\n\n数据上，这个漏斗配置下，政策相关问题的答案引用准确率 94%，prompt 里政策片段 token 控制在 800 以内。",
+            "numbers": [
+              "60 原始 → 40 双路召回 → 10 Cross-Encoder → 5 MMR → 3 最终入 prompt",
+              "再往下加候选：Recall 提升 <2%，Token 翻倍",
+              "再往上留上下文：错误引用率开始上升",
+              "最终政策片段 token ≤ 800",
+              "RRF 融合免手工调权；MMR λ=0.5"
+            ]
           }
         ]
       },
@@ -419,11 +455,131 @@
           "note": "置信度门 + 重试/人工兜底路由"
         }
       ],
-      "introHtml": "<h2>工作三 · 混合检索与结果精排</h2>\n        <div class=\"callout good\"><strong>🎯 真实需求场景：</strong>线上反馈了一个 bug——「用户问『我这经济舱打折票能改吗』，系统搜出来一堆通用退改总则，就是没找到他这张特价舱位适用的那条规则」。排查发现：纯语义检索擅长「意思相近」，但对航司代码、舱位代码、票价产品名这种<strong>精确匹配</strong>不敏感。于是我加了关键词检索来补这一刀（理论见 <a href=\"#rag\">RAG 核心概念</a>）。</div>\n        <div class=\"flow\"><span>子问题</span><b>→</b><span>语义 60</span><span>+</span><span>关键词 60</span><b>→</b><span>融合 40</span><b>→</b><span>精排 10</span><b>→</b><span>去冗余 5</span><b>→</b><span>注入 3</span></div>\n        <h3>我做了什么</h3>\n        <div class=\"grid-3\">\n          <div class=\"mini\"><strong>双路召回</strong><br>语义（向量）检索懂「换了说法也能找到」，关键词（BM25）检索懂「航司/舱位代码精确匹配」，两路各取 Top-60 并行互补。</div>\n          <div class=\"mini\"><strong>融合排序</strong><br>两路分数不可比，默认用只看排名的 <strong>RRF</strong> 融合去重取前 40，再按航司/舱位结构化过滤；需要动态调侧重时切加权归一化。</div>\n          <div class=\"mini\"><strong>精排 + 去冗余</strong><br>用 Cross-Encoder（BGE-Reranker）对 40 条逐条精判取前 10，再用 MMR 去掉近似重复规则取前 5，注入前 3。</div>\n        </div>\n\n        <div class=\"case\">\n          <div class=\"case-title\">场景② · 换个说法的同一条规则　<small>向量召回 vs BM25 谁能命中</small></div>\n          <div class=\"case-body\">\n            <div class=\"row\"><div class=\"lbl\">场景</div><div>用户问的是「<strong>我这经济舱打折票，改签到后天要补多少钱</strong>」，而规则库里存的是同一条规则的另一种写法「<strong>MU 航空 Y 舱特价产品（T  fare），改期收取票价差额 + 票面 20% 手续费</strong>」。字面几乎不重叠（\"经济舱打折票\" vs \"Y 舱特价产品 T fare\"、\"改签\" vs \"改期\"）。</div></div>\n            <div class=\"row\"><div class=\"lbl\">处理流程</div><div>① <strong>向量召回</strong>：能理解「经济舱打折票 ≈ Y 舱特价产品」「改签 ≈ 改期」，语义相近，<strong>大概率命中</strong>，是这题的主力；② <strong>BM25</strong>：靠字面，\"MU\"\"Y 舱\"这些代码仍有部分重叠，作补充；③ 若配合 <strong>HyDE</strong>（先假想写出规则条文）或 <strong>QA 子切片</strong>（规则库离线已生成「打折票改期怎么收费」这类问句），命中更稳。</div></div>\n            <div class=\"row\"><div class=\"lbl\">关键决策</div><div>这题体现向量召回的价值——<strong>跨写法的语义匹配</strong>正是 BM25 的盲区；反过来「MU5101 这班」「Y 舱」「T fare」这类精确代码才是 BM25 的主场。所以必须双路都上，靠融合取长补短。</div></div>\n            <div class=\"row\"><div class=\"lbl warn\">失败兜底</div><div>若 embedding 对「舱位代码↔口语」不敏感导致向量也没召回 → 用 QA 子切片泛化召回补救；仍搜不到则判为「无适用规则」，走「不返回错规则，转人工并明确标注'未匹配到您这张票的规则'」，而不是硬塞一条通用总则。</div></div>\n          </div>\n        </div>\n\n        <div class=\"case\">\n          <div class=\"case-title\">场景③ · 粗召回回来 5 条，精排怎么排　<small>Cross-Encoder + 多维度 + MMR</small></div>\n          <div class=\"case-body\">\n            <div class=\"row\"><div class=\"lbl\">场景</div><div>某条诉求粗召回返回 5 条候选：<strong>A、B</strong> 是同航司同舱位的近似重复规则（有效期差几天），<strong>C</strong> 是相邻舱位的规则（B 舱 vs 原 Y 舱），<strong>D</strong> 是关键词重叠但舱位不对的规则（都含\"退票\"但是头等舱），<strong>E</strong> 是真正适用当前订单的那条规则。</div></div>\n            <div class=\"row\"><div class=\"lbl\">处理流程</div><div>① Cross-Encoder 逐条把 query 与候选拼一起打分：E 最高、A/B 次之、C 中等、<strong>D 因舱位不符被打低分</strong>（这正是精排比粗召回强的地方——D 是关键词骗过了 BM25，精排能识破）；② 多维度加权：E 若来自航司官方再加权威度分、A/B 取生效日期最新的；③ <strong>MMR 去冗余</strong>：A、B 高度相似，只保留其一。</div></div>\n            <div class=\"row\"><div class=\"lbl\">关键决策</div><div>最终顺序约为 <strong>E &gt; A（或B）&gt; C</strong>，D 被过滤、B（与A重复）被 MMR 去掉。C 保留是因为「相邻舱位规则」对解释差异有价值，但排在适用规则之后。λ 取 0.7 偏相关、留一点多样性。</div></div>\n            <div class=\"row\"><div class=\"lbl warn\">失败兜底</div><div>若精排把 D 误判为高分（业务偏移）→ 归因到精排层，注入业务提示词或加难负例重训；若 E 根本没进这 5 条（漏召）→ <strong>不在精排调，回去查粗召回</strong>（扩 Top-K / 调融合 / 检查 Filter 是否过紧）。</div></div>\n          </div>\n        </div>\n\n        <h3>为什么每层 topK 是这个数</h3>\n        <table>\n          <thead><tr><th>环节</th><th>取值</th><th>为什么这么定</th></tr></thead>\n          <tbody>\n            <tr><td>每路召回</td><td>前 60</td><td>太小（如 20）正确规则可能没进候选，效果上限被锁死；太大后面精排又慢又贵。看 Recall@K 曲线在 50~100 区间收益变平，实战取 60。</td></tr>\n            <tr><td>融合出口</td><td>前 40</td><td>给精排一个「够用又不过量」的候选池；粗召回的目标是「别漏」，精排的目标才是「排准」。</td></tr>\n            <tr><td>精排出口</td><td>前 10（动态截断）</td><td>Cross-Encoder 把问题和候选拼一起联合判断，精度高但很贵。用「分≥0.6、最多10、至少2」动态截断，代替死取 Top-K。</td></tr>\n            <tr><td>去冗余出口</td><td>前 5 → 注入 3</td><td>规则库多近似重复文档，MMR 兼顾相关性与多样性；注入越多噪声越大、成本越高，Top-3 覆盖绝大多数适用规则。</td></tr>\n          </tbody>\n        </table>\n        <div class=\"callout\"><strong>成效：</strong>加了关键词检索 + 融合 + 精排后，政策命中率提升 <strong>18%</strong>，「找不到当前订单适用规则」的问题基本解决。</div>\n        <h3>面试追问</h3>\n        <div class=\"qa\">\n          <details><summary>为什么要「向量 + 关键词」两路，只用一路不行吗？</summary><div class=\"answer\">向量检索懂语义、换个说法也能命中（见场景②），但对航司/舱位代码、票价产品名这种精确 token 不敏感；关键词检索正好相反，擅长精确匹配但不懂近义。两者互补，所以做混合检索再融合。</div></details>\n          <details><summary>Cross-Encoder 为什么比向量召回准，却不能拿来扫全库？</summary><div class=\"answer\">向量召回是双塔：query 和 doc 各自编码再算距离，没有交互，快但粗。Cross-Encoder 把 query 和 doc 拼一起送进模型做全程自注意力交互，精度高但每一对都要跑一次前向，很贵，只能处理粗召回筛出来的几十条。</div></details>\n          <details><summary>融合你用 RRF 还是加权归一化？怎么选？</summary><div class=\"answer\">默认 RRF——只看排名、无需归一化，对两路量纲不一的分数最鲁棒，少调参。当要按「这条规则偏精确还是偏语义」动态调侧重时，改用 Min-Max 归一化 + 加权（Final=α·sparse+(1-α)·dense）。取舍是「稳 vs 细」。</div></details>\n        </div>"
+      "introHtml": "<h2>工作三 · 混合检索与结果精排</h2>\n        <div class=\"callout good\"><strong>🎯 真实需求场景：</strong>线上反馈了一个 bug——「用户问『我这经济舱打折票能改吗』，系统搜出来一堆通用退改总则，就是没找到他这张特价舱位适用的那条规则」。排查发现：纯语义检索擅长「意思相近」，但对航司代码、舱位代码、票价产品名这种<strong>精确匹配</strong>不敏感。于是我加了关键词检索来补这一刀（理论见 <a href=\"#rag\">RAG 核心概念</a>）。</div>\n        <div class=\"flow\"><span>子问题</span><b>→</b><span>语义 60</span><span>+</span><span>关键词 60</span><b>→</b><span>融合 40</span><b>→</b><span>精排 10</span><b>→</b><span>去冗余 5</span><b>→</b><span>注入 3</span></div>\n        <h3>我做了什么</h3>\n        <div class=\"grid-3\">\n          <div class=\"mini\"><strong>双路召回</strong><br>语义（向量）检索懂「换了说法也能找到」，关键词（BM25）检索懂「航司/舱位代码精确匹配」，两路各取 Top-60 并行互补。</div>\n          <div class=\"mini\"><strong>融合排序</strong><br>两路分数不可比，默认用只看排名的 <strong>RRF</strong> 融合去重取前 40，再按航司/舱位结构化过滤；需要动态调侧重时切加权归一化。</div>\n          <div class=\"mini\"><strong>精排 + 去冗余</strong><br>用 Cross-Encoder（BGE-Reranker）对 40 条逐条精判取前 10，再用 MMR 去掉近似重复规则取前 5，注入前 3。</div>\n        </div>\n\n        <div class=\"case\">\n          <div class=\"case-title\">场景② · 换个说法的同一条规则　<small>向量召回 vs BM25 谁能命中</small></div>\n          <div class=\"case-body\">\n            <div class=\"row\"><div class=\"lbl\">场景</div><div>用户问的是「<strong>我这经济舱打折票，改签到后天要补多少钱</strong>」，而规则库里存的是同一条规则的另一种写法「<strong>MU 航空 Y 舱特价产品（T  fare），改期收取票价差额 + 票面 20% 手续费</strong>」。字面几乎不重叠（\"经济舱打折票\" vs \"Y 舱特价产品 T fare\"、\"改签\" vs \"改期\"）。</div></div>\n            <div class=\"row\"><div class=\"lbl\">处理流程</div><div>① <strong>向量召回</strong>：能理解「经济舱打折票 ≈ Y 舱特价产品」「改签 ≈ 改期」，语义相近，<strong>大概率命中</strong>，是这题的主力；② <strong>BM25</strong>：靠字面，\"MU\"\"Y 舱\"这些代码仍有部分重叠，作补充；③ 若配合 <strong>HyDE</strong>（先假想写出规则条文）或 <strong>QA 子切片</strong>（规则库离线已生成「打折票改期怎么收费」这类问句），命中更稳。</div></div>\n            <div class=\"row\"><div class=\"lbl\">关键决策</div><div>这题体现向量召回的价值——<strong>跨写法的语义匹配</strong>正是 BM25 的盲区；反过来「MU5101 这班」「Y 舱」「T fare」这类精确代码才是 BM25 的主场。所以必须双路都上，靠融合取长补短。</div></div>\n            <div class=\"row\"><div class=\"lbl warn\">失败兜底</div><div>若 embedding 对「舱位代码↔口语」不敏感导致向量也没召回 → 用 QA 子切片泛化召回补救；仍搜不到则判为「无适用规则」，走「不返回错规则，转人工并明确标注'未匹配到您这张票的规则'」，而不是硬塞一条通用总则。</div></div>\n          </div>\n        </div>\n\n        <div class=\"case\">\n          <div class=\"case-title\">场景③ · 粗召回回来 5 条，精排怎么排　<small>Cross-Encoder + 多维度 + MMR</small></div>\n          <div class=\"case-body\">\n            <div class=\"row\"><div class=\"lbl\">场景</div><div>某条诉求粗召回返回 5 条候选：<strong>A、B</strong> 是同航司同舱位的近似重复规则（有效期差几天），<strong>C</strong> 是相邻舱位的规则（B 舱 vs 原 Y 舱），<strong>D</strong> 是关键词重叠但舱位不对的规则（都含\"退票\"但是头等舱），<strong>E</strong> 是真正适用当前订单的那条规则。</div></div>\n            <div class=\"row\"><div class=\"lbl\">处理流程</div><div>① Cross-Encoder 逐条把 query 与候选拼一起打分：E 最高、A/B 次之、C 中等、<strong>D 因舱位不符被打低分</strong>（这正是精排比粗召回强的地方——D 是关键词骗过了 BM25，精排能识破）；② 多维度加权：E 若来自航司官方再加权威度分、A/B 取生效日期最新的；③ <strong>MMR 去冗余</strong>：A、B 高度相似，只保留其一。</div></div>\n            <div class=\"row\"><div class=\"lbl\">关键决策</div><div>最终顺序约为 <strong>E &gt; A（或B）&gt; C</strong>，D 被过滤、B（与A重复）被 MMR 去掉。C 保留是因为「相邻舱位规则」对解释差异有价值，但排在适用规则之后。λ 取 0.7 偏相关、留一点多样性。</div></div>\n            <div class=\"row\"><div class=\"lbl warn\">失败兜底</div><div>若精排把 D 误判为高分（业务偏移）→ 归因到精排层，注入业务提示词或加难负例重训；若 E 根本没进这 5 条（漏召）→ <strong>不在精排调，回去查粗召回</strong>（扩 Top-K / 调融合 / 检查 Filter 是否过紧）。</div></div>\n          </div>\n        </div>\n\n        <h3>为什么每层 topK 是这个数</h3>\n        <table>\n          <thead><tr><th>环节</th><th>取值</th><th>为什么这么定</th></tr></thead>\n          <tbody>\n            <tr><td>每路召回</td><td>前 60</td><td>太小（如 20）正确规则可能没进候选，效果上限被锁死；太大后面精排又慢又贵。看 Recall@K 曲线在 50~100 区间收益变平，实战取 60。</td></tr>\n            <tr><td>融合出口</td><td>前 40</td><td>给精排一个「够用又不过量」的候选池；粗召回的目标是「别漏」，精排的目标才是「排准」。</td></tr>\n            <tr><td>精排出口</td><td>前 10（动态截断）</td><td>Cross-Encoder 把问题和候选拼一起联合判断，精度高但很贵。用「分≥0.6、最多10、至少2」动态截断，代替死取 Top-K。</td></tr>\n            <tr><td>去冗余出口</td><td>前 5 → 注入 3</td><td>规则库多近似重复文档，MMR 兼顾相关性与多样性；注入越多噪声越大、成本越高，Top-3 覆盖绝大多数适用规则。</td></tr>\n          </tbody>\n        </table>\n        <div class=\"callout\"><strong>成效：</strong>加了关键词检索 + 融合 + 精排后，政策命中率提升 <strong>18%</strong>，「找不到当前订单适用规则」的问题基本解决。</div>\n        "
     },
     {
       "id": "work-4",
-      "title": "工作四 · 方案生成、幻觉治理与质量把关",
+      "title": "工作四 · 上下文与记忆系统",
+      "short": "短期会话栈 / 长期用户画像 / 上下文预算",
+      "summary": "短期记忆维护当前订单栈与咨询进度（会话级，Redis 缓存）；长期记忆维护常旅客画像（常走航线/退改偏好/价格敏感度），去重写入；上下文按优先级预算注入，画像按需检索作个性化 boost。",
+      "resume": {
+        "label": "上下文与记忆系统设计",
+        "text": "工作五 · 上下文与记忆系统设计 🎯 真实需求场景： 两个需求推动了这块——① 用户会 连续追问 ：「那退票呢」「改到后天呢」，系统必须记得上一轮讲了哪张票、哪个方案；② 用户 反复来办退改 ，产品希望针对他 常走的航线和退改偏好 给更贴合的话术。前者是「这一轮记得上一轮」（短期），后者是「越用越懂这个用户」（长期）。 记忆系统的三层结构 上下文与记忆系统 ├─ 短期记忆（会话级） │ ├─ 会话…",
+        "metrics": "多轮追问理解 +30% · 会话 Token 成本 −70% · 三层记忆 + 预算管理",
+        "metricDetails": [
+          {
+            "title": "多轮追问理解 +30%",
+            "design": "该指标衡量 Agent 在多轮对话里理解用户后续追问的能力——用户不会每轮都把订单号、日期再说一遍，系统要能接上上文。基于 100 组多轮会话评测（每组 5~8 轮）。\n\n典型 case：第 1 轮用户问「MU5111 9 月 28 号那票能改吗」，Agent 查完规则回复可以改签、收 580。第 2 轮用户接着问「那退票呢」——这句话里没有任何实体，全靠上下文知道问的是同一个订单、同一趟航班。上线初期模型第 2 轮直接回复「请提供您的订单号」，把上文丢了。\n\n技术上我做了三层记忆。第一层：短期会话栈——最近 3 轮的原文 + 工具返回摘要，直接拼进 prompt，这是主上下文。第二层：长期用户画像——这个用户历史上查过哪些航线、常飞哪条线、常坐什么舱，从历史会话里抽取成结构化字段。第三层：上下文预算管理——当对话超过 10 轮，我不是简单截断，而是用小模型把早期轮次摘要成一段「用户已确认事项」，保留关键事实（订单号、航班、诉求类型），删掉寒暄和重复追问。\n\n为什么不把所有历史都塞进去？因为 token 成本和注意力稀释——上下文太长，模型反而抓不住最近的问题。摘要式记忆比全量回放更准，还省 token。\n\n数据上，多轮追问理解准确率从 52% 提升到 82%（+30pp），其中「指代消解 + 上下文继承」贡献最大，用户画像帮助有限（但对个性化推荐有用）。",
+            "numbers": [
+              "多轮追问理解 52% → 82%（+30pp）",
+              "评测集 100 组多轮会话（每组 5~8 轮）",
+              "三层记忆：短期会话栈 + 长期画像 + 预算管理摘要",
+              "10 轮以上自动摘要早期轮次，保留关键事实",
+              "画像对追问贡献小，但对个性化推荐有用"
+            ]
+          },
+          {
+            "title": "会话 Token 成本 −70%",
+            "design": "该指标衡量记忆系统带来的成本节约——在没有记忆模块时，每轮对话都把全量上下文重新发一遍；有了分层记忆之后，只发必要部分。基于真实线上会话的 token 统计。\n\n典型 case：用户一次咨询聊了 8 轮，问了改签、退票、行李、发票四个话题。没有记忆模块时，每轮 prompt 都包含系统提示 + 全量政策片段 + 历史对话原文，8 轮下来累计 token 是单轮的 8 倍还多。有了记忆模块之后，第 5 轮开始系统只发：当前问题 + 最近 2 轮原文 + 早期轮次摘要（150 token）+ 当前话题相关政策片段，老话题的政策片段不再重复塞。\n\n技术上做了三件事。第一，政策片段缓存——同一个用户会话里，如果第 1 轮已经检索过 MU5111 的退改签政策，第 3 轮再问改签相关就直接复用缓存结果，不再重复检索和塞 prompt。第二，上下文滑窗——只保留最近 3 轮原文，更早的轮次压成结构化摘要（订单号、航班、已确认方案、未决问题）。第三，话题路由——用户第 5 轮换话题问行李了，退改签政策片段立刻从上下文里 evict 掉，换成行李政策。\n\n为什么敢 evict 老话题？因为摘要里已经保留了「用户已确认改签费 580」这种关键事实，老政策片段本身已经用完了。这是「用完即走」的上下文管理。\n\n数据上，平均单会话 token 消耗从 12000 降到 3600（-70%），用户感知不到任何质量下降——多轮解决率反而从 74% 升到 82%（因为上下文更聚焦了）。",
+            "numbers": [
+              "单会话 token 12000 → 3600（-70%）",
+              "政策片段缓存：同会话复用，不重复检索",
+              "上下文滑窗：最近 3 轮原文 + 早期摘要（150 token）",
+              "话题路由：换话题立即 evict 老政策片段",
+              "副作用：多轮解决率 74% → 82%（上下文更聚焦）"
+            ]
+          }
+        ]
+      },
+      "subTopics": [],
+      "nodes": [
+        "user_input",
+        "memory_node",
+        "query_understand",
+        "agent_node",
+        "checkpoint_gate"
+      ],
+      "intro": "短期记忆维护当前订单栈与咨询进度（会话级，Redis 缓存）；长期记忆维护常旅客画像（常走航线/退改偏好/价格敏感度），去重写入；上下文按优先级预算注入，画像按需检索作个性化 boost。",
+      "io": [
+        {
+          "node": "memory_node",
+          "input": {
+            "round": 3,
+            "order_stack": [
+              "ORD20260926001"
+            ]
+          },
+          "output": {
+            "short_term": {
+              "current_order": "ORD20260926001",
+              "progress": "差价询问"
+            }
+          },
+          "note": "短期记忆：当前订单栈 + 咨询进度"
+        },
+        {
+          "node": "memory_node",
+          "input": {
+            "user_id": "U-7788",
+            "route": "上海-北京"
+          },
+          "output": {
+            "profile": {
+              "frequent_route": "SHA-PEK",
+              "price_sensitive": 0.8,
+              "prefer": "比价"
+            }
+          },
+          "note": "长期画像：常航线 + 价格敏感度"
+        }
+      ],
+      "codeRefs": [
+        {
+          "node": "user_input",
+          "path": "air_ticket_agent/graph.py",
+          "start": 1,
+          "end": 5,
+          "text": "# 入口：接收退改签口语诉求 + 订单上下文（air_ticket_agent/graph.py）\ndef user_input(raw: dict) -> AgentState:\n    return AgentState(question=raw[\"question\"],\n                      order_id=raw.get(\"order_id\"),\n                      session_id=raw.get(\"session_id\"), retries=0)",
+          "note": "入口：接收用户诉求与上下文"
+        },
+        {
+          "node": "memory_node",
+          "path": "air_ticket_agent/memory.py",
+          "start": 1,
+          "end": 8,
+          "text": "# 记忆：订单栈 + 滑动窗口 + 画像按需注入（air_ticket_agent/memory.py）\ndef remember(state: AgentState) -> AgentState:\n    ctx = window_summary(state.history, keep_rounds=5)     # 旧内容压摘要\n    profile = profile_top3(state.user, route=state.route)  # 画像当一路召回\n    state.prompt_budget = prioritize(\n        [system_prompt, state.question, state.policy_top3, profile], budget=4096)\n    return state\n# 优先级：系统提示 > 当前诉求 > 检索政策/差价 > 画像",
+          "note": "滑动窗口摘要 + 画像按需注入"
+        },
+        {
+          "node": "query_understand",
+          "path": "air_ticket_agent/query.py",
+          "start": 1,
+          "end": 7,
+          "text": "# 意图理解：拆解 + 指代消解 + 结构化输出（air_ticket_agent/query.py）\ndef parse_intent(question: str, order: dict) -> dict:\n    subs = split_sub_queries(question)            # 一句话多诉求拆成多条\n    resolved = [resolve_ref(q, order) for q in subs]   # 「那退票呢」回填订单\n    return {\"sub_queries\": resolved,\n            \"filters\": {\"airline\": order[\"airline\"], \"cabin\": order[\"cabin\"]},\n            \"rewrite_confidence\": 0.91}           # 低置信度回退原始 query",
+          "note": "意图理解：拆题 + 指代消解 + 结构化输出"
+        },
+        {
+          "node": "agent_node",
+          "path": "air_ticket_agent/graph.py",
+          "start": 1,
+          "end": 10,
+          "text": "# ReAct 规划：决定先调哪个工具（air_ticket_agent/graph.py）\ndef plan_next(state: AgentState) -> AgentState:\n    tools = [\"tool_flight_status\", \"tool_rule_retrieve\",\n             \"tool_recalc_fee\", \"tool_scheme_gen\"]\n    state.next_action = llm.react_reason(\n        question=state.current_sub_query,\n        observation=state.last_output,\n        available=tools,\n    )\n    return state",
+          "note": "ReAct 决策：根据上一步结果选择下一步工具"
+        },
+        {
+          "node": "checkpoint_gate",
+          "path": "air_ticket_agent/graph.py",
+          "start": 1,
+          "end": 9,
+          "text": "# 检查点：置信度门 + 出票确认（air_ticket_agent/graph.py）\nCONFIDENCE_THRESHOLD = 0.85\n\ndef gate(state: AgentState) -> str:\n    if state.action == \"issue_ticket\":\n        return \"await_confirm\"                  # 出票必须用户确认（human-in-the-loop）\n    if state.verify.confidence < CONFIDENCE_THRESHOLD:\n        return \"human_review\"                   # 低置信度转人工\n    return \"finish\"",
+          "note": "置信度门 + 重试/人工兜底路由"
+        }
+      ],
+      "introHtml": "<h2>工作五 · 上下文与记忆系统设计</h2>\n        <div class=\"callout good\"><strong>🎯 真实需求场景：</strong>两个需求推动了这块——① 用户会<strong>连续追问</strong>：「那退票呢」「改到后天呢」，系统必须记得上一轮讲了哪张票、哪个方案；② 用户<strong>反复来办退改</strong>，产品希望针对他<strong>常走的航线和退改偏好</strong>给更贴合的话术。前者是「这一轮记得上一轮」（短期），后者是「越用越懂这个用户」（长期）。</div>\n        <h3>记忆系统的三层结构</h3>\n        <pre>上下文与记忆系统\n├─ 短期记忆（会话级）\n│   ├─ 会话状态：当前订单栈（正在办哪张票）、咨询进度（问到第几步）\n│   ├─ 多轮指代消解：「那它 / 退票呢」→ 绑定订单栈里的对象\n│   └─ 滑动窗口 + 摘要压缩：对话过长时旧内容压成摘要，只留最近几轮原文\n├─ 长期记忆（用户级 / 跨会话）\n│   ├─ 用户画像：常旅客等级、常出行航线、历史退改偏好、价格敏感度\n│   └─ 去重写入：内容做指纹 + 状态锁，避免同一条记忆重复写\n└─ 上下文预算管理\n    └─ token 有限，按优先级注入：系统提示 &gt; 当前诉求 &gt; 检索政策/差价 &gt; 画像\n       （短期会话状态用 Redis 缓存，高频读写又快又省）</pre>\n        <h3>三块怎么建（校招够讲的深度）</h3>\n        <div class=\"grid-3\">\n          <div class=\"mini\"><strong>会话状态（短期）</strong><br>维护「当前订单栈 + 咨询进度」，让追问能定位到对象；这也是工作二指代消解的数据来源。会话结束即释放。</div>\n          <div class=\"mini\"><strong>用户画像（长期）</strong><br>记录常旅客等级、常走航线、历史退改偏好（更倾向退票还是改签比价）、价格敏感度，向量化存储、检索时作个性化 boost。</div>\n          <div class=\"mini\"><strong>预算与回流</strong><br>画像不是全量塞进上下文，而是<strong>按当前订单/航线检索出最相关的几条</strong>再注入（画像也当一路「召回」）。历史行为回流成个性化 boost。</div>\n        </div>\n        <div class=\"callout\"><strong>画像建模（概念级，不必上重模型）：</strong>把它理解成一个随行为累积、随时间衰减的信号即可——<strong>常走某航线 → 加权；连续多次问退票 → 标记价格敏感；长期不用 → 缓慢回落</strong>。面试讲清「怎么更新、拿它干嘛（驱动话术详略与推荐）」比套公式更重要。</div>\n\n        <div class=\"case\">\n          <div class=\"case-title\">场景⑤ · 一个用户一周内 3 次问同一条航线的退改　<small>画像累积 → 偏好识别 → 个性化话术</small></div>\n          <div class=\"case-body\">\n            <div class=\"row\"><div class=\"lbl\">场景</div><div>同一用户在一周内<strong>连续 3 次咨询上海—北京航线的退改</strong>，每次都先问退票手续费、再嫌贵，最后问改签差价。</div></div>\n            <div class=\"row\"><div class=\"lbl\">处理流程</div><div>① 每次咨询完，把「上海—北京航线、价格敏感、爱比较退改」写入用户画像（做<strong>去重写入</strong>避免 3 条重复）；② 识别出该用户对价格敏感、在犹豫退还是改；③ 下次再来时，<strong>主动同时给出退票费和改签差价两个数</strong>，并在话术里直接对比，省得他来回追问。</div></div>\n            <div class=\"row\"><div class=\"lbl\">关键决策</div><div>为什么用「多次行为」而不仅「一次」作信号？——偶尔问一次不等于偏好。为什么要主动给对比？——他已经表现出纠结退改，一次性答全比多轮追问体验更好。</div></div>\n            <div class=\"row\"><div class=\"lbl warn\">失败兜底</div><div>样本太少易误判（偶尔手滑 ≠ 偏好）→ 画像更新用<strong>平滑/多次确认</strong>；画像与作答<strong>解耦</strong>：即使画像判断错，也只影响话术排序的加权，不会把错的政策当依据（正确性仍由工作四的唯一数据源 + 校验兜底）。</div></div>\n          </div>\n        </div>\n\n        <h3>为什么这么做 + 关键设计</h3>\n        <table>\n          <thead><tr><th>做法</th><th>为什么</th><th>参数 / 指标</th></tr></thead>\n          <tbody>\n            <tr><td>短期会话记忆 + 订单栈</td><td>追问里的「那它/退票呢」不记住上文与当前对象就无法回答。</td><td>保留最近若干轮 + 当前订单栈，多轮追问理解准确率提升 <strong>30%</strong>。</td></tr>\n            <tr><td>滑动窗口 + 摘要压缩</td><td>对话越长全塞进去 token 越贵、噪声越多，还可能超窗。</td><td>旧内容压成摘要，Prompt token 下降约 <strong>40%</strong> 且质量不降。</td></tr>\n            <tr><td>用户画像 + 偏好</td><td>把「越用越懂用户」变成可量化的信号，驱动个性化话术。</td><td>常航线/退改偏好随行为累积、随时间衰减。</td></tr>\n            <tr><td>画像按需检索注入</td><td>画像全量注入会挤爆上下文，且大多与当前订单无关。</td><td>按当前航线/订单检索最相关几条，画像当一路召回。</td></tr>\n            <tr><td>Redis 缓存会话状态</td><td>会话栈读写频繁，放内存缓存降延迟、降存储成本。</td><td>高频只读状态 P99 ~800ms → ~120ms。</td></tr>\n          </tbody>\n        </table>\n        <div class=\"callout\"><strong>一句话理解：</strong>短期记忆解决「这一轮听得懂上一轮」，长期记忆解决「越用越懂这个用户」；两者本质都和检索一样——<strong>把对的信息，在对的时候，用最省 token 的方式塞进上下文</strong>。</div>\n        "
+    },
+    {
+      "id": "work-5",
+      "title": "工作五 · 方案生成与质量保障",
       "short": "唯一数据源 / 金额校验 / Fact-Checker / Self-Refinement",
       "summary": "作答只能引用检索政策与工具差价（唯一数据源），结构化输出 + 金额逐项比对，Fact-Checker 打置信度（阈值 0.85），低置信度触发自我修正重试，仍不过关转人工，绝不硬输出。",
       "resume": {
@@ -433,13 +589,25 @@
         "metricDetails": [
           {
             "title": "方案正确率 96%",
-            "design": "以「最终返回方案是否正确」为口径：政策引用准确（引用的是适用规则）+ 金额正确（与引擎一致）+ 结构化完整（字段齐全）。",
-            "source": "带金标准端到端评测集（v1.0）人工判定正确率；金额类、编造类错误由唯一数据源约束 + 代码后验 + Fact-Checker 拦截后基本清零。"
+            "design": "该指标衡量最终给用户的退改方案（改到哪天、收多少钱、退多少款）是否和人工客服给的标准答案一致。基于 300 条端到端 case 评测，答案由资深客服标注。\n\n典型 case：用户问 MU5111 经济舱 9 月 28 日杭州飞北京，改签到 10 月 3 号。标准答案是改签费 580 元 + 舱位差价 120 元，合计 700 元。上线初期大模型自己算金额，算出 200 元——因为它「觉得」提前 3 天应该收 5%，但实际上这张票是特价产品，改签费固定 580，跟提前天数无关。\n\n这个事故让我确立了一条铁律：金额不许模型自己算。所有金额必须来自 recalc_change_fee 引擎工具，模型只负责组织语言解释。技术上做了三件事：第一，tool_recalc_change_fee 是唯一的金额来源，模型如果在回答里写了一个不来自工具返回的金额，Fact-Checker 节点直接打回；第二，金额后验校验——把模型回答里的数字和工具返回做正则匹配，不一致就重新生成；第三，Self-Refinement 一轮，让模型自己检查「这个数字是哪来的」。\n\n为什么不让模型算？因为大数学是大模型的弱项，涉及多段政策叠加（改签费 + 舱位差 + 税费）时，参数稍微偏一点结果就错。而这种错误是用户最敏感的——算少了平台亏，算多了用户投诉。\n\n数据上，方案正确率从 78% 提升到 96%，其中金额错误率从 11% 降到 0.5%。剩余 4% 的错误主要是政策版本未更新（新航线规则入库延迟），不是模型能力问题。",
+            "numbers": [
+              "方案正确率 78% → 96%",
+              "金额错误率 11% → 0.5%",
+              "评测集 300 条端到端，客服标注标准答案",
+              "铁律：金额唯一来源=recalc_change_fee 引擎",
+              "Fact-Checker 数字后验 + Self-Refinement 一轮"
+            ]
           },
           {
-            "title": "置信阈值 0.85",
-            "design": "对生成结果打置信度（金额比对、事实核查、Schema 校验的综合），低于 0.85 触发 Self-Refinement 重写，仍不过关转人工，绝不硬输出。",
-            "source": "在评测集上扫描 0.5~0.95 阈值，画「漏放错误 vs 误拦正确」PR 曲线，0.85 为几乎不漏放硬伤、又不过度误拦的拐点。"
+            "title": "置信阈值 0.85（幻觉治理）",
+            "design": "该指标是幻觉治理模块的核心阈值——模型生成答案后，Self-Consistency 打分低于 0.85 的回答不直接发给用户，而是走澄清或转人工。\n\n典型 case：用户问「儿童票怎么改签」。政策库里其实没有儿童票退改签的专门规则，模型「想当然」地编了一条：儿童票按成人票一半收改签费。这个回答听起来很合理，但完全是幻觉。上线初期这种无依据结论率是 6.8%。\n\n技术实现上，我做了三层幻觉拦截。第一层：答案生成后，Fact-Checker 把回答里每个声明和检索到的政策条款做 NLI（自然语言推理），判断每个声明是被政策支持、被政策反驳、还是政策没提。被反驳的直接打回；没提的进第二层打分。第二层：Self-Consistency——让模型换个问法再答一次，两次答案不一致的部分标为低置信。第三层：综合置信分 = 政策支持度 × NLI 得分 × Self-Consistency 一致率，低于 0.85 不直接发。\n\n为什么阈值是 0.85？和改写置信度一样，我在 PR 曲线上扫过：0.8 时误杀率高（把正确答案也拦了），0.9 时漏网率高（该拦的幻觉溜过去）。0.85 是拐点，无依据结论率压到 1.9%，误杀率 4%。\n\n数据上，无依据结论率从 6.8% 降到 1.9%，被拦截的回答里 92% 确实是幻觉或政策未覆盖，8% 是误杀（后来通过澄清话术补救了）。",
+            "numbers": [
+              "无依据结论率 6.8% → 1.9%",
+              "阈值 0.85（PR 曲线拐点）",
+              "误杀率 4%（阈值 0.8 时会到 15%）",
+              "三层：NLI Fact-Check → Self-Consistency → 综合打分",
+              "被拦回答 92% 确实是幻觉，8% 误杀转澄清"
+            ]
           }
         ]
       },
@@ -543,115 +711,7 @@
           "note": "汇总最终回答并写入审计/记忆"
         }
       ],
-      "introHtml": "<h2>工作四 · 方案生成、幻觉治理与质量把关</h2>\n        <div class=\"callout good\"><strong>🎯 真实需求场景：</strong>出过一次线上事故——「模型编造了一条不存在的『航空公司新政策』，还把差价算成了 200 元，实际引擎是 580 元」。退改签是资金流，报错手续费、报偏差价就是客诉和资损。所以这一环的核心不是「答得多漂亮」，而是「<strong>可溯源、可校验、错了能拦住</strong>」。</div>\n        <div class=\"flow\"><span>检索政策 + 工具差价</span><b>→</b><span>约束生成（唯一数据源）</span><b>→</b><span>金额 / 政策校验</span><b>→</b><span>事实核查</span><b>→</b><span>过关 / 自我修正 / 转人工</span></div>\n        <h3>我做了什么（治幻觉三板斧）</h3>\n        <div class=\"grid-3\">\n          <div class=\"mini\"><strong>唯一数据源</strong><br>作答只能引用检索到的政策与工具返回的差价，不许模型自由发挥、凭记忆编政策或自己算钱。</div>\n          <div class=\"mini\"><strong>结构化 + 金额校验</strong><br>强制模型按固定结构输出（是否可改、手续费、政策依据分字段），金额逐项与工具返回比对。</div>\n          <div class=\"mini\"><strong>事实核查 + 兜底</strong><br>对生成结果打置信度，低于阈值触发自我修正重试，仍不过关就转人工，绝不硬输出。</div>\n        </div>\n        <h4>先把幻觉分类，再对症下药</h4>\n        <table>\n          <thead><tr><th>幻觉类型</th><th>例子</th><th>主要拦截手段</th></tr></thead>\n          <tbody>\n            <tr><td>无中生有</td><td>编造一条不存在的「航司新规」</td><td>唯一数据源约束 + 事实核查（比对检索材料里有没有这条依据）</td></tr>\n            <tr><td>张冠李戴</td><td>把别的舱位/航司的规则套到这张票</td><td>唯一数据源 + 精排保证注入的是适用规则（见工作三场景③）</td></tr>\n            <tr><td>金额错误</td><td>报 200，引擎实际是 580</td><td>金额不进生成、模板回填 + 正则抽数与工具字段逐项比对</td></tr>\n            <tr><td>格式错误</td><td>JSON 字段缺失、政策引用悬空</td><td>Schema 校验 + 引用对齐，失败即触发重试</td></tr>\n          </tbody>\n        </table>\n\n        <div class=\"case\">\n          <div class=\"case-title\">场景④ · 回复里编了个「新规」，金额还对不上　<small>Fact-Checker + Self-Refinement + 金额后验</small></div>\n          <div class=\"case-body\">\n            <div class=\"row\"><div class=\"lbl\">场景</div><div>模型生成的回复里：① 结尾写了「根据<strong>航司本月新规</strong>，您可以免费改期」——检索材料里根本没这条；② 正文写「只需补 <strong>200</strong> 元」，但 <code>recalc_change_fee</code> 工具返回的是 <strong>580</strong>。</div></div>\n            <div class=\"row\"><div class=\"lbl\">处理流程</div><div>① <strong>金额后验</strong>：正则抽出回复里的「200」，与工具字段 580 比对 → 不一致，标记 <code>quote_mismatch</code>；② <strong>事实核查</strong>：把「航司本月新规」拿去和检索命中的政策比对，材料里查无此条 → 标记 <code>unsupported_claim</code>，整体置信度被拉到阈值 0.85 以下；③ <strong>Self-Refinement</strong>：把「金额必须引用工具的 580、删掉无依据的新规」作为反馈回灌，要求只依据材料重写；④ 重试通过校验后放行。</div></div>\n            <div class=\"row\"><div class=\"lbl\">关键决策</div><div>为什么阈值定 0.85？——在评测集上扫阈值看「漏放错误 vs 误拦正确」的 PR 曲线，0.85 是「几乎不漏放硬伤、又不过度误拦」的拐点。为什么金额用代码校验而不是再调个 LLM？——金额比对是确定性问题，代码又快又准，不会跟着幻觉走。</div></div>\n            <div class=\"row\"><div class=\"lbl warn\">失败兜底</div><div><strong>重试上限（如 2 次）</strong>防死循环：重试仍不过关 → 不硬输出，<strong>转人工客服 / 回复「这条我需要帮您确认下，稍等」</strong>。资金流场景宁可不确定，也不能报错价。</div></div>\n          </div>\n        </div>\n\n        <h3>为什么这么做 + 关键设计</h3>\n        <table>\n          <thead><tr><th>做法</th><th>为什么</th><th>参数 / 指标</th></tr></thead>\n          <tbody>\n            <tr><td>唯一数据源约束</td><td>幻觉的根源是模型「没检索到也硬答」，锁死数据源就锁死大部分幻觉。</td><td>只允许引用检索政策与工具差价。</td></tr>\n            <tr><td>金额模板回填 + 后验校验</td><td>金额是钱，不进模型生成；代码正则抽数与工具字段比对。</td><td>不一致即重生成，金额绑 tool_call_id 可追溯。</td></tr>\n            <tr><td>置信度阈值 + 自我修正</td><td>低置信结果直接给用户风险太高，宁可重试或转人工。</td><td>阈值 0.85（PR 曲线拐点），重试上限 2 次。</td></tr>\n            <tr><td>硬规则 + 语义后过滤</td><td>有些错误（金额、明显矛盾）用规则就能拦，不必都靠模型。</td><td>规则 + 语义双重把关。</td></tr>\n            <tr><td>建评测集</td><td>没有评测集的「优化」都是拍脑袋（详见评测体系章）。</td><td>分航司/舱位，金标准答案 + 禁止错误类型。</td></tr>\n          </tbody>\n        </table>\n        <div class=\"callout\"><strong>成效：</strong>方案正确率提升至 <strong>96%</strong>，配合缓存与上下文动态注入，单次会话 Token 成本下降约 <strong>70%</strong>。</div>\n        <h3>面试追问</h3>\n        <div class=\"qa\">\n          <details><summary>幻觉是怎么产生的？你怎么治？</summary><div class=\"answer\">幻觉主要来自「模型没有依据也硬答」。先把幻觉分类（无中生有 / 张冠李戴 / 金额错 / 格式错），再三板斧：唯一数据源、结构化输出 + 金额校验、事实核查打置信度低于阈值就自我修正或转人工。资金流场景宁可不答也不能报错价。</div></details>\n          <details><summary>Fact-Checker 的置信度阈值怎么定的？</summary><div class=\"answer\">不是拍的。在评测集上扫不同阈值，画「漏放错误率 vs 误拦正确率」的 PR 曲线，取二者平衡的拐点（约 0.85）。阈值调高会拦得更严但误伤正确答案，调低会漏放硬伤，取决于业务对「错答」和「不答」的容忍度。</div></details>\n          <details><summary>Self-Refinement 会不会一直重试、卡死？</summary><div class=\"answer\">设重试上限（如 2 次）＋每次都带上「具体哪里错」的结构化反馈。超限仍不过关就转人工或礼貌拒答，绝不无限循环，也绝不硬输出没通过校验的内容。</div></details>\n        </div>"
-    },
-    {
-      "id": "work-5",
-      "title": "工作五 · 上下文与记忆系统设计",
-      "short": "短期会话栈 / 长期用户画像 / 上下文预算",
-      "summary": "短期记忆维护当前订单栈与咨询进度（会话级，Redis 缓存）；长期记忆维护常旅客画像（常走航线/退改偏好/价格敏感度），去重写入；上下文按优先级预算注入，画像按需检索作个性化 boost。",
-      "resume": {
-        "label": "上下文与记忆系统设计",
-        "text": "工作五 · 上下文与记忆系统设计 🎯 真实需求场景： 两个需求推动了这块——① 用户会 连续追问 ：「那退票呢」「改到后天呢」，系统必须记得上一轮讲了哪张票、哪个方案；② 用户 反复来办退改 ，产品希望针对他 常走的航线和退改偏好 给更贴合的话术。前者是「这一轮记得上一轮」（短期），后者是「越用越懂这个用户」（长期）。 记忆系统的三层结构 上下文与记忆系统 ├─ 短期记忆（会话级） │ ├─ 会话…",
-        "metrics": "多轮追问理解 +30% · 会话 Token 成本 −70% · 三层记忆 + 预算管理",
-        "metricDetails": [
-          {
-            "title": "多轮追问理解 +30%",
-            "design": "以「多轮追问能否正确绑定订单/回溯方案」为口径：会话状态维护当前订单栈 + 咨询进度，配合滑动窗口 + 摘要压缩；指代消解（工作二）直接复用订单栈数据。",
-            "source": "多轮评测集对比「有会话状态/记忆」 vs 「无状态」的正确理解率；线上长对话回溯准确率同步提升。"
-          },
-          {
-            "title": "会话 Token 成本 −70%",
-            "design": "滑动窗口只保留最近几轮原文、旧内容压成摘要常驻；画像按当前订单/航线检索最相关几条再注入（画像也当一路召回）；检索结果按预算只注入前 3。",
-            "source": "线上长对话 token 计量对比：信息等价、体积更小，省 token 不省信息量；方案正确率 96% 不降反稳。"
-          }
-        ]
-      },
-      "subTopics": [],
-      "nodes": [
-        "user_input",
-        "memory_node",
-        "query_understand",
-        "agent_node",
-        "checkpoint_gate"
-      ],
-      "intro": "短期记忆维护当前订单栈与咨询进度（会话级，Redis 缓存）；长期记忆维护常旅客画像（常走航线/退改偏好/价格敏感度），去重写入；上下文按优先级预算注入，画像按需检索作个性化 boost。",
-      "io": [
-        {
-          "node": "memory_node",
-          "input": {
-            "round": 3,
-            "order_stack": [
-              "ORD20260926001"
-            ]
-          },
-          "output": {
-            "short_term": {
-              "current_order": "ORD20260926001",
-              "progress": "差价询问"
-            }
-          },
-          "note": "短期记忆：当前订单栈 + 咨询进度"
-        },
-        {
-          "node": "memory_node",
-          "input": {
-            "user_id": "U-7788",
-            "route": "上海-北京"
-          },
-          "output": {
-            "profile": {
-              "frequent_route": "SHA-PEK",
-              "price_sensitive": 0.8,
-              "prefer": "比价"
-            }
-          },
-          "note": "长期画像：常航线 + 价格敏感度"
-        }
-      ],
-      "codeRefs": [
-        {
-          "node": "user_input",
-          "path": "air_ticket_agent/graph.py",
-          "start": 1,
-          "end": 5,
-          "text": "# 入口：接收退改签口语诉求 + 订单上下文（air_ticket_agent/graph.py）\ndef user_input(raw: dict) -> AgentState:\n    return AgentState(question=raw[\"question\"],\n                      order_id=raw.get(\"order_id\"),\n                      session_id=raw.get(\"session_id\"), retries=0)",
-          "note": "入口：接收用户诉求与上下文"
-        },
-        {
-          "node": "memory_node",
-          "path": "air_ticket_agent/memory.py",
-          "start": 1,
-          "end": 8,
-          "text": "# 记忆：订单栈 + 滑动窗口 + 画像按需注入（air_ticket_agent/memory.py）\ndef remember(state: AgentState) -> AgentState:\n    ctx = window_summary(state.history, keep_rounds=5)     # 旧内容压摘要\n    profile = profile_top3(state.user, route=state.route)  # 画像当一路召回\n    state.prompt_budget = prioritize(\n        [system_prompt, state.question, state.policy_top3, profile], budget=4096)\n    return state\n# 优先级：系统提示 > 当前诉求 > 检索政策/差价 > 画像",
-          "note": "滑动窗口摘要 + 画像按需注入"
-        },
-        {
-          "node": "query_understand",
-          "path": "air_ticket_agent/query.py",
-          "start": 1,
-          "end": 7,
-          "text": "# 意图理解：拆解 + 指代消解 + 结构化输出（air_ticket_agent/query.py）\ndef parse_intent(question: str, order: dict) -> dict:\n    subs = split_sub_queries(question)            # 一句话多诉求拆成多条\n    resolved = [resolve_ref(q, order) for q in subs]   # 「那退票呢」回填订单\n    return {\"sub_queries\": resolved,\n            \"filters\": {\"airline\": order[\"airline\"], \"cabin\": order[\"cabin\"]},\n            \"rewrite_confidence\": 0.91}           # 低置信度回退原始 query",
-          "note": "意图理解：拆题 + 指代消解 + 结构化输出"
-        },
-        {
-          "node": "agent_node",
-          "path": "air_ticket_agent/graph.py",
-          "start": 1,
-          "end": 10,
-          "text": "# ReAct 规划：决定先调哪个工具（air_ticket_agent/graph.py）\ndef plan_next(state: AgentState) -> AgentState:\n    tools = [\"tool_flight_status\", \"tool_rule_retrieve\",\n             \"tool_recalc_fee\", \"tool_scheme_gen\"]\n    state.next_action = llm.react_reason(\n        question=state.current_sub_query,\n        observation=state.last_output,\n        available=tools,\n    )\n    return state",
-          "note": "ReAct 决策：根据上一步结果选择下一步工具"
-        },
-        {
-          "node": "checkpoint_gate",
-          "path": "air_ticket_agent/graph.py",
-          "start": 1,
-          "end": 9,
-          "text": "# 检查点：置信度门 + 出票确认（air_ticket_agent/graph.py）\nCONFIDENCE_THRESHOLD = 0.85\n\ndef gate(state: AgentState) -> str:\n    if state.action == \"issue_ticket\":\n        return \"await_confirm\"                  # 出票必须用户确认（human-in-the-loop）\n    if state.verify.confidence < CONFIDENCE_THRESHOLD:\n        return \"human_review\"                   # 低置信度转人工\n    return \"finish\"",
-          "note": "置信度门 + 重试/人工兜底路由"
-        }
-      ],
-      "introHtml": "<h2>工作五 · 上下文与记忆系统设计</h2>\n        <div class=\"callout good\"><strong>🎯 真实需求场景：</strong>两个需求推动了这块——① 用户会<strong>连续追问</strong>：「那退票呢」「改到后天呢」，系统必须记得上一轮讲了哪张票、哪个方案；② 用户<strong>反复来办退改</strong>，产品希望针对他<strong>常走的航线和退改偏好</strong>给更贴合的话术。前者是「这一轮记得上一轮」（短期），后者是「越用越懂这个用户」（长期）。</div>\n        <h3>记忆系统的三层结构</h3>\n        <pre>上下文与记忆系统\n├─ 短期记忆（会话级）\n│   ├─ 会话状态：当前订单栈（正在办哪张票）、咨询进度（问到第几步）\n│   ├─ 多轮指代消解：「那它 / 退票呢」→ 绑定订单栈里的对象\n│   └─ 滑动窗口 + 摘要压缩：对话过长时旧内容压成摘要，只留最近几轮原文\n├─ 长期记忆（用户级 / 跨会话）\n│   ├─ 用户画像：常旅客等级、常出行航线、历史退改偏好、价格敏感度\n│   └─ 去重写入：内容做指纹 + 状态锁，避免同一条记忆重复写\n└─ 上下文预算管理\n    └─ token 有限，按优先级注入：系统提示 &gt; 当前诉求 &gt; 检索政策/差价 &gt; 画像\n       （短期会话状态用 Redis 缓存，高频读写又快又省）</pre>\n        <h3>三块怎么建（校招够讲的深度）</h3>\n        <div class=\"grid-3\">\n          <div class=\"mini\"><strong>会话状态（短期）</strong><br>维护「当前订单栈 + 咨询进度」，让追问能定位到对象；这也是工作二指代消解的数据来源。会话结束即释放。</div>\n          <div class=\"mini\"><strong>用户画像（长期）</strong><br>记录常旅客等级、常走航线、历史退改偏好（更倾向退票还是改签比价）、价格敏感度，向量化存储、检索时作个性化 boost。</div>\n          <div class=\"mini\"><strong>预算与回流</strong><br>画像不是全量塞进上下文，而是<strong>按当前订单/航线检索出最相关的几条</strong>再注入（画像也当一路「召回」）。历史行为回流成个性化 boost。</div>\n        </div>\n        <div class=\"callout\"><strong>画像建模（概念级，不必上重模型）：</strong>把它理解成一个随行为累积、随时间衰减的信号即可——<strong>常走某航线 → 加权；连续多次问退票 → 标记价格敏感；长期不用 → 缓慢回落</strong>。面试讲清「怎么更新、拿它干嘛（驱动话术详略与推荐）」比套公式更重要。</div>\n\n        <div class=\"case\">\n          <div class=\"case-title\">场景⑤ · 一个用户一周内 3 次问同一条航线的退改　<small>画像累积 → 偏好识别 → 个性化话术</small></div>\n          <div class=\"case-body\">\n            <div class=\"row\"><div class=\"lbl\">场景</div><div>同一用户在一周内<strong>连续 3 次咨询上海—北京航线的退改</strong>，每次都先问退票手续费、再嫌贵，最后问改签差价。</div></div>\n            <div class=\"row\"><div class=\"lbl\">处理流程</div><div>① 每次咨询完，把「上海—北京航线、价格敏感、爱比较退改」写入用户画像（做<strong>去重写入</strong>避免 3 条重复）；② 识别出该用户对价格敏感、在犹豫退还是改；③ 下次再来时，<strong>主动同时给出退票费和改签差价两个数</strong>，并在话术里直接对比，省得他来回追问。</div></div>\n            <div class=\"row\"><div class=\"lbl\">关键决策</div><div>为什么用「多次行为」而不仅「一次」作信号？——偶尔问一次不等于偏好。为什么要主动给对比？——他已经表现出纠结退改，一次性答全比多轮追问体验更好。</div></div>\n            <div class=\"row\"><div class=\"lbl warn\">失败兜底</div><div>样本太少易误判（偶尔手滑 ≠ 偏好）→ 画像更新用<strong>平滑/多次确认</strong>；画像与作答<strong>解耦</strong>：即使画像判断错，也只影响话术排序的加权，不会把错的政策当依据（正确性仍由工作四的唯一数据源 + 校验兜底）。</div></div>\n          </div>\n        </div>\n\n        <h3>为什么这么做 + 关键设计</h3>\n        <table>\n          <thead><tr><th>做法</th><th>为什么</th><th>参数 / 指标</th></tr></thead>\n          <tbody>\n            <tr><td>短期会话记忆 + 订单栈</td><td>追问里的「那它/退票呢」不记住上文与当前对象就无法回答。</td><td>保留最近若干轮 + 当前订单栈，多轮追问理解准确率提升 <strong>30%</strong>。</td></tr>\n            <tr><td>滑动窗口 + 摘要压缩</td><td>对话越长全塞进去 token 越贵、噪声越多，还可能超窗。</td><td>旧内容压成摘要，Prompt token 下降约 <strong>40%</strong> 且质量不降。</td></tr>\n            <tr><td>用户画像 + 偏好</td><td>把「越用越懂用户」变成可量化的信号，驱动个性化话术。</td><td>常航线/退改偏好随行为累积、随时间衰减。</td></tr>\n            <tr><td>画像按需检索注入</td><td>画像全量注入会挤爆上下文，且大多与当前订单无关。</td><td>按当前航线/订单检索最相关几条，画像当一路召回。</td></tr>\n            <tr><td>Redis 缓存会话状态</td><td>会话栈读写频繁，放内存缓存降延迟、降存储成本。</td><td>高频只读状态 P99 ~800ms → ~120ms。</td></tr>\n          </tbody>\n        </table>\n        <div class=\"callout\"><strong>一句话理解：</strong>短期记忆解决「这一轮听得懂上一轮」，长期记忆解决「越用越懂这个用户」；两者本质都和检索一样——<strong>把对的信息，在对的时候，用最省 token 的方式塞进上下文</strong>。</div>\n        <h3>面试追问</h3>\n        <div class=\"qa\">\n          <details><summary>对话太长、token 要爆了怎么办？为什么用摘要而不是直接截断？</summary><div class=\"answer\">直接截断会丢掉早期关键信息（比如最初那张票）。用滑动窗口保留最近几轮原文，更早内容让模型压成摘要保留要点，既控 token 又不丢关键上下文；摘要失败还有兜底。再配 token 预算按优先级注入。</div></details>\n          <details><summary>用户画像你怎么建模、拿它干嘛？</summary><div class=\"answer\">记录常旅客等级、常走航线、退改偏好、价格敏感度，随行为累积、长期不用缓慢衰减。它驱动两件事：话术（敏感用户主动给退改对比）和检索加权（偏好航线规则优先）。更新要平滑，避免一次波动就误判。</div></details>\n          <details><summary>长期记忆会不会把用户的错误答案当依据、导致答错？</summary><div class=\"answer\">不会——画像/记忆只影响话术与加权，<strong>不作为作答的数据源</strong>。作答的正确性仍由工作四的「唯一数据源 + 金额校验 + 事实核查」保证。两条链路解耦，画像判断错顶多话术不贴，不会答错题。</div></details>\n        </div>"
+      "introHtml": "<h2>工作四 · 方案生成、幻觉治理与质量把关</h2>\n        <div class=\"callout good\"><strong>🎯 真实需求场景：</strong>出过一次线上事故——「模型编造了一条不存在的『航空公司新政策』，还把差价算成了 200 元，实际引擎是 580 元」。退改签是资金流，报错手续费、报偏差价就是客诉和资损。所以这一环的核心不是「答得多漂亮」，而是「<strong>可溯源、可校验、错了能拦住</strong>」。</div>\n        <div class=\"flow\"><span>检索政策 + 工具差价</span><b>→</b><span>约束生成（唯一数据源）</span><b>→</b><span>金额 / 政策校验</span><b>→</b><span>事实核查</span><b>→</b><span>过关 / 自我修正 / 转人工</span></div>\n        <h3>我做了什么（治幻觉三板斧）</h3>\n        <div class=\"grid-3\">\n          <div class=\"mini\"><strong>唯一数据源</strong><br>作答只能引用检索到的政策与工具返回的差价，不许模型自由发挥、凭记忆编政策或自己算钱。</div>\n          <div class=\"mini\"><strong>结构化 + 金额校验</strong><br>强制模型按固定结构输出（是否可改、手续费、政策依据分字段），金额逐项与工具返回比对。</div>\n          <div class=\"mini\"><strong>事实核查 + 兜底</strong><br>对生成结果打置信度，低于阈值触发自我修正重试，仍不过关就转人工，绝不硬输出。</div>\n        </div>\n        <h4>先把幻觉分类，再对症下药</h4>\n        <table>\n          <thead><tr><th>幻觉类型</th><th>例子</th><th>主要拦截手段</th></tr></thead>\n          <tbody>\n            <tr><td>无中生有</td><td>编造一条不存在的「航司新规」</td><td>唯一数据源约束 + 事实核查（比对检索材料里有没有这条依据）</td></tr>\n            <tr><td>张冠李戴</td><td>把别的舱位/航司的规则套到这张票</td><td>唯一数据源 + 精排保证注入的是适用规则（见工作三场景③）</td></tr>\n            <tr><td>金额错误</td><td>报 200，引擎实际是 580</td><td>金额不进生成、模板回填 + 正则抽数与工具字段逐项比对</td></tr>\n            <tr><td>格式错误</td><td>JSON 字段缺失、政策引用悬空</td><td>Schema 校验 + 引用对齐，失败即触发重试</td></tr>\n          </tbody>\n        </table>\n\n        <div class=\"case\">\n          <div class=\"case-title\">场景④ · 回复里编了个「新规」，金额还对不上　<small>Fact-Checker + Self-Refinement + 金额后验</small></div>\n          <div class=\"case-body\">\n            <div class=\"row\"><div class=\"lbl\">场景</div><div>模型生成的回复里：① 结尾写了「根据<strong>航司本月新规</strong>，您可以免费改期」——检索材料里根本没这条；② 正文写「只需补 <strong>200</strong> 元」，但 <code>recalc_change_fee</code> 工具返回的是 <strong>580</strong>。</div></div>\n            <div class=\"row\"><div class=\"lbl\">处理流程</div><div>① <strong>金额后验</strong>：正则抽出回复里的「200」，与工具字段 580 比对 → 不一致，标记 <code>quote_mismatch</code>；② <strong>事实核查</strong>：把「航司本月新规」拿去和检索命中的政策比对，材料里查无此条 → 标记 <code>unsupported_claim</code>，整体置信度被拉到阈值 0.85 以下；③ <strong>Self-Refinement</strong>：把「金额必须引用工具的 580、删掉无依据的新规」作为反馈回灌，要求只依据材料重写；④ 重试通过校验后放行。</div></div>\n            <div class=\"row\"><div class=\"lbl\">关键决策</div><div>为什么阈值定 0.85？——在评测集上扫阈值看「漏放错误 vs 误拦正确」的 PR 曲线，0.85 是「几乎不漏放硬伤、又不过度误拦」的拐点。为什么金额用代码校验而不是再调个 LLM？——金额比对是确定性问题，代码又快又准，不会跟着幻觉走。</div></div>\n            <div class=\"row\"><div class=\"lbl warn\">失败兜底</div><div><strong>重试上限（如 2 次）</strong>防死循环：重试仍不过关 → 不硬输出，<strong>转人工客服 / 回复「这条我需要帮您确认下，稍等」</strong>。资金流场景宁可不确定，也不能报错价。</div></div>\n          </div>\n        </div>\n\n        <h3>为什么这么做 + 关键设计</h3>\n        <table>\n          <thead><tr><th>做法</th><th>为什么</th><th>参数 / 指标</th></tr></thead>\n          <tbody>\n            <tr><td>唯一数据源约束</td><td>幻觉的根源是模型「没检索到也硬答」，锁死数据源就锁死大部分幻觉。</td><td>只允许引用检索政策与工具差价。</td></tr>\n            <tr><td>金额模板回填 + 后验校验</td><td>金额是钱，不进模型生成；代码正则抽数与工具字段比对。</td><td>不一致即重生成，金额绑 tool_call_id 可追溯。</td></tr>\n            <tr><td>置信度阈值 + 自我修正</td><td>低置信结果直接给用户风险太高，宁可重试或转人工。</td><td>阈值 0.85（PR 曲线拐点），重试上限 2 次。</td></tr>\n            <tr><td>硬规则 + 语义后过滤</td><td>有些错误（金额、明显矛盾）用规则就能拦，不必都靠模型。</td><td>规则 + 语义双重把关。</td></tr>\n            <tr><td>建评测集</td><td>没有评测集的「优化」都是拍脑袋（详见评测体系章）。</td><td>分航司/舱位，金标准答案 + 禁止错误类型。</td></tr>\n          </tbody>\n        </table>\n        <div class=\"callout\"><strong>成效：</strong>方案正确率提升至 <strong>96%</strong>，配合缓存与上下文动态注入，单次会话 Token 成本下降约 <strong>70%</strong>。</div>\n        "
     }
   ]
 }

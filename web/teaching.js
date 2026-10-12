@@ -62,15 +62,20 @@
     }
   }
 
-  /* 量化指标浮窗：设计思路 + 数据来源（面试解释用） */
+  /* 量化指标浮窗：面试话术（多段）+ 关键数字 bullet */
   function openMetric(m) {
     const body = el('metric-dialog-body'); body.replaceChildren();
-    const title = make('h3', m.title, 'metric-title');
-    const design = make('div', undefined, 'metric-block');
-    design.append(make('strong', '设计思路 · 这个指标怎么定义和衡量'), make('p', m.design));
-    const source = make('div', undefined, 'metric-block');
-    source.append(make('strong', '数据来源 · 数据从哪来、样本多大'), make('p', m.source));
-    body.append(title, design, source);
+    body.append(make('h3', m.title, 'metric-title'));
+    const script = make('div', undefined, 'metric-block');
+    script.append(make('strong', '面试话术 · 可以直接讲'));
+    String(m.design || '').split(/\n\n+/).filter(Boolean).forEach(p => script.append(make('p', p)));
+    const nums = make('div', undefined, 'metric-block');
+    nums.append(make('strong', '关键数字 · 被追问时捞'));
+    const list = make('ul', undefined, 'metric-numbers');
+    const items = Array.isArray(m.numbers) ? m.numbers : String(m.source || '').split(/\n+/).filter(Boolean);
+    items.forEach(n => list.append(make('li', n)));
+    nums.append(list);
+    body.append(script, nums);
     el('metric-dialog').showModal();
   }
 
