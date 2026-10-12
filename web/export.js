@@ -244,7 +244,7 @@ window.addEventListener('scroll', function(){
   const TYPE_LABEL = {A: '量化溯源', B: '方案设计', C: '其他'};
   function renderQ(q, i) {
     const typeTag = q.type ? `<span class="tag" style="background:#eef3f8;color:#315d84">${esc(TYPE_LABEL[q.type] || q.type)}</span> ` : '';
-    const out = [`<div class="q-card"><div class="q">${i + 1}. ${typeTag}${esc(q.q)}</div>`];
+    const out = [`<div class="q-card" id="q-${i}"><div class="q">${i + 1}. ${typeTag}${esc(q.q)}</div>`];
     if (q.points && q.points.length) {
       out.push(`<div class="q-tips" contenteditable="true" class="editable"><b>要点说明：</b><ul style="margin:6px 0 0 18px;padding:0">${q.points.map(p => `<li>${esc(p)}</li>`).join('')}</ul></div>`);
     }
@@ -269,35 +269,51 @@ window.addEventListener('scroll', function(){
     return out.join('\n');
   }
 
-  function interviewBody(questions, topicTitle) {
+  function interviewBody(questions, topicTitle, startNo) {
     const out = [`<p><span class="tag">${esc(topicTitle)}</span><span class="tag">共 ${questions.length} 题</span></p>`];
-    questions.forEach((q, i) => out.push(renderQ(q, i)));
+    let no = startNo || 0;
+    questions.forEach(q => { no += 1; out.push(renderQ(q, no)); });
     return out.join('\n');
   }
 
-  // 按工作项分组全量导出（项目面试题 5 组共 54 题）
+  // 按工作项分组全量导出（项目面试题 5 组），返回 {body, toc}，toc 含主题分组与题目标题
   function groupsBody(groups, topicTitle) {
     const total = groups.reduce((s, g) => s + g.questions.length, 0);
-    const out = [`<p><span class="tag">${esc(topicTitle)}</span><span class="tag">共 ${total} 题（${groups.length} 个工作项）</span></p>`];
+    const out = [`<p id="top"><span class="tag">${esc(topicTitle)}</span><span class="tag">共 ${total} 题（${groups.length} 个工作项）</span></p>`];
+    const toc = [{href: '#top', label: `${topicTitle} · 共 ${total} 题`}];
     let no = 0;
-    groups.forEach(g => {
-      out.push(`<h3 style="margin-top:26px">${esc(g.title)} <span class="tag" style="margin-left:6px">${g.questions.length} 题</span></h3>`);
-      g.questions.forEach(q => { no += 1; out.push(renderQ(q, no)); });
+    groups.forEach((g, gi) => {
+      out.push(`<h3 id="g-${gi}" style="margin-top:26px">${esc(g.title)} <span class="tag" style="margin-left:6px">${g.questions.length} 题</span></h3>`);
+      toc.push({href: '#g-' + gi, label: `${g.title} · ${g.questions.length} 题`, head: true});
+      g.questions.forEach(q => { no += 1; out.push(renderQ(q, no)); toc.push({href: '#q-' + no, label: `${no}. ${q.q}`}); });
     });
-    return out.join('\n');
+    return {body: out.join('\n'), toc};
   }
 
-  // 八股三方向（Agent / RAG / LLM）合并导出
+  // 八股三方向（Agent / RAG / LLM）合并导出，返回 {body, toc}
   function commonBody(topics) {
     const total = topics.reduce((s, t) => s + (t.questions ? t.questions.length : 0), 0);
-    const out = [`<p><span class="tag">八股面试题</span><span class="tag">共 ${total} 题（${topics.length} 个方向）</span></p>`];
+    const out = [`<p id="top"><span class="tag">八股面试题</span><span class="tag">共 ${total} 题（${topics.length} 个方向）</span></p>`];
+    const toc = [{href: '#top', label: `八股面试题 · 共 ${total} 题（${topics.length} 个方向）`}];
     let no = 0;
-    topics.forEach(t => {
-      out.push(`<h2 style="margin-top:30px">${esc(t.title)} <span class="tag" style="margin-left:6px">${t.questions ? t.questions.length : 0} 题</span></h2>`);
+    topics.forEach((t, ti) => {
+      out.push(`<h2 id="t-${ti}" style="margin-top:30px">${esc(t.title)} <span class="tag" style="margin-left:6px">${t.questions ? t.questions.length : 0} 题</span></h2>`);
       if (t.desc) out.push(`<p style="color:var(--muted);font-size:12.5px">${esc(t.desc)}</p>`);
-      if (t.questions && t.questions.length) t.questions.forEach(q => { no += 1; out.push(renderQ(q, no)); });
+      toc.push({href: '#t-' + ti, label: `${t.title} · ${t.questions ? t.questions.length : 0} 题`, head: true});
+      if (t.questions && t.questions.length) t.questions.forEach(q => { no += 1; out.push(renderQ(q, no)); toc.push({href: '#q-' + no, label: `${no}. ${q.q}`}); });
     });
-    return out.join('\n');
+    return {body: out.join('\n'), toc};
+  }
+
+  const TOC_HEAD = '<div style="font-size:13px;font-weight:800;color:var(--navy);padding:0 8px 10px;border-bottom:1px solid var(--line);margin-bottom:6px">📑 目录</div>';
+  // 用 toc 条目替换 shell 侧边栏占位：head=true 为主题分组标题，其余为题目标题链接
+  function fillToc(finalHtml, items) {
+    const lines = [TOC_HEAD];
+    items.forEach(it => {
+      if (it.head) lines.push(`<h4>${esc(it.label)}</h4>`);
+      else lines.push(`<a href="${it.href}">${esc(it.label)}</a>`);
+    });
+    return finalHtml.replace(TOC_HEAD, lines.join(''));
   }
 
   const download = (text, name) => {
@@ -424,38 +440,44 @@ window.addEventListener('scroll', function(){
       const topic = [...(proj.topics || []), ...(common.topics || [])].find(x => x.id === t.id);
       if (!topic) return;
       if (topic.groups) {
-        download(shell(catName, groupsBody(topic.groups, catName)), (projectName() ? projectName() + '_' : '') + catName + '_练习清单.html');
+        const gb = groupsBody(topic.groups, catName);
+        download(fillToc(shell(catName, gb.body), gb.toc), (projectName() ? projectName() + '_' : '') + catName + '_练习清单.html');
       } else if (topic.questions && topic.questions.length) {
         download(shell(catName, interviewBody(topic.questions, catName)), (projectName() ? projectName() + '_' : '') + catName + '_练习清单.html');
       }
     },
     async interviewPractice() {
-      // 实战面试题：当前项目 5 个工作项全量 + 高频面试题（建设中→占位说明），合并导出为可编辑 HTML。
+      // 实战面试题：当前项目 5 个工作项全量 + 高频面试题（建设中→占位说明），合并导出为可编辑 HTML（带左侧目录）。
       const proj = await fetch('static/projects/' + pid() + '/interview-topics.json', {cache: 'no-cache'}).then(r => r.ok ? r.json() : {topics: []});
       const projectTopic = (proj.topics || []).find(x => x.id === 'project');
       const recordingTopic = (proj.topics || []).find(x => x.id === 'recording');
       const out = [];
+      const toc = [];
       let total = 0;
       if (projectTopic && projectTopic.groups) {
         total += projectTopic.groups.reduce((s, g) => s + g.questions.length, 0);
-        out.push(groupsBody(projectTopic.groups, projectTopic.title));
+        const gb = groupsBody(projectTopic.groups, projectTopic.title);
+        out.push(gb.body);
+        gb.toc.forEach(it => toc.push(it));
       }
-      out.push(`<h2 style="margin-top:34px">高频面试题</h2>`);
+      out.push(`<h2 id="recording" style="margin-top:34px">高频面试题</h2>`);
+      toc.push({href: '#recording', label: '高频面试题', head: true});
       if (recordingTopic && recordingTopic.questions && recordingTopic.questions.length) {
-        out.push(interviewBody(recordingTopic.questions, recordingTopic.title));
+        out.push(interviewBody(recordingTopic.questions, recordingTopic.title, total));
       } else {
         out.push(`<div class="note" style="margin:12px 0">该板块建设中：后续将基于学员真实面试录音，把真正高频的面试官问题汇总到这里，供学员练习。</div>`);
       }
       const title = (projectName() ? projectName() + ' · ' : '') + '实战面试题（项目面试题 + 高频面试题）';
-      download(shell(title, out.join('\n')), (projectName() ? projectName() + '_' : '') + '实战面试题_练习清单.html');
+      download(fillToc(shell(title, out.join('\n')), toc), (projectName() ? projectName() + '_' : '') + '实战面试题_练习清单.html');
     },
     async interviewCommon() {
-      // 八股面试题：Agent + RAG + LLM 三个方向合并导出为可编辑 HTML。
+      // 八股面试题：Agent + RAG + LLM 三个方向合并导出为可编辑 HTML（带左侧目录：主题 + 题目标题）。
       const common = await fetch('static/interview-common.json', {cache: 'no-cache'}).then(r => r.ok ? r.json() : {topics: []});
       const wanted = ['agent', 'rag', 'llm'];
       const topics = (common.topics || []).filter(t => wanted.includes(t.id));
       if (!topics.length) return;
-      download(shell('八股面试题（Agent / RAG / LLM）', commonBody(topics)), '八股面试题_练习清单.html');
+      const cb = commonBody(topics);
+      download(fillToc(shell('八股面试题（Agent / RAG / LLM）', cb.body), cb.toc), '八股面试题_练习清单.html');
     }
   };
   const bind = () => {

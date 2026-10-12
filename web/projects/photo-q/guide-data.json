@@ -2,7 +2,7 @@
   "version": "1.0",
   "hero": {
     "eyebrow": "AI APPLICATION ENGINEERING · MULTIMODAL AGENT + HYBRID RETRIEVAL",
-    "title": "拍照搜题 Agent（多模态识别 · 混合检索 · 解题生成）",
+    "title": "拍照搜题 Agent",
     "desc": "面向 K12 拍照搜题与追问讲题场景，构建覆盖「识题 → 检索 → 记忆 → 讲解」全链路的垂直领域智能体，解决识题不准、搜不到原题、多轮追问断片、解题编造四类问题。",
     "facts": [
       {
