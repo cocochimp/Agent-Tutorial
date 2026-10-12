@@ -71,6 +71,13 @@
       "createdAt": 1791822527381,
       "expiresAt": 1797006527381,
       "hash": "sha256$8cd6daec610ca30c80c0c28fa2d6a3ed$a5ba1a19386ec4b30a7e7054c77f4cce71c232f8d85f8ee2bfcd847a10f5ef5b"
+    },
+    {
+      "id": "stu-20261013-011",
+      "note": "一键发布冒烟",
+      "createdAt": 1791823451504,
+      "expiresAt": 1797007451504,
+      "hash": "sha256$0b7533cdd0d3da19864cd13fb003b143$637173626b2c3e67aedf22a947e85b5a1a69c403aeb5359f097b68a0f5b71c90"
     }
   ]
 }
