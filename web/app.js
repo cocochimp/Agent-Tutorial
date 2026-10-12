@@ -66,7 +66,7 @@ async function detectModeAndRestore() {
     if (r.status === 404) { staticMode = true; }          // 无后端（Pages）
     else {
       const value = await r.json();
-      if (value && value.user) { loggedIn(Object.assign({role: 'master'}, value.user)); return; }
+      if (value && value.user) { loggedIn({...value.user, role: 'master'}); return; }
     }
   } catch (e) { staticMode = true; }
   if (staticMode && localStorage.getItem('agent_tutorial_login') === '1') {
@@ -122,7 +122,7 @@ function renderProjectMenu() {
     item.setAttribute('role', 'option');
     item.append(
       (() => { const s = node('span', undefined, 'mi-avatar'); s.textContent = avatarOf(p.name); return s; })(),
-      (() => { const d = node('div'); d.append(node('b', p.name + ' 教学'), node('small', p.tagline)); return d; })()
+      (() => { const d = node('div'); d.append(node('b', p.name), node('small', p.tagline)); return d; })()
     );
     item.onclick = () => { setProject(p); closeProjectMenu(); };
     host.append(item);
@@ -134,7 +134,7 @@ function setProject(p) {
   const changed = !currentProject || currentProject.id !== p.id;
   currentProject = p;
   localStorage.setItem(PROJECT_STORAGE_KEY, p.id);
-  $('project-name').textContent = p.name + ' 教学';
+  $('project-name').textContent = p.name;
   $('project-tagline').textContent = '学员学习空间';
   $('project-avatar').textContent = avatarOf(p.name);
   renderProjectMenu();
