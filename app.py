@@ -3,6 +3,7 @@ import argparse
 import asyncio
 import json
 import re
+import subprocess
 import threading
 import uuid
 from contextlib import asynccontextmanager
@@ -136,6 +137,73 @@ def me(request: Request):
 def session_status(request: Request):
     username = store.lookup_login(request.cookies.get("estate_session", ""))
     return {"user": asdict(identity(username)) if username else None}
+
+
+# —— 子账号一键发布（自动 git commit + push）——
+WEB_ROOT = Path(__file__).resolve().parent / "web"
+SUB_ACCOUNT_HASH_RE = re.compile(r"^sha256\$[0-9a-f]{32}\$[0-9a-f]{64}$")
+SUB_ACCOUNT_KEYS = {"id", "note", "createdAt", "expiresAt", "hash"}
+
+
+def validate_sub_accounts(data):
+    """契约校验：仅接受不可逆哈希数据，禁止任何可回溯凭证。"""
+    if not isinstance(data, dict) or data.get("version") != 2:
+        return False, "version 必须为 2"
+    if not str(data.get("algorithm", "")).startswith("sha256$salt$hash"):
+        return False, "algorithm 不匹配"
+    accounts = data.get("accounts")
+    if not isinstance(accounts, list):
+        return False, "accounts 必须是数组"
+    for a in accounts:
+        if not isinstance(a, dict):
+            return False, "账号条目格式错误"
+        if set(a.keys()) != SUB_ACCOUNT_KEYS:
+            return False, "账号条目含不允许的字段（仅 id/note/createdAt/expiresAt/hash）"
+        if not isinstance(a.get("id"), str) or not a["id"]:
+            return False, "id 非法"
+        if not isinstance(a.get("createdAt"), int) or not isinstance(a.get("expiresAt"), int):
+            return False, "时间戳非法"
+        if a["expiresAt"] - a["createdAt"] != 60 * 86400000:
+            return False, "有效期必须为 60 天"
+        if not SUB_ACCOUNT_HASH_RE.match(a.get("hash", "")):
+            return False, "hash 格式非法"
+    return True, ""
+
+
+def run_git(cmds):
+    """顺序执行 git 命令；commit 步骤无变更时返回 (None, 输出)。"""
+    commit = None
+    for argv in cmds:
+        proc = subprocess.run(argv, cwd=ROOT, capture_output=True, text=True, timeout=180)
+        if proc.returncode != 0:
+            out = (proc.stdout or "") + (proc.stderr or "")
+            if "commit" in argv and "nothing to commit" in out:
+                return None, out
+            raise HTTPException(502, "git 执行失败：" + out[-400:])
+        if len(argv) >= 2 and argv[0] == "git" and argv[1] == "commit":
+            m = re.search(r"\[main [0-9a-f]{7,40}\]", proc.stdout or "")
+            commit = m.group(0).split()[1] if m else "committed"
+    return commit, ""
+
+
+@app.post("/api/accounts/publish")
+def publish_accounts(request: Request, body: dict):
+    user = current_user(request)
+    if user.user_id != "chaoyang":
+        raise HTTPException(403, "仅主账号可发布子账号。")
+    ok, reason = validate_sub_accounts(body)
+    if not ok:
+        raise HTTPException(400, reason)
+    target = WEB_ROOT / "sub-accounts.json"
+    target.write_text(json.dumps(body, ensure_ascii=False, indent=2), encoding="utf-8")
+    commit, out = run_git([
+        ["git", "add", "web/sub-accounts.json"],
+        ["git", "commit", "-m", f"feat: 学员账号更新（{len(body['accounts'])} 个）"],
+        ["git", "-c", "http.proxy=http://127.0.0.1:7897", "push", "origin", "main"],
+    ])
+    if commit is None:
+        return {"ok": True, "no_changes": True, "count": len(body["accounts"]), "output": out}
+    return {"ok": True, "commit": commit, "count": len(body["accounts"])}
 
 
 def submit(user, kwargs, run_id=None):

@@ -494,5 +494,7 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.9; background: #f
 .account-draft { margin-bottom: 16px; }
 .draft-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px dashed #e2ecea; }
 .draft-id { font: 12px Consolas, Menlo, monospace; color: #2c3b46; }
-.account-export .primary { margin-top: 4px; }
+.account-export { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.account-export .primary { margin-top: 0; }
+.account-export p { width: 100%; }
 .account-export code { font-family: Consolas, Menlo, monospace; background: #eef4f3; border-radius: 4px; padding: 1px 5px; }

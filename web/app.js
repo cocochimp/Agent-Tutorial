@@ -27,6 +27,11 @@ function loggedIn(user){
   $('login-card').hidden = true;
   $('logout').hidden = false;
   $('create-account-btn').hidden = user.role !== 'master';
+  // 一键发布按钮：仅本地后端模式 + 主账号可用（线上 Pages 无后端，保持导出方式）
+  window.APP_STATIC_MODE = staticMode;
+  window.APP_IS_MASTER = user.role === 'master';
+  const publishBtn = $('publish-accounts-btn');
+  if (publishBtn) publishBtn.hidden = !(user.role === 'master' && !staticMode);
   showView('guide');
   loadProjects();
   if (window.Guide) window.Guide.init();

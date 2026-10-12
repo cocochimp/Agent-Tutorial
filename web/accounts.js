@@ -223,6 +223,39 @@
       window.Accounts.downloadExport(out);
       el('export-status').textContent = '已导出 ' + out.accounts.length + ' 个账号（仅哈希）。请放入 web/ 目录 push 部署。';
     };
+    // 确认提交 · 自动部署：本地后端模式由 app.js 控制可见性（仅主账号）
+    const pubBtn = el('publish-accounts-btn');
+    if (pubBtn) {
+      pubBtn.onclick = async () => {
+        const draft = window.Accounts.loadDraft();
+        if (!draft.length) { el('export-status').textContent = '请先生成账号，再点击确认提交。'; return; }
+        if (!confirm('确认提交 ' + draft.length + ' 个新账号并自动部署到 GitHub 线上？\n提交后立即生效、不可撤销。')) return;
+        pubBtn.disabled = true;
+        pubBtn.textContent = '提交部署中…';
+        try {
+          const r = await fetch('static/sub-accounts.json', {cache: 'no-store'});
+          const published = r.ok ? await r.json() : {version: 2, algorithm: 'sha256$salt$hash(salt:account:password)', accounts: []};
+          const merged = window.Accounts.mergeWithPublished(draft, published.accounts || []);
+          const res = await fetch('/api/accounts/publish', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({version: 2, algorithm: 'sha256$salt$hash(salt:account:password)', accounts: merged})
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || ('HTTP ' + res.status));
+          window.Accounts.clearDraft();
+          renderDraft();
+          el('export-status').textContent = data.no_changes
+            ? '已是最新（无变更）。当前线上共 ' + data.count + ' 个账号。'
+            : '部署成功！commit ' + data.commit + '，线上共 ' + data.count + ' 个账号。';
+        } catch (err) {
+          el('export-status').textContent = '提交失败：' + (err.message || err) + '（数据已写入本地 web/sub-accounts.json，可稍后重试或手动 push）';
+        } finally {
+          pubBtn.disabled = false;
+          pubBtn.textContent = '确认提交 · 自动部署';
+        }
+      };
+    }
   }
 
   if (document.readyState === 'loading') {
