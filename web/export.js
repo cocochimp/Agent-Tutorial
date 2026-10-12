@@ -241,8 +241,10 @@ window.addEventListener('scroll', function(){
     return out.join('\n');
   }
 
+  const TYPE_LABEL = {A: '量化溯源', B: '方案设计', C: '其他'};
   function renderQ(q, i) {
-    const out = [`<div class="q-card"><div class="q">${i + 1}. ${esc(q.q)}</div>`];
+    const typeTag = q.type ? `<span class="tag" style="background:#eef3f8;color:#315d84">${esc(TYPE_LABEL[q.type] || q.type)}</span> ` : '';
+    const out = [`<div class="q-card"><div class="q">${i + 1}. ${typeTag}${esc(q.q)}</div>`];
     if (q.points && q.points.length) {
       out.push(`<div class="q-tips" contenteditable="true" class="editable"><b>要点说明：</b><ul style="margin:6px 0 0 18px;padding:0">${q.points.map(p => `<li>${esc(p)}</li>`).join('')}</ul></div>`);
     }
