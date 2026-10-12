@@ -50,10 +50,21 @@ p { margin: 8px 0; }
 .brand-mark { display: grid; place-items: center; width: 35px; height: 37px; background: var(--teal); color: white; border-radius: 10px; font-size: 19px; font-weight: 700; box-shadow: inset 0 1px 0 #ffffff30; }
 .product-brand strong { display: block; color: #fff; font-size: 18px; letter-spacing: 1px; }
 .product-brand > div > span { display: block; font-size: 7px; letter-spacing: 1.1px; color: #8fd2d5; margin-top: 3px; }
-.org-switch { display: flex; align-items: center; gap: 9px; background: #223a58; border: 1px solid #33527a; padding: 11px 9px; border-radius: 8px; margin: 0 2px 28px; }
+.org-switch { display: flex; align-items: center; gap: 9px; position: relative; background: #223a58; border: 1px solid #33527a; padding: 11px 9px; border-radius: 8px; margin: 0 2px 28px; cursor: pointer; }
+.org-switch:hover, .org-switch[aria-expanded="true"] { border-color: #4a6d9e; }
 .org-avatar { display: grid; place-items: center; width: 27px; height: 29px; background: #3a5780; border-radius: 5px; font-size: 12px; color: #dce8f7; }
 .org-switch b { font-size: 11px; color: #d7e3f1; font-weight: 500; }
 .org-switch small { display: block; font-size: 9px; color: #8fa9c9; }
+.project-caret { margin-left: auto; color: #8fa9c9; transition: transform .18s; }
+.org-switch[aria-expanded="true"] .project-caret { transform: rotate(180deg); }
+.project-menu { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 40; background: #16283f; border: 1px solid #33527a; border-radius: 9px; padding: 8px; box-shadow: 0 10px 26px rgba(0,0,0,.45); }
+.project-menu-title { font-size: 10px; color: #8fa9c9; padding: 4px 8px 8px; }
+.project-menu-item { display: flex; gap: 9px; align-items: flex-start; width: 100%; padding: 9px 8px; border: 0; border-radius: 7px; background: transparent; color: #d7e3f1; text-align: left; cursor: pointer; }
+.project-menu-item:hover { background: #23405f; }
+.project-menu-item.selected { background: #2c4a70; }
+.project-menu-item .mi-avatar { display: grid; place-items: center; flex: none; width: 26px; height: 26px; background: #3a5780; border-radius: 6px; font-size: 12px; color: #dce8f7; }
+.project-menu-item b { display: block; font-size: 12px; font-weight: 600; }
+.project-menu-item small { display: block; font-size: 9px; color: #8fa9c9; margin-top: 2px; }
 .org-chevron { margin-left: auto; color: #8fa9c9; }
 .nav-section-label { color: #7c93b4; font-size: 10px; padding: 0 13px; margin: 0 0 9px; letter-spacing: .8px; }
 .app-sidebar nav { display: flex; flex-direction: column; gap: 5px; }

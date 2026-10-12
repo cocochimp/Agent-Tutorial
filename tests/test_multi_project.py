@@ -47,3 +47,14 @@ def test_old_root_files_removed():
     for f in ('work-items.json', 'guide-data.json', 'interview-topics.json',
               'tutorial-data.json', 'graph.json', 'handbook.html'):
         assert not (WEB / f).exists(), f'{f} 仍留在根目录'
+
+
+def test_project_switcher_ui_and_state():
+    """切换器 DOM 与 app.js 状态逻辑存在。"""
+    idx = (WEB / 'index.html').read_text(encoding='utf-8')
+    assert 'id="project-switch"' in idx and 'id="project-menu"' in idx and 'id="project-menu-items"' in idx
+    app = (WEB / 'app.js').read_text(encoding='utf-8')
+    assert 'PROJECT_STORAGE_KEY' in app and 'loadProjects' in app and 'setProject' in app
+    assert 'avatarOf' in app and 'renderProjectMenu' in app
+    css = (WEB / 'style.css').read_text(encoding='utf-8')
+    assert '.project-menu' in css and '.project-menu-item' in css

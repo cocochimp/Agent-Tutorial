@@ -27,6 +27,7 @@ function loggedIn(user){
   $('login-card').hidden = true;
   $('logout').hidden = false;
   showView('guide');
+  loadProjects();
   if (window.Guide) window.Guide.init();
   if (window.Teaching) window.Teaching.init();
   if (window.Interview) window.Interview.init();
@@ -74,3 +75,72 @@ $('logout').onclick = async () => {
 };
 
 detectModeAndRestore();
+
+/* —— 多项目：当前项目状态 + 侧栏切换器 —— */
+let currentProject = null;
+let projectRegistry = [];
+const PROJECT_STORAGE_KEY = 'agent_tutorial_project';
+
+const avatarOf = name => (name || '项').trim().charAt(0);
+
+function renderProjectMenu() {
+  const host = $('project-menu-items');
+  host.replaceChildren();
+  projectRegistry.forEach(p => {
+    const item = node('button', undefined, 'project-menu-item' + (currentProject && currentProject.id === p.id ? ' selected' : ''));
+    item.type = 'button';
+    item.setAttribute('role', 'option');
+    item.append(
+      (() => { const s = node('span', undefined, 'mi-avatar'); s.textContent = avatarOf(p.name); return s; })(),
+      (() => { const d = node('div'); d.append(node('b', p.name + ' 教学'), node('small', p.tagline)); return d; })()
+    );
+    item.onclick = () => { setProject(p); closeProjectMenu(); };
+    host.append(item);
+  });
+}
+
+function setProject(p) {
+  if (!p) return;
+  const changed = !currentProject || currentProject.id !== p.id;
+  currentProject = p;
+  localStorage.setItem(PROJECT_STORAGE_KEY, p.id);
+  $('project-name').textContent = p.name + ' 教学';
+  $('project-tagline').textContent = '学员学习空间';
+  $('project-avatar').textContent = avatarOf(p.name);
+  renderProjectMenu();
+  if (changed) {
+    // 清空各视图缓存并重载当前项目数据（Task 3 实现的 reload 接口）
+    if (window.Guide && window.Guide.reload) window.Guide.reload();
+    if (window.Teaching && window.Teaching.reload) window.Teaching.reload();
+    if (window.Interview && window.Interview.reload) window.Interview.reload();
+  }
+}
+
+async function loadProjects() {
+  if (projectRegistry.length) return;
+  try {
+    const r = await fetch('projects/index.json', {cache: 'no-cache'});
+    if (!r.ok) throw new Error('项目注册表加载失败');
+    const data = await r.json();
+    projectRegistry = data.projects || [];
+    if (!projectRegistry.length) return;
+    const saved = localStorage.getItem(PROJECT_STORAGE_KEY);
+    const target = projectRegistry.find(p => p.id === saved) || projectRegistry[0];
+    setProject(target);
+  } catch (e) { /* 注册表不可用时保持默认 UI */ }
+}
+
+function openProjectMenu() {
+  $('project-menu').hidden = false;
+  $('project-switch').setAttribute('aria-expanded', 'true');
+}
+function closeProjectMenu() {
+  $('project-menu').hidden = true;
+  $('project-switch').setAttribute('aria-expanded', 'false');
+}
+$('project-switch').onclick = () => {
+  if ($('project-menu').hidden) openProjectMenu(); else closeProjectMenu();
+};
+document.addEventListener('click', e => {
+  if (!e.target.closest('#project-switch')) closeProjectMenu();
+});

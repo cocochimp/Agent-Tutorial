@@ -1,10 +1,18 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI 经营分析 Agent · 学员教学中心</title><link rel="stylesheet" href="static/style.css?v=20261011s"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI 经营分析 Agent · 学员教学中心</title><link rel="stylesheet" href="static/style.css?v=20261011t"></head>
 <body class="logged-out">
 <aside class="app-sidebar" aria-label="产品导航">
   <div class="product-brand"><span class="brand-mark">析</span><div><strong>教学中心</strong><span>AI AGENT TUTORIAL</span></div></div>
-  <div class="org-switch"><span class="org-avatar">房</span><div><b>经营分析 Agent 教学</b><small>学员学习空间</small></div></div>
+  <div class="org-switch" id="project-switch" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false" title="切换教学项目">
+    <span class="org-avatar" id="project-avatar">房</span>
+    <div><b id="project-name">房产经纪经营AI 教学</b><small id="project-tagline">学员学习空间</small></div>
+    <svg class="icon project-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+    <div class="project-menu" id="project-menu" role="listbox" hidden>
+      <div class="project-menu-title">切换项目</div>
+      <div id="project-menu-items"></div>
+    </div>
+  </div>
   <div class="nav-section-label">学习</div>
   <nav aria-label="学习导航">
     <button id="nav-guide" class="nav-tab" aria-pressed="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5a2 2 0 0 1 2-2h13v17H6a2 2 0 0 0-2 2Zm13-15v17M8 7h6M8 11h6"/></svg><span>项目导读</span><i class="nav-active-dot"></i></button>
@@ -117,10 +125,10 @@
 </dialog>
 <footer class="footer"><span>析 · AI 经营分析 Agent 教学中心</span><span>本地教学环境 / 业务数据与制度为虚构样例</span></footer>
 </div>
-<script src="static/app.js?v=20261011s"></script>
-<script src="static/guide.js?v=20261011s"></script>
-<script src="static/teaching.js?v=20261011s"></script>
-<script src="static/interview.js?v=20261011s"></script>
-<script src="static/export.js?v=20261011s"></script>
+<script src="static/app.js?v=20261011t"></script>
+<script src="static/guide.js?v=20261011t"></script>
+<script src="static/teaching.js?v=20261011t"></script>
+<script src="static/interview.js?v=20261011t"></script>
+<script src="static/export.js?v=20261011t"></script>
 </body>
 </html>
