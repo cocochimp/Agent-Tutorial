@@ -25,15 +25,7 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          IS_PUBLISH=$(python3 -c "
-import json,sys
-try:
-    d=json.loads(sys.stdin.read())
-    ok=isinstance(d,dict) and d.get('version')==2 and isinstance(d.get('accounts'),list)
-except Exception:
-    ok=False
-print('yes' if ok else 'no')
-" <<< "$ISSUE_BODY")
+          IS_PUBLISH=$(python3 -c "import json,sys; d=json.loads(sys.stdin.read()); ok=isinstance(d,dict) and d.get('version')==2 and isinstance(d.get('accounts'),list); print('yes' if ok else 'no')" <<< "$ISSUE_BODY")
           echo "is_publish=$IS_PUBLISH" >> "$GITHUB_OUTPUT"
           if [ "$IS_PUBLISH" != "yes" ]; then
             echo "非账号发布单，忽略。"
