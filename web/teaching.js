@@ -9,11 +9,12 @@
     return n;
   };
   let workItems = [], files = {}, activeWork = null, activeSub = null, svgCache = null;
+  const pid = () => (window.App && window.App.projectId()) || 'estate-agent';
 
   async function loadData() {
     const [a, b] = await Promise.all([
-      fetch('static/work-items.json', {cache: 'no-cache'}).then(r => { if (!r.ok) throw new Error('工作项数据加载失败'); return r.json(); }),
-      fetch('static/tutorial-data.json', {cache: 'no-cache'}).then(r => { if (!r.ok) throw new Error('教程数据加载失败'); return r.json(); })
+      fetch('projects/' + pid() + '/work-items.json', {cache: 'no-cache'}).then(r => { if (!r.ok) throw new Error('工作项数据加载失败'); return r.json(); }),
+      fetch('projects/' + pid() + '/tutorial-data.json', {cache: 'no-cache'}).then(r => { if (!r.ok) throw new Error('教程数据加载失败'); return r.json(); })
     ]);
     workItems = a.workItems || [];
     files = b.files || {};
@@ -79,7 +80,7 @@
     if (svgCache) { host.replaceChildren(svgCache); return; }
     let data = null;
     try {
-      const r = await fetch('static/graph.json', {cache: 'no-cache'});
+      const r = await fetch('projects/' + pid() + '/graph.json', {cache: 'no-cache'});
       if (r.ok) data = await r.json();
     } catch (e) { /* 静态文件不可用时回退后端 */ }
     if (!data) {
@@ -294,6 +295,11 @@
         const host = el('teaching-view'); host.replaceChildren();
         host.append(make('p', '数据加载失败：' + e.message, 'learning-error'));
       }
+    },
+    // 切换项目后清缓存重载
+    async reload() {
+      workItems = []; files = {}; activeWork = null; activeSub = null; svgCache = null;
+      await this.init();
     },
     selectWorkItem,
     openNodeDialog,

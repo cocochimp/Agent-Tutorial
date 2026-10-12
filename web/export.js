@@ -206,38 +206,40 @@
   };
 
   const nameOf = item => '工作' + item.id.replace('work-', '') + '_' + item.title.replace(/[^·\u4e00-\u9fa5A-Za-z0-9]/g, '').slice(0, 12) + '_学习页.html';
+  const pid = () => (window.App && window.App.projectId()) || 'estate-agent';
+  const projectName = () => (window.App && window.App.getProject() && window.App.getProject().name) || '';
 
   window.Export = {
     async guide() {
-      // 导出「完整实习复盘手册」：原样输出旧手册（22 章 + 目录侧栏 + 搜索/编辑/保存草稿/导出新HTML/导出PDF/随机抽题），
-      // 正文可编辑，学员可下载后自定义项目内容。
-      const r = await fetch('static/handbook.html', {cache: 'no-cache'});
+      // 导出「完整实习复盘手册」：原样输出手册副本（正文可编辑），学员可下载后自定义项目内容。
+      const r = await fetch('projects/' + pid() + '/handbook.html', {cache: 'no-cache'});
       if (!r.ok) throw new Error('手册数据加载失败');
       const html = await r.text();
-      download(html, '贝壳找房_房产经纪经营AI Agent_实习复盘手册.html');
+      download(html, (projectName() ? projectName() + '_' : '') + '实习复盘手册.html');
     },
     workItem() {
       const item = window.Teaching && window.Teaching.getCurrent();
       if (!item) return;
-      const r = fetch('static/tutorial-data.json', {cache: 'no-cache'});
+      const r = fetch('projects/' + pid() + '/tutorial-data.json', {cache: 'no-cache'});
       r.then(res => res.ok ? res.json() : {files: {}}).then(({files}) => {
         download(shell(item.title + ' · 学习页', workBody(item, files)), nameOf(item));
       });
     },
     async interview() {
-      // 项目面试题：一次导出全部 5 个工作项共 54 题（分组展示）；Agent/RAG/LLM 八股：导出该子题库全部题目。
+      // 项目面试题：一次导出全部工作项题目（分组展示）；八股题：导出该子题库全部题目。
       const t = window.Interview ? window.Interview.getCurrentTopic() : null;
       if (!t) return;
       const catName = t.title;
-      const r = await fetch('static/interview-topics.json', {cache: 'no-cache'});
-      if (!r.ok) throw new Error('面试题数据加载失败');
-      const data = await r.json();
-      const topic = data.topics.find(x => x.id === t.id);
+      const [proj, common] = await Promise.all([
+        fetch('projects/' + pid() + '/interview-topics.json', {cache: 'no-cache'}).then(r => r.ok ? r.json() : {topics: []}),
+        fetch('static/interview-common.json', {cache: 'no-cache'}).then(r => r.ok ? r.json() : {topics: []})
+      ]);
+      const topic = [...(proj.topics || []), ...(common.topics || [])].find(x => x.id === t.id);
       if (!topic) return;
       if (topic.groups) {
-        download(shell(catName, groupsBody(topic.groups, catName)), catName + '_练习清单.html');
+        download(shell(catName, groupsBody(topic.groups, catName)), (projectName() ? projectName() + '_' : '') + catName + '_练习清单.html');
       } else if (topic.questions && topic.questions.length) {
-        download(shell(catName, interviewBody(topic.questions, catName)), catName + '_练习清单.html');
+        download(shell(catName, interviewBody(topic.questions, catName)), (projectName() ? projectName() + '_' : '') + catName + '_练习清单.html');
       }
     }
   };

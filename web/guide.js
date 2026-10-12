@@ -8,10 +8,11 @@
     return n;
   };
   let chapters = [], active = 0;
+  const pid = () => (window.App && window.App.projectId()) || 'estate-agent';
 
   async function load() {
     if (chapters.length) return;
-    const r = await fetch('static/guide-data.json', {cache: 'no-cache'});
+    const r = await fetch('projects/' + pid() + '/guide-data.json', {cache: 'no-cache'});
     if (!r.ok) throw new Error('导读数据加载失败');
     chapters = (await r.json()).chapters || [];
   }
@@ -50,6 +51,8 @@
         host.append(make('p', '数据加载失败：' + e.message, 'learning-error'));
       }
     },
-    select: i => { active = i; renderCats(); renderContent(); }
+    select: i => { active = i; renderCats(); renderContent(); },
+    // 切换项目后清缓存重载
+    async reload() { chapters = []; active = 0; await this.init(); }
   };
 })();

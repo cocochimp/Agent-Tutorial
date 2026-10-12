@@ -144,3 +144,8 @@ $('project-switch').onclick = () => {
 document.addEventListener('click', e => {
   if (!e.target.closest('#project-switch')) closeProjectMenu();
 });
+
+window.App = {
+  getProject: () => currentProject,
+  projectId: () => (currentProject && currentProject.id) || 'estate-agent'
+};

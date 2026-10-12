@@ -9,12 +9,16 @@
     return n;
   };
   let topics = null, activeTopic = 'project', activeGroup = 'work-1';
+  const pid = () => (window.App && window.App.projectId()) || 'estate-agent';
 
   async function load() {
     if (topics) return topics;
-    const r = await fetch('static/interview-topics.json', {cache: 'no-cache'});
-    if (!r.ok) throw new Error('面试题数据加载失败');
-    topics = (await r.json()).topics;
+    // 项目面试题（project/recording）按项目加载；八股题（agent/rag/llm）全局共享
+    const [proj, common] = await Promise.all([
+      fetch('projects/' + pid() + '/interview-topics.json', {cache: 'no-cache'}).then(r => { if (!r.ok) throw new Error('面试题数据加载失败'); return r.json(); }),
+      fetch('static/interview-common.json', {cache: 'no-cache'}).then(r => r.ok ? r.json() : {topics: []})
+    ]);
+    topics = [...(proj.topics || []), ...(common.topics || [])];
     return topics;
   }
   const topicById = id => topics.find(t => t.id === id);
@@ -158,6 +162,8 @@
         host.append(make('p', '数据加载失败：' + e.message, 'learning-error'));
       }
     },
+    // 切换项目后清缓存重载
+    async reload() { topics = null; activeTopic = 'project'; activeGroup = 'work-1'; await this.init(); },
     renderCats, renderGroups, renderCurrent,
     getCurrentTopic: () => topicById(activeTopic),
     getActiveQuestions: () => {
