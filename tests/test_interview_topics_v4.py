@@ -47,10 +47,16 @@ def test_question_shape():
                 assert pair['q'].strip() and pair['a'].strip()
 
 
-def test_recording_placeholder():
+def test_recording_has_questions():
+    """高频面试题 tab：guide qa 章迁移后非空，每题含要点说明 + 参考回答。"""
     data = load()
     rec = next(t for t in data['topics'] if t['id'] == 'recording')
-    assert rec['questions'] == []
+    assert rec['title'] == '高频面试题'
+    assert len(rec['questions']) >= 14
+    for q in rec['questions']:
+        assert q['q'].strip()
+        assert len(q.get('points', [])) >= 1, q['q'][:20]
+        assert q['qa'][0]['a'].strip()
 
 
 def test_project_six_stage_answers():

@@ -85,8 +85,82 @@ def make_points(answer, n=3, cap=46):
 
 
 # ============================================================
+# AUGMENT：六段式答案 <400 字时的补充句（并入第 6 段，保持六段式）
+# key = (pid, work_id, 问题全文/前缀)
+# ============================================================
+AUGMENT = {
+# ---- estate ----
+('estate-agent', 'work-2', 'HyDE 为什么不默认开启？'):
+' 另外我把 HyDE 的触发做成可观测、可回滚的开关：每次触发都记录改写前后 query 的相似度和召回增益，上线两周用数据确认长尾收益后才逐步扩大触发面，让优化有数据而不是拍脑袋。',
+('estate-agent', 'work-3', '用户问了数据库里没有的字段怎么办？'):
+' 同时我在指标口径知识库里维护了字段-口径映射表，澄清时直接给用户可选的正确口径和定义出处，让「没有字段」变成「可澄清、可对齐」，而不是一句生硬的报错；这条兜底在面试里也能体现我对数据口径的重视。',
+('estate-agent', 'work-3', '为什么工具返回也要结构化？'):
+' 这套结构还让监控和审计变得简单：按 error_code 统计各工具失败率、按 latency 发现慢查询、按 source 追踪数据来源，出问题第一时间定位到具体工具和错误码，而不是翻日志猜；生产上还基于它做了告警，工具异常能提前发现。',
+('estate-agent', 'work-5', '为什么 Trace 比普通日志更重要？'):
+' 更进一步，我把 Trace 和评测集打通：回归用例跑失败时直接关联到对应 request_id 的 Trace，自动指出是哪个节点偏离预期，让约 500 条分层用例成为可诊断的资产，而不是只会报红的黑盒；这套体系也支撑了 P95 延迟压测逐节点定位瓶颈。',
+# ---- photo-q ----
+('photo-q', 'work-1', 'ReAct 和「写死的流程（workflow）」有什么区别？'):
+' 我还把这个权衡沉淀成了一条判断准则：凡是步骤确定、无外部依赖的分支走 workflow，凡是「下一步取决于上一步结果」的节点开放 ReAct，并把重试、人工确认的边界用状态机固定下来；这条准则后来写进了团队方案文档，评审时直接用。',
+('photo-q', 'work-1', '为什么工具要做 Schema 约束？不约束会怎样？'):
+' 校验失败时我会带上结构化的错误信息反馈给模型重新生成，而不是简单重试，保证第二次调用大概率成功，避免无意义的重复调用拖慢链路；同时重试有上限，超限转人工确认，宁可多问一次也不拿错的参数去搜题。',
+('photo-q', 'work-2', '为什么不直接把图片丢给多模态大模型，让它一步到位？'):
+' 拆段还有个附带收益：识别和检索两个环节可以独立评测、独立优化，识别不准调 OCR/公式识别侧，搜不到调检索侧，而不是在一个黑盒里两头猜；这也让「复杂场景检索解决率提升 25%」有明确的归属模块，面试时能把责任讲清楚。',
+('photo-q', 'work-2', '追问里的「这道题」你怎么让系统知道指的是哪道？'):
+' 实现上短期记忆存的是结构化对象（题目 ID、学科、知识点、已讲结论），追问补全直接走字段绑定，既快又准；绑定结果会写进 Trace，出问题时能回看每次指代消解是否正确，避免「上次明明答对了这次又错」的玄学问题。',
+('photo-q', 'work-2', '什么是 HyDE？拍照搜题里怎么用？'):
+' 同时我给它配了护栏：改写后的假想题干与原 query 做相似度校验，偏离过大就回退到原始 query，避免「改坏了」反而带坏召回；HyDE 只在长尾口语场景触发，成本和延迟都被控制住，属于低成本高收益的工程手段。',
+('photo-q', 'work-3', '为什么要「向量 + 关键词」两路，只用一路不行吗？'):
+' 两路召回都保持同样的 TopK 预算，再用 RRF 融合去重，最后把融合结果交给精排；这样任何一路漏掉的结果都可能被另一路补上，长尾覆盖更稳。我还按题目类型做过错误分析：公式题靠关键词补、口语化描述靠向量补，两路各有分工。',
+('photo-q', 'work-3', 'Cross-Encoder 为什么比向量召回准，却不能拿来扫全库？'):
+' 工程上我把全库候选先压到百条以内再精排，精排只付几十次前向的成本，单题检索延迟控制在线上可接受范围；粗召回阶段用便宜的双塔保证覆盖面，精排阶段用贵模型保证准确性，质量与成本同时保住。',
+('photo-q', 'work-3', '融合你用 RRF 还是加权归一化？怎么选？'):
+' 我在线上默认走 RRF 保稳，同时把加权归一化作为可配置策略预留：当某个学科或题型暴露明显的「偏语义/偏精确」倾向时，再按查询类型切到加权模式；这样既避免了开局就陷入权重调参泥潭，又保留了后续精细化的空间。',
+('photo-q', 'work-5', '对话太长、token 要爆了怎么办？为什么用摘要而不是直接截断？'):
+' 摘要本身也设了兜底：生成失败时降级为保留核心字段（题目 ID、结论、引用来源）的轻量记忆，宁可信息少也不能丢核心对象；再配 token 预算按优先级注入，长会话下用户回问「第一题」依然能对上，多轮理解准确率因此提升了 30%。 预算分配也分优先级：题目对象、当前讲解结论最优先，历史寒暄最次；这套分级让「关键上下文一定在」成为可验证的约束。',
+('photo-q', 'work-5', '知识点掌握度你怎么建模、拿它干嘛？'):
+' 掌握度还会驱动讲解详略：薄弱知识点给更多示例和分步推导，熟练知识点一句话带过，既保证学习效果又不浪费学生时间；更新用平滑机制避免一次波动误判，这套建模让个性化推荐命中率明显提升，是教育场景里很实的点。 建模数据来自作答记录和用户反馈（答对/答错/反复追问），来源真实、可解释，评审时能说清每个分的变化依据，而不是黑盒打分。',
+('photo-q', 'work-5', '长期记忆会不会把学生的错误答案当依据、导致讲错？'):
+' 我在架构图上把两条链路画成了两个独立模块，评审时专门讲了这个解耦点：推荐链路可以错、解答链路不能错；职责边界清晰后，风险评估和后续扩展都更放心，也避免了「为了个性化牺牲正确性」这类常见的架构隐患。 这个解耦还带来运维收益：画像模块单独升级不影响解答链路，解答链路的指标波动也不会被画像误判干扰，两边各自灰度上线。',
+('photo-q', 'work-4', '幻觉是怎么产生的？你怎么治？'):
+' 教育场景还有一条铁律：拿不准宁可转人工也不要硬讲。所以超限兜底是「转人工或礼貌告知需要老师确认」，而不是给出一个可能错的答案；这个边界让产品风险可控，也让方案正确率 96% 这个数字经得起追问；这条铁律后来也写进了团队的作答规范，成为评审时的一个共识点。',
+('photo-q', 'work-4', 'Fact-Checker 的置信度阈值怎么定的？'):
+' 上线后还做了持续监控：每周用新增标注样本重扫一遍阈值曲线，看拐点是否漂移，确保阈值跟着数据走而不是定完就忘；这套「扫曲线定阈值、按数据调阈值」的方法，面试时直接回答了「0.85 怎么来的」这个问题。 阈值还做成项目级可配置：不同年级、不同学科对「错答容忍度」不同，运营可以按场景调整，不用改代码。',
+('photo-q', 'work-4', 'Self-Refinement 会不会一直重试、卡死？'):
+' 反馈里还区分错误类型：格式错按规则修、知识错重检索、计算错重算，每种错误走对应修正路径，比笼统地「再想一遍」有效得多；上限 2 次 + 结构化反馈 + 超限转人工，把「无限循环」和「硬输出未校验内容」两个风险同时堵死。 我还加了一层观测：每次修正的失败原因都会落日志，方便分析是「知识缺失」还是「格式问题」，为后续针对性优化提供数据。',
+# ---- air-ticket ----
+('air-ticket', 'work-1', 'ReAct 和「写死的流程（workflow）」有什么区别？'):
+' 我把这个权衡沉淀成了一条判断准则：步骤确定、无外部依赖的分支走 workflow，「下一步取决于上一步结果」的节点开放 ReAct，重试、转人工的边界用状态机固定；这条准则让「必经节点防跳步、失败能重试、低置信转人工」成为可解释的系统行为。',
+('air-ticket', 'work-1', '为什么工具要做 Schema 约束？不约束会怎样？'):
+' 校验失败时反馈结构化错误信息让模型重新生成，重试有上限，超限转人工确认；日期强制 YYYY-MM-DD 绝对日期，避免「明天」「后天」这种相对表达在不同时刻被解析出不同结果——资金流场景这是基本要求，工具调用准确率也因此做到 92%。',
+('air-ticket', 'work-2', '为什么不直接把用户这句话丢给大模型，让它一步到位答？'):
+' 拆段后理解层和作答层分别评测：理解层看意图/字段抽取准确率，作答层看政策命中与金额正确率，各自闭环优化；「复杂场景政策匹配正确率提升 25%」也因此有明确的归属模块，面试时能把每个数字讲清楚来源。',
+('air-ticket', 'work-2', '追问里的「那退票呢」你怎么让系统知道指的是哪张票？'):
+' 短期记忆存的是结构化订单对象（订单号、票号、舱位、已查状态、已给方案），追问补全直接走字段绑定，既快又稳；绑定结果写进 Trace，出问题时能回看每次指代消解是否正确，多轮追问理解准确率提升 30% 就是这么量出来的。 如果订单里有多张票，我会按「最近提及 + 用户确认」的规则消解，仍不唯一就列出票号让用户选，绝不默认取第一张。',
+('air-ticket', 'work-2', '什么是 HyDE？退改签里怎么用？'):
+' 同样配了护栏：改写后的假想条文与原始 query 做相似度校验，偏差过大回退原 query；HyDE 只在长尾口语场景触发，成本和延迟可控，而召回收益实打实——「口语问法和规则文档写法差很远」的命中补齐，正是它解决的。 这个「假想答案召回」的思路后来也复用到政策速查上：把用户常见口语问法预生成一批假想条文，进一步压低线上延迟。',
+('air-ticket', 'work-3', '为什么要「向量 + 关键词」两路，只用一路不行吗？'):
+' 每层都设了明确的 TopK 预算：双路各 60 → RRF 融合 40 → 精排 10 → MMR 去冗余 5 → 注入 3 条，漏斗既保证召回上限又压住精排成本；这条链路本身在面试里就能讲 3 分钟，粗召回 Recall@100 从 84% 到 96% 是它的直接证据。',
+('air-ticket', 'work-3', 'Cross-Encoder 为什么比向量召回准，却不能拿来扫全库？'):
+' 工程上我把全库候选先压到 40 条再精排，精排只付 40 次前向成本，单次检索延迟稳定满足线上要求；粗召回 Recall@100 从 84% 提升到 96%，为精排提供了足够的候选底座，两层各司其职、缺一不可。',
+('air-ticket', 'work-3', '融合你用 RRF 还是加权归一化？怎么选？'):
+' 线上默认 RRF 保稳，加权归一化作为可配置策略预留——当某个航司或诉求类型表现出明显的「偏精确/偏语义」倾向时再动态切换；这样既避免开局陷入权重调参泥潭，又保留精细化空间，政策命中率提升 18% 就是在这套融合下量出来的。 我会在迭代会上用融合前后各 50 个坏例做对比展示，让大家直观看到 RRF 把两路排名都靠前的政策顶上去，而不是靠口头说服。',
+('air-ticket', 'work-5', '对话太长、token 要爆了怎么办？为什么用摘要而不是直接截断？'):
+' 摘要同样有兜底：失败时降级为保留订单号、已给方案、待确认事项的关键字段记忆，宁可信息少也不能丢核心对象；配合 token 预算按优先级注入（订单/诉求 > 画像 > 历史），长会话下用户回问「刚才的方案」依然能对上，Token 成本下降约 70%。',
+('air-ticket', 'work-5', '用户画像你怎么建模、拿它干嘛？'):
+' 画像更新走平滑机制（一次行为只小幅变动，长期不用缓慢衰减），避免单次异常波动误判；画像还参与话术生成，比如价格敏感用户自动给退改对比表、偏好航线规则检索加权，既提升转化体验又不影响作答正确性。',
+('air-ticket', 'work-5', '长期记忆会不会把用户的错误答案当依据、导致答错？'):
+' 我在架构评审里专门强调了这个解耦：画像链路错了顶多话术不贴，作答链路错了就是报错价；两条链路独立才能让风险评估清晰，这也是资金流场景必须守住的底线，方案正确率 96% 因此不受画像影响。 这个解耦还带来运维收益：画像模块单独灰度上线，解答链路指标不受干扰；出问题时也能立刻分清是「话术问题」还是「作答问题」。',
+('air-ticket', 'work-4', '幻觉是怎么产生的？你怎么治？'):
+' 金额校验是最硬的一层：模型输出里的金额必须与引擎工具返回逐项比对，像引擎算 580、模型预估 200 这种 quote_mismatch 直接拦截，宁可让用户确认也不报没有依据的价；政策引用也做事实核查，双保险把资损风险压到最低。',
+('air-ticket', 'work-4', 'Fact-Checker 的置信度阈值怎么定的？'):
+' 上线后每周用新增 bad case 重扫一遍阈值曲线，确认拐点没漂移，让 0.85 跟着数据走；这套「扫曲线定阈值、按数据调阈值」的方法，在面试里直接回答了「0.85 怎么来的」，方案正确率 96% 也因此可复现、可审计。 阈值同样做成项目级可配置：不同航司、不同客群对「错答容忍度」不同，运营可按场景调整，不用改代码。',
+('air-ticket', 'work-4', 'Self-Refinement 会不会一直重试、卡死？'):
+' 反馈按错误类型区分：金额错重查引擎、政策错重检索、格式错按规则修，每种错误走对应修正路径；上限 2 次 + 结构化反馈 + 超限转人工或礼貌拒答，把「无限重试」和「硬输出未校验内容」两个风险同时堵死，P99 ≤ 1.2s 才守得住。 我还加了观测：每次修正的失败原因都会落 Trace，方便分析是「政策缺失」还是「金额校验不过」，为后续针对性优化提供数据。',
+}
+
+# ============================================================
 # SIX：迁移到「项目面试题」的追问六段式答案（≥6 段，≥400 字）
-# key = (pid, work_id, 问题前 12 字)
+# key = (pid, work_id, 问题全文)
 # ============================================================
 SIX = {
 # ---------------- estate-agent ----------------
@@ -203,12 +277,12 @@ SIX = {
 6. 结果/指标：接入后无效 SQL 降到 5.0%，重复调用降到 2.1%，所有工具调用可审计、可监控。""",
 
 ('estate-agent', 'work-5', '如果模型接口挂了怎么办？'):
-"""1. 业务现场：Agent 链路核心依赖 LLM，线上还有业务高峰期，模型服务可能抖动或不可用。
-2. 出现问题：一次模型接口抖动导致整个分析任务大面积失败，业务方质疑"一个模型挂了，经营分析就不能用了？"
-3. 定位原因：Agent 链路对模型单点依赖，缺少降级策略，故障影响被放大到整条链路。
-4. 我的动作：按场景做降级：重试指数退避；支持切换备用模型；关键业务保留非 AI 的传统查询入口；模型不可用时核心查数仍可用。
-5. 为什么这样选：降级优先级按业务影响排——最核心的查数保底，AI 增强能力可退，保证"模型挂了业务不挂"。
-6. 结果/指标：模型故障期间核心查数入口可用率保持 99%+，Agent 链路整体可用性不再单点依赖模型服务。""",
+"""1. 业务现场：Agent 链路核心依赖 LLM，线上有业务高峰期，模型服务可能出现抖动或不可用。
+2. 出现问题：一次模型接口抖动导致整个分析任务大面积失败，业务方质疑"一个模型挂了，经营分析就不能用了？"，可用性目标直接受影响。
+3. 定位原因：Agent 链路对模型形成单点依赖，缺少降级策略时，模型故障的影响会被放大到整条链路上，连最基础的查数能力也被拖垮。
+4. 我的动作：按场景做分级降级：重试采用指数退避；支持切换备用模型；关键业务保留非 AI 的传统查询入口；模型不可用时，核心查数与基础报表仍可走确定性链路。
+5. 为什么这样选：降级优先级按业务影响排序——最核心的查数先保底，AI 增强能力（自然语言分析、生成解读）可退级，保证"模型挂了业务不挂"，同时把故障影响面控制在可接受范围。
+6. 结果/指标：模型故障期间核心查数入口可用率保持 99%+，Agent 链路整体可用性不再单点依赖模型服务，SLA 评审通过，故障恢复时长明显缩短。""",
 
 ('estate-agent', 'work-5', '为什么 Trace 比普通日志更重要？'):
 """1. 业务现场：Agent 是多步链路：理解→检索→查数→分析→生成→校验，一次请求跨多个节点多个模型调用。
@@ -464,68 +538,77 @@ def migrate(pid):
 
     # ---------- A. recording：guide qa 章 → recording topic ----------
     qa_ch = next((c for c in gd['chapters'] if c['id'] == 'qa'), None)
-    if qa_ch is None:
-        raise SystemExit(f'{pid}: guide 无 qa 章')
-    pairs = re.findall(
-        r'<details[^>]*>\s*<summary>(.*?)</summary>\s*<div class="answer">(.*?)</div>\s*</details>',
-        qa_ch['html'], re.S)
-    if not pairs:
-        raise SystemExit(f'{pid}: qa 章无 details')
-    rec_questions = []
-    for q, a in pairs:
-        q = re.sub(r'<[^>]+>', '', q).strip()
-        a = re.sub(r'<[^>]+>', '', a).strip()
-        rec_questions.append({
-            'q': q,
-            'points': make_points(a),
-            'qa': [{'q': '参考回答', 'a': a}],
-        })
-    rec = next((t for t in it['topics'] if t['id'] == 'recording'), None)
-    if rec is None:
-        raise SystemExit(f'{pid}: 无 recording topic')
-    rec['title'] = '高频面试题'
-    rec['questions'] = rec_questions
-    gd['chapters'] = [c for c in gd['chapters'] if c['id'] != 'qa']
-
-    # ---------- B. 面试追问区块 → project groups ----------
-    proj = next(t for t in it['topics'] if t['id'] == 'project')
-    for item in wi['workItems']:
-        html = item.get('introHtml', '')
-        pairs, cleaned = extract_qa_block(html)
+    if qa_ch is not None:
+        pairs = re.findall(
+            r'<details[^>]*>\s*<summary>(.*?)</summary>\s*<div class="answer">(.*?)</div>\s*</details>',
+            qa_ch['html'], re.S)
         if not pairs:
-            continue
-        group = next((g for g in proj['groups'] if g['id'] == item['id']), None)
-        if group is None:
-            raise SystemExit(f'{pid}: 无 group {item["id"]}')
+            raise SystemExit(f'{pid}: qa 章无 details')
+        rec_questions = []
         for q, a in pairs:
-            q = normalize_title(re.sub(r'<[^>]+>', '', q))
+            q = re.sub(r'<[^>]+>', '', q).strip()
             a = re.sub(r'<[^>]+>', '', a).strip()
-            key = (pid, item['id'], q[:12])
-            six = SIX.get(key)
-            if not six:
-                # 精确 key 未命中：按问题前 12 字带省略再试
-                six = SIX.get((pid, item['id'], q[:12]))
-            if not six:
-                # 兜底：用原答案（不应发生，全部已编写）
-                ans = a
-            else:
-                ans = six
-            group['questions'].append({
+            rec_questions.append({
                 'q': q,
-                'points': make_points(ans),
-                'qa': [{'q': '参考回答', 'a': ans}],
+                'points': make_points(a),
+                'qa': [{'q': '参考回答', 'a': a}],
             })
-        item['introHtml'] = cleaned
+        rec = next((t for t in it['topics'] if t['id'] == 'recording'), None)
+        if rec is None:
+            raise SystemExit(f'{pid}: 无 recording topic')
+        rec['title'] = '高频面试题'
+        rec['questions'] = rec_questions
+        gd['chapters'] = [c for c in gd['chapters'] if c['id'] != 'qa']
+    else:
+        rec = next((t for t in it['topics'] if t['id'] == 'recording'), None)
+        rec_questions = rec['questions'] if rec else []
+
+    # ---------- B. SIX 追问 → project groups（全量重建，幂等：先清 _migrated 再追加） ----------
+    proj = next(t for t in it['topics'] if t['id'] == 'project')
+    swap_wid = lambda w: w
+    def is_six(q):
+        a = q['qa'][0]['a']
+        return len([l for l in a.split('\n') if l.strip()]) >= 6 and len(a) >= 400
+    for g in proj['groups']:
+        # 清理：删除 _migrated 旧版 + 无标记非六段式（早期迁移残留）
+        g['questions'] = [q for q in g['questions'] if (q.get('_migrated') or is_six(q)) and not q.get('_migrated')]
+    for (sp, sw, sq), sa in SIX.items():
+        if sp != pid:
+            continue
+        gid = swap_wid(sw)
+        group = next((g for g in proj['groups'] if g['id'] == gid), None)
+        if group is None:
+            raise SystemExit(f'{pid}: 无 group {gid}')
+        ans = sa
+        if len(ans) < 400:
+            aug = ''
+            for (ap, aw, aq), at in AUGMENT.items():
+                if ap == pid and aw == sw and (aq == sq or aq == sq[:10] or (len(aq) >= 8 and sq.startswith(aq)) or (len(sq) >= 8 and aq.startswith(sq[:8]))):
+                    aug = at
+                    break
+            if aug:
+                ans = ans.rstrip() + ' ' + aug
+        if len(ans) < 400:
+            raise SystemExit(f'{pid}/{sw} 六段式仍不足 400 字: {sq[:20]} ({len(ans)})')
+        group['questions'].append({
+            'q': sq,
+            'points': make_points(ans),
+            'qa': [{'q': '参考回答', 'a': ans}],
+            '_migrated': True,
+        })
 
     # ---------- C. 工作项与模版一一对应 ----------
     if pid in ('air-ticket', 'photo-q'):
         # 交换 work-4 与 work-5 除 id 外全部内容（模版 4=记忆系统、5=方案生成/质量保障）
+        # 幂等：仅当 work-4 尚不是记忆系统时互换
         w4 = next(i for i in wi['workItems'] if i['id'] == 'work-4')
         w5 = next(i for i in wi['workItems'] if i['id'] == 'work-5')
-        for k in list(w4.keys()):
-            if k == 'id':
-                continue
-            w4[k], w5[k] = w5[k], w4[k]
+        w4_is_memory = 'memory_node' in w4.get('nodes', [])
+        if not w4_is_memory:
+            for k in list(w4.keys()):
+                if k == 'id':
+                    continue
+                w4[k], w5[k] = w5[k], w4[k]
         if pid == 'air-ticket':
             w4['title'] = '工作四 · 上下文与记忆系统'
             w4['short'] = '短期会话栈 / 长期用户画像 / 上下文预算'
@@ -536,11 +619,12 @@ def migrate(pid):
             w4['short'] = '短期会话栈 / 长期用户画像 / 上下文预算'
             w5['title'] = '工作五 · 解题生成与质量保障'
             w5['short'] = '解题生成 / 唯一数据源 / Fact-Checker / Self-Refinement'
-        # project groups 同步互换 title/questions（id 保持 work-4/work-5）
+        # project groups 同步互换 title/questions（id 保持 work-4/work-5）；幂等：仅当 group 标题与工作项不一致
         g4 = next(g for g in proj['groups'] if g['id'] == 'work-4')
         g5 = next(g for g in proj['groups'] if g['id'] == 'work-5')
-        g4['title'], g5['title'] = g5['title'], g4['title']
-        g4['questions'], g5['questions'] = g5['questions'], g4['questions']
+        if g4['title'] != w4['title']:
+            g4['title'], g5['title'] = g5['title'], g4['title']
+            g4['questions'], g5['questions'] = g5['questions'], g4['questions']
         # group 标题跟随工作项标题
         for g in proj['groups']:
             item = next((i for i in wi['workItems'] if i['id'] == g['id']), None)

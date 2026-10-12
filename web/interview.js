@@ -76,12 +76,6 @@
     const host = el('interview-current'); host.replaceChildren();
     const t = topicById(activeTopic);
     if (!t) return;
-    if (t.id === 'recording') {
-      const card = make('div', undefined, 'empty');
-      card.append(make('h3', '高频面试题（建设中）'), make('p', '这里将沉淀学员真实面试录音中的高频真题，持续优化更新中。'), make('p', '先把「项目面试题」和 Agent / RAG / LLM 八股过一遍，面试后回来补充你的真题。', 'muted'));
-      host.append(card);
-      return;
-    }
     const questions = t.groups ? t.groups.find(g => g.id === activeGroup).questions : (t.questions || []);
     if (!questions.length) {
       const card = make('div', undefined, 'empty');

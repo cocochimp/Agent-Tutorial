@@ -211,11 +211,82 @@
 
   window.Export = {
     async guide() {
-      // 导出「完整实习复盘手册」：原样输出手册副本（正文可编辑），学员可下载后自定义项目内容。
-      const r = await fetch('static/projects/' + pid() + '/handbook.html', {cache: 'no-cache'});
-      if (!r.ok) throw new Error('手册数据加载失败');
-      const html = await r.text();
-      download(html, (projectName() ? projectName() + '_' : '') + '实习复盘手册.html');
+      // 导出「完整实习复盘手册」：动态拼最新内容（导读 + 五个工作项 + 指标展开 + 节点 io + 代码）
+      const [guideRes, workRes, tutRes] = await Promise.all([
+        fetch('static/projects/' + pid() + '/guide-data.json', {cache: 'no-cache'}),
+        fetch('static/projects/' + pid() + '/work-items.json', {cache: 'no-cache'}),
+        fetch('static/projects/' + pid() + '/tutorial-data.json', {cache: 'no-cache'})
+      ]);
+      if (!guideRes.ok || !workRes.ok) throw new Error('数据加载失败');
+      const guide = await guideRes.json();
+      const work = await workRes.json();
+      const tut = tutRes.ok ? await tutRes.json() : {files: {}};
+      const files = tut.files || {};
+
+      const out = [];
+      // Hero
+      if (guide.hero) {
+        out.push(`<div class="page-head" style="margin-top:0">`);
+        out.push(`<p style="font-size:11px;letter-spacing:2px;color:#7fb3bb;margin:0 0 8px">${esc(guide.hero.eyebrow || '')}</p>`);
+        out.push(`<h1 contenteditable="true" class="editable">${esc(guide.hero.title || projectName() || '')}</h1>`);
+        out.push(`<p contenteditable="true" class="editable" style="margin:10px 0 0">${esc(guide.hero.desc || '')}</p>`);
+        if (guide.hero.facts && guide.hero.facts.length) {
+          out.push(`<div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">`);
+          guide.hero.facts.forEach(f => out.push(`<div style="background:rgba(255,255,255,.12);border-radius:6px;padding:8px 14px"><div style="font-size:10px;color:#9fc4cb">${esc(f.label)}</div><div style="font-size:12px;color:#fff;font-weight:700">${esc(f.value)}</div></div>`));
+          out.push(`</div>`);
+        }
+        out.push(`</div>`);
+      }
+      // 导读章节
+      out.push(`<h2 style="margin-top:30px">📖 项目导读</h2>`);
+      (guide.chapters || []).forEach((ch, idx) => {
+        out.push(`<div class="card guide-html" contenteditable="true" class="editable">`);
+        out.push(`<h3 style="margin-top:0">${esc(ch.title || ('第' + (idx+1) + '章'))}</h3>`);
+        out.push(ch.html || '');
+        out.push(`</div>`);
+      });
+      // 五个工作项
+      out.push(`<h2 style="margin-top:36px">💼 实习项目 · 五个工作项</h2>`);
+      (work.workItems || []).forEach(item => {
+        out.push(`<div style="margin-top:24px;padding-top:18px;border-top:3px solid var(--navy)">`);
+        out.push(`<h3 style="font-size:18px;color:var(--navy);margin:0 0 10px">${esc(item.title || item.id)}</h3>`);
+        // 简历简介
+        if (item.resume) {
+          out.push(`<div class="card" contenteditable="true" class="editable">`);
+          out.push(`<p style="margin:0;color:#2c3b46;line-height:1.85">${esc(item.resume.text || '')}</p>`);
+          out.push(`</div>`);
+        }
+        // 指标展开（直接展开，不折叠）
+        if (item.resume && item.resume.metricDetails && item.resume.metricDetails.length) {
+          out.push(`<h4 style="margin:18px 0 8px;color:var(--teal);font-size:14px">📊 量化指标详解</h4>`);
+          item.resume.metricDetails.forEach(md => {
+            out.push(`<div class="card" style="border-left:3px solid var(--teal)" contenteditable="true" class="editable">`);
+            out.push(`<div style="font-weight:800;color:var(--navy);margin-bottom:8px">${esc(md.title)}</div>`);
+            // 面试话术（多段）
+            String(md.design || '').split(/\n\n+/).filter(Boolean).forEach(p => out.push(`<p style="margin:8px 0;font-size:13px;line-height:1.85;color:#2c3b46">${esc(p)}</p>`));
+            // 关键数字
+            const nums = md.numbers || [];
+            if (nums.length) {
+              out.push(`<ul style="margin:10px 0 0 20px;padding:0">`);
+              nums.forEach(n => out.push(`<li style="font-size:12.5px;color:#2c3b46;margin:4px 0">${esc(n)}</li>`));
+              out.push(`</ul>`);
+            }
+            out.push(`</div>`);
+          });
+        }
+        // 内容介绍（原手册章节）
+        out.push(`<h4 style="margin:18px 0 8px;color:var(--teal);font-size:14px">📝 内容介绍</h4>`);
+        out.push(`<div class="card guide-html" contenteditable="true" class="editable">${item.introHtml || ''}</div>`);
+        // 子主题
+        if (item.subTopics && item.subTopics.length) {
+          item.subTopics.forEach(st => {
+            out.push(`<h4 style="margin:16px 0 6px;color:var(--orange);font-size:13px">📌 ${esc(st.title)}</h4>`);
+            out.push(`<div class="card guide-html" contenteditable="true" class="editable">${st.html || ''}</div>`);
+          });
+        }
+        out.push(`</div>`);
+      });
+      download(shell(projectName() + ' · 实习复盘手册', out.join('\n')), (projectName() || '项目') + '_实习复盘手册.html');
     },
     workItem() {
       const item = window.Teaching && window.Teaching.getCurrent();
