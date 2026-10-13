@@ -58,14 +58,23 @@ def test_prep_js_resume_template_data():
 
 def test_prep_js_export_pdf_plumbing():
     src = read('web/prep.js')
-    assert 'window.print' in src
+    # 导出 PDF 直接下载文件（html-to-image + jsPDF），库缺失时回退打印
+    assert 'window.jspdf' in src and 'window.htmlToImage' in src
+    assert "filename: '优秀简历模版.pdf'" in src or "优秀简历模版.pdf" in src
+    assert 'window.print' in src            # 兜底分支保留
     assert "exportPdf" in src
     html = read('web/index.html')
     assert 'nav-selfprep' in html and 'nav-resume' in html
     assert 'selfview-view' in html and 'resumeview-view' in html
     assert 'print-host' in html
+    assert 'static/vendor/html-to-image.js' in html
+    assert 'static/vendor/jspdf.umd.min.js' in html
     css = read('web/style.css')
     assert '@media print' in css and '#print-host { display: none; }' in css
+    vendor = ROOT / 'web' / 'vendor'
+    for f in ('html-to-image.js', 'jspdf.umd.min.js'):
+        p = vendor / f
+        assert p.is_file() and p.stat().st_size > 10000, f'vendor {f} 缺失'
 
 
 def test_app_js_has_five_views():

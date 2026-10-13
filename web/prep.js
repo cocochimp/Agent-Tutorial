@@ -1,6 +1,6 @@
 /* 面试板块：自我介绍/反问 + 模版简历（全站级，不随项目切换）。
  * 数据来源：2.2 自我介绍模板 / 2.3 技术面反问 / 2.4 HR面反问（用户提供截图）；
- *           优秀简历模版（用户提供 PDF，2 页）。导出 PDF 走浏览器打印（window.print）。 */
+ *           优秀简历模版（用户提供 PDF，2 页）。导出 PDF 直接下载文件（html-to-image + jsPDF 生成）。 */
 window.Prep = (() => {
   const $ = id => document.getElementById(id);
   const el = (tag, cls, text) => {
@@ -281,7 +281,7 @@ window.Prep = (() => {
     return root;
   }
 
-  /* ============ 导出 PDF（浏览器打印） ============ */
+  /* ============ 导出 PDF（直接下载文件；html2pdf 不可用时回退打印） ============ */
   function printHtml() {
     const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const jobs = RESUME.internship.items.map((it, i) => `
@@ -296,7 +296,9 @@ window.Prep = (() => {
   @page { size: A4; margin: 16mm 15mm; }
   * { box-sizing: border-box; }
   body { margin: 0; color: #1d2a35; font: 12px/1.75 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
-  .resume-print { max-width: 190mm; margin: 0 auto; }
+  .resume-print { width: 190mm; max-width: 190mm; margin: 0 auto; }
+  .rs { page-break-inside: avoid; }
+  .rj { page-break-inside: avoid; }
   .rh { border-bottom: 2.5px solid #17324d; padding-bottom: 10px; margin-bottom: 14px; }
   .rh h1 { margin: 0 0 2px; font-size: 22px; color: #17324d; }
   .rh .ri { font-size: 13px; color: #087f8c; font-weight: 700; }
@@ -347,10 +349,52 @@ window.Prep = (() => {
   }
 
   function exportPdf() {
-    const host = $('print-host');
-    host.innerHTML = printHtml();
-    // 等样式生效后打印
-    setTimeout(() => { window.print(); }, 60);
+    const html = printHtml();
+    if (!window.jspdf || !window.htmlToImage) {
+      // 兜底：库加载失败时退回浏览器打印
+      const host = $('print-host');
+      host.innerHTML = html;
+      setTimeout(() => { window.print(); }, 60);
+      return;
+    }
+    const btn = document.querySelector('#resumeview-view .page-heading button');
+    if (btn) { btn.disabled = true; btn.textContent = '生成中…'; }
+    // 生成期间在页面顶层显示白底简历（html-to-image 需元素真实渲染；宽 718px ≈ A4 190mm）
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;left:0;top:0;width:718px;background:#fff;z-index:9999;';
+    wrap.innerHTML = html;
+    document.body.appendChild(wrap);
+    const done = () => {
+      wrap.remove();
+      if (btn) { btn.disabled = false; btn.textContent = '导出 PDF'; }
+    };
+    window.htmlToImage.toCanvas(wrap, { pixelRatio: 2, backgroundColor: '#ffffff', cacheBust: true })
+      .then(c => {
+        const pdf = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+        const pageW = 210, pageH = 297, m = 12;
+        const drawW = pageW - m * 2;
+        const totalHmm = c.height * drawW / c.width;
+        const usableH = pageH - m * 2;
+        let y = 0, page = 0;
+        while (y < totalHmm) {
+          const sliceHmm = Math.min(usableH, totalHmm - y);
+          const slicePxH = Math.max(1, Math.round(sliceHmm / totalHmm * c.height));
+          const sc = document.createElement('canvas');
+          sc.width = c.width; sc.height = slicePxH;
+          sc.getContext('2d').drawImage(c, 0, Math.round(y / totalHmm * c.height), c.width, slicePxH, 0, 0, c.width, slicePxH);
+          if (page > 0) pdf.addPage();
+          pdf.addImage(sc.toDataURL('image/jpeg', 0.95), 'JPEG', m, m, drawW, sliceHmm);
+          y += sliceHmm; page++;
+        }
+        pdf.save('优秀简历模版.pdf');
+        done();
+      })
+      .catch(() => {
+        done();
+        const host = $('print-host');
+        host.innerHTML = html;
+        setTimeout(() => { window.print(); }, 60);
+      });
   }
 
   /* ============ 视图 ============ */
