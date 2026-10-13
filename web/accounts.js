@@ -14,16 +14,27 @@
   const STORAGE_KEY = 'agent_tutorial_draft_accounts';
   const MASTER_ACCOUNT = 'chaoyang';
   const EXPIRY_DAYS = 60;
-  // 排除易混淆字符 0O1lI
-  const ACCOUNT_CHARS = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
-  const PASSWORD_CHARS = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789!@#$%^&*';
+  // 密码规则：2 个字母 + 8 个数字随机（共 10 位，随机排列）
+  const PWD_LETTERS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const PWD_DIGITS = '0123456789';
 
-  function randChars(len, charset) {
-    const out = [];
-    const buf = new Uint32Array(len);
+  function cryptoIndex(mod) {
+    const buf = new Uint32Array(1);
     crypto.getRandomValues(buf);
-    for (let i = 0; i < len; i++) out.push(charset[buf[i] % charset.length]);
-    return out.join('');
+    return buf[0] % mod;
+  }
+  function genPassword() {
+    const chars = [];
+    chars.push(PWD_LETTERS[cryptoIndex(PWD_LETTERS.length)]);
+    chars.push(PWD_LETTERS[cryptoIndex(PWD_LETTERS.length)]);
+    for (let i = 0; i < 8; i++) chars.push(PWD_DIGITS[cryptoIndex(PWD_DIGITS.length)]);
+    const buf = new Uint32Array(chars.length);
+    crypto.getRandomValues(buf);
+    for (let i = chars.length - 1; i > 0; i--) {
+      const j = buf[i] % (i + 1);
+      const t = chars[i]; chars[i] = chars[j]; chars[j] = t;
+    }
+    return chars.join('');
   }
 
   function saltHex() {
@@ -55,25 +66,44 @@
     return d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
   }
 
-  function generateId(i) {
-    return 'stu-' + dateTag(now()) + '-' + pad3(i);
+  /* 当日已有最大序号（草稿 + 已发布），新批次从 max+1 续排，避免 stu-时间-序号 撞号。 */
+  async function nextSeqStart() {
+    const date = 'stu-' + dateTag(now()) + '-';
+    let max = 0;
+    loadDraft().forEach(a => {
+      if (a.id && a.id.startsWith(date)) {
+        const s = parseInt(a.id.slice(date.length), 10) || 0;
+        if (s > max) max = s;
+      }
+    });
+    try {
+      const r = await fetch('static/sub-accounts.json', {cache: 'no-store'});
+      if (r.ok) {
+        const d = await r.json();
+        (d.accounts || []).forEach(a => {
+          if (a.id && a.id.startsWith(date)) {
+            const s = parseInt(a.id.slice(date.length), 10) || 0;
+            if (s > max) max = s;
+          }
+        });
+      }
+    } catch (e) { /* 无已发布文件时从草稿序号继续 */ }
+    return max + 1;
   }
 
-  /* 批量生成 1~10 个账号：返回明文对象数组（仅本次展示用）。 */
+  /* 批量生成 1~10 个账号：账号名 = stu-<日期>-<3位序号>（与 id 相同），密码 = 2 字母 + 8 数字。 */
   async function generateBatch(n) {
     n = Math.max(1, Math.min(10, Math.floor(n) || 1));
+    const start = await nextSeqStart();
     const out = [];
-    for (let i = 1; i <= n; i++) {
-      let account;
-      do {
-        account = randChars(8, ACCOUNT_CHARS);
-      } while (account === MASTER_ACCOUNT || account.toLowerCase() === MASTER_ACCOUNT);
-      const password = randChars(12, PASSWORD_CHARS);
+    for (let i = 0; i < n; i++) {
+      const account = 'stu-' + dateTag(now()) + '-' + pad3(start + i);
+      const password = genPassword();
       const createdAt = now();
       const salt = saltHex();
       const h = await hashOf(account, password, salt);
       out.push({
-        id: generateId(i),
+        id: account,
         note: '',
         account, password,
         createdAt, expiresAt: expiresAtOf(createdAt),
