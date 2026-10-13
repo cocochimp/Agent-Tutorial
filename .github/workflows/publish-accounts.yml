@@ -54,6 +54,7 @@ jobs:
 
       # 提交并推送（无变更则跳过）
       - name: Commit and push
+        id: commit_push
         if: success() && steps.guard.outputs.is_publish == 'yes'
         run: |
           git config user.name "github-actions[bot]"
@@ -61,11 +62,23 @@ jobs:
           git add web/sub-accounts.json
           if git diff --cached --quiet; then
             echo "无变更：数据与线上一致。"
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
           else
             git commit -m "feat: 学员账号更新（issue #${{ github.event.issue.number }}）"
             git push origin main
-            echo "已推送 main，Pages 将自动重新部署。"
+            echo "已推送 main。"
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
           fi
+
+      # GITHUB_TOKEN 推送的 commit 不会自动触发 pages.yml（GitHub 防递归机制），
+      # 必须显式 dispatch 触发 Pages 部署，否则账号数据不会上线。
+      - name: Trigger Pages deploy
+        if: steps.commit_push.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run "Deploy to GitHub Pages" --ref main
+          echo "已触发 Pages 部署（workflow_dispatch），线上约 1~2 分钟后生效。"
 
       # 收尾：关闭发布单
       - name: Close issue
