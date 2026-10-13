@@ -499,3 +499,75 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.9; background: #f
 .account-export .primary { margin-top: 0; }
 .account-export p { width: 100%; }
 .account-export code { font-family: Consolas, Menlo, monospace; background: #eef4f3; border-radius: 4px; padding: 1px 5px; }
+
+/* ===== V5：自我介绍/反问 + 模版简历 ===== */
+.intro-steps { display: flex; flex-direction: column; gap: 10px; }
+.intro-step { display: grid; grid-template-columns: 34px 92px 1fr; gap: 12px; align-items: start; padding: 12px 14px; border: 1px solid #cfe0e2; border-radius: 9px; background: #fbfefe; }
+.intro-step-no { font: 11px Consolas, monospace; color: var(--teal); background: #e2f2f3; border-radius: 5px; padding: 3px 6px; text-align: center; }
+.intro-step-label { font-size: 12.5px; font-weight: 800; color: #1d4a52; background: #e2f2f3; border-radius: 99px; padding: 3px 11px; text-align: center; height: fit-content; }
+.intro-step-text { margin: 0; font-size: 13px; line-height: 1.85; color: #2c3b46; }
+.ask-list { margin: 6px 0 0; padding: 0; list-style: none; counter-reset: ask; }
+.ask-item { display: flex; gap: 11px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid #eef3f5; font-size: 13.5px; line-height: 1.75; color: #2c3b46; }
+.ask-item:last-child { border-bottom: 0; }
+.ask-no { flex: none; font: 11px Consolas, monospace; color: var(--teal); background: #e2f2f3; border-radius: 5px; padding: 2px 8px; margin-top: 2px; }
+.ask-text em { font-style: normal; font-size: 12px; color: #9b681c; background: #fff5df; border-radius: 5px; padding: 2px 8px; margin-left: 8px; }
+.hr-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 4px; }
+.hr-group { border: 1px solid #cfe0e2; border-radius: 10px; padding: 13px 16px; background: #fbfefe; }
+.hr-group.hr-warn { border-color: #ead3a6; background: #fffdf7; }
+.hr-group-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 6px; }
+.hr-group-head b { font-size: 13.5px; color: var(--navy); }
+.hr-group-head .pill { font-size: 10px; }
+.hr-ask-list .ask-item { font-size: 12.5px; padding: 8px 0; }
+.hr-ask-list .ask-no { font-size: 10px; padding: 1px 7px; }
+@media (max-width: 900px) { .hr-groups { grid-template-columns: 1fr; } .intro-step { grid-template-columns: 1fr; gap: 4px; } }
+
+/* 模版简历网页版 */
+.resume-doc { border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 30px 34px; box-shadow: var(--shadow); }
+.resume-headbar { border-bottom: 2.5px solid var(--navy); padding-bottom: 13px; margin-bottom: 16px; }
+.resume-name { margin: 0 0 3px; font-size: 24px; color: var(--navy); letter-spacing: 1px; }
+.resume-intent { font-size: 14px; font-weight: 700; color: var(--teal); }
+.resume-contact { display: flex; flex-wrap: wrap; gap: 16px; font-size: 11.5px; color: var(--muted); margin-top: 5px; }
+.resume-sec { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid #e6eef0; }
+.resume-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 9px; }
+.resume-sec-head h3 { margin: 0; font-size: 16px; color: var(--navy); border-left: 4px solid var(--teal); padding-left: 9px; }
+.resume-sec-note { font-size: 10px; color: var(--muted); }
+.edu-line { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; font-size: 13.5px; }
+.edu-line b { color: var(--navy); }
+.edu-tag { font-size: 11px; color: var(--teal); background: #e2f2f3; border-radius: 99px; padding: 2px 9px; }
+.edu-range { font-size: 11.5px; color: var(--muted); margin-left: auto; }
+.award-row { margin-top: 7px; }
+.skill-list { display: flex; flex-direction: column; gap: 5px; }
+.skill-row { font-size: 12.8px; line-height: 1.8; color: #2c3b46; }
+.skill-row b { color: var(--navy); }
+.org-line { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13.5px; }
+.org-line b { color: var(--navy); }
+.rwi-bg { font-size: 12.5px; color: #2c3b46; background: #f7fafb; border-left: 3px solid #9ab5be; border-radius: 4px; padding: 8px 12px; line-height: 1.8; }
+.rwi { margin: 9px 0; }
+.rwi-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rwi-no { font: 11px Consolas, monospace; color: var(--teal); background: #e2f2f3; border-radius: 5px; padding: 2px 8px; }
+.rwi-title { font-size: 13.5px; color: var(--navy); }
+.rwi-metric { font-size: 11.5px; color: #268361; background: #eef8f2; border-radius: 99px; padding: 2px 10px; margin-left: auto; }
+.rwi-desc { margin: 5px 0 0; font-size: 12.8px; line-height: 1.85; color: #2c3b46; }
+.rwi-ps { margin-top: 7px; border: 1px solid #ead3a6; border-radius: 8px; background: #fffaf0; overflow: hidden; }
+.rwi-ps summary { padding: 8px 12px; font-size: 12px; font-weight: 700; color: #8a6d3a; cursor: pointer; list-style: none; }
+.rwi-ps summary::before { content: '▶ '; font-size: 10px; }
+.rwi-ps[open] summary::before { content: '▼ '; }
+.rwi-ps p { margin: 0; padding: 0 12px 10px; font-size: 12px; line-height: 1.85; color: #6d5528; }
+.rwi-stack { font-size: 11.8px; color: #4a5c66; margin: 8px 0 0; }
+.rwi-stack b { color: var(--navy); }
+.proj-list { margin: 8px 0 0; padding: 0; list-style: none; }
+.proj-item { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px dashed #e6eef0; font-size: 12.8px; line-height: 1.85; color: #2c3b46; }
+.proj-item:last-child { border-bottom: 0; }
+.proj-no { flex: none; font: 10px Consolas, monospace; color: var(--teal); background: #e2f2f3; border-radius: 5px; padding: 1px 7px; height: fit-content; margin-top: 4px; }
+.proj-result { margin: 10px 0 0; font-size: 12.3px; line-height: 1.85; color: #315848; background: #eef8f2; border-left: 3px solid #5bb39b; border-radius: 4px; padding: 9px 13px; }
+.proj-result b { color: #1d4a52; }
+
+/* 导出 PDF：打印容器 + 打印样式（仅打印「模版简历」内容） */
+#print-host { display: none; }
+@media print {
+  .app-sidebar, .app-header, .footer, main > section, dialog { display: none !important; }
+  body { background: #fff !important; }
+  #print-host { display: block !important; }
+  #print-host * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  @page { size: A4; margin: 14mm 12mm; }
+}

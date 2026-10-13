@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI 经营分析 Agent · 学员教学中心</title><link rel="stylesheet" href="static/style.css?v=20261013f"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI 经营分析 Agent · 学员教学中心</title><link rel="stylesheet" href="static/style.css?v=20261013g"></head>
 <body class="logged-out">
 <aside class="app-sidebar" aria-label="产品导航">
   <div class="product-brand"><span class="brand-mark">析</span><div><strong>教学中心</strong><span>AI AGENT TUTORIAL</span></div></div>
@@ -21,6 +21,8 @@
   <div class="nav-section-label">面试</div>
   <nav aria-label="面试导航">
     <button id="nav-interview" class="nav-tab" aria-pressed="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v4m-4.2.8L9.7 8.7m4.6 0 1.9-1.9M5 12H1m22 0h-4M7.6 16.4l-1.4 1.4m11.8-1.4 1.4 1.4M12 20v2m-3-9a3 3 0 1 1 6 0 3 3 0 0 1-6 0Z"/></svg><span>面试题库</span></button>
+    <button id="nav-selfprep" class="nav-tab" aria-pressed="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>自我介绍/反问</span></button>
+    <button id="nav-resume" class="nav-tab" aria-pressed="false"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg><span>模版简历</span></button>
   </nav>
   <div class="sidebar-bottom"><div class="local-indicator"><i></i><span>学员教学环境</span><span class="version">V3.0</span></div><p>业务数据与制度为虚构样例</p></div>
 </aside>
@@ -113,7 +115,18 @@
       <div id="interview-current" class="interview-current"><div class="empty"><h3>选择子题库</h3><p>每个问题点开查看「要点说明」与「参考问答」。</p></div></div>
     </div>
   </section>
+
+  <section id="selfview-view" hidden aria-label="自我介绍/反问">
+    <div class="page-heading"></div>
+    <div id="selfview-body"></div>
+  </section>
+
+  <section id="resumeview-view" hidden aria-label="模版简历">
+    <div class="page-heading"></div>
+    <div id="resumeview-body"></div>
+  </section>
 </main>
+<div id="print-host" aria-hidden="true"></div>
 <dialog id="metric-dialog" class="node-dialog" aria-label="量化指标详解">
   <div class="dialog-head"><h2>量化指标 · 详解</h2><button class="dialog-close" id="metric-dialog-close" type="button">关闭 ✕</button></div>
   <div class="dialog-body" id="metric-dialog-body"></div>
@@ -156,11 +169,12 @@
 </dialog>
 <footer class="footer"><span>析 · AI 经营分析 Agent 教学中心</span><span>本地教学环境 / 业务数据与制度为虚构样例</span></footer>
 </div>
-<script src="static/accounts.js?v=20261013f"></script>
-<script src="static/app.js?v=20261013f"></script>
-<script src="static/guide.js?v=20261013f"></script>
-<script src="static/teaching.js?v=20261013f"></script>
-<script src="static/interview.js?v=20261013f"></script>
+<script src="static/accounts.js?v=20261013g"></script>
+<script src="static/app.js?v=20261013g"></script>
+<script src="static/guide.js?v=20261013g"></script>
+<script src="static/teaching.js?v=20261013g"></script>
+<script src="static/interview.js?v=20261013g"></script>
+<script src="static/prep.js?v=20261013g"></script>
 <script src="static/export.js?v=20261013j"></script>
 </body>
 </html>

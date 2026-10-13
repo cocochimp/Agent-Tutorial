@@ -6,20 +6,24 @@ function post(url,body){return api(url,{method:'POST',body:JSON.stringify(body)}
 function download(text,name,type){const a=node('a');const url=URL.createObjectURL(new Blob([text],{type}));a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function error(e){const box=$('login-error');box.hidden=false;box.textContent=e.message||String(e);}
 
-// 视图切换：项目导读、实习项目教程、高频面试题三个 Tab。
+// 视图切换：项目导读、实习项目教程、面试题库、自我介绍/反问、模版简历五个 Tab。
 function showView(view){
-  const hidden = {guide: 'guide', teaching: 'teaching', interview: 'interview'}[view] !== view;
   $('guide-view').hidden = view !== 'guide';
   $('teaching-view').hidden = view !== 'teaching';
   $('interview-view').hidden = view !== 'interview';
-  $('page-crumb').textContent = view === 'guide' ? '项目导读' : view === 'teaching' ? '实习项目' : '面试题库';
-  for (const [id, v] of [['nav-guide','guide'], ['nav-teaching','teaching'], ['nav-interview','interview']]) {
+  $('selfview-view').hidden = view !== 'selfprep';
+  $('resumeview-view').hidden = view !== 'resume';
+  $('page-crumb').textContent =
+    view === 'guide' ? '项目导读' : view === 'teaching' ? '实习项目' : view === 'interview' ? '面试题库' : view === 'selfprep' ? '自我介绍/反问' : '模版简历';
+  for (const [id, v] of [['nav-guide','guide'], ['nav-teaching','teaching'], ['nav-interview','interview'], ['nav-selfprep','selfprep'], ['nav-resume','resume']]) {
     $(id).classList.toggle('active', v === view); $(id).setAttribute('aria-pressed', String(v === view));
   }
 }
 $('nav-guide').onclick = () => showView('guide');
 $('nav-teaching').onclick = () => showView('teaching');
 $('nav-interview').onclick = () => showView('interview');
+$('nav-selfprep').onclick = () => showView('selfprep');
+$('nav-resume').onclick = () => showView('resume');
 
 function loggedIn(user){
   document.body.classList.remove('logged-out');
@@ -37,6 +41,7 @@ function loggedIn(user){
   if (window.Guide) window.Guide.init();
   if (window.Teaching) window.Teaching.init();
   if (window.Interview) window.Interview.init();
+  if (window.Prep) window.Prep.init();
 }
 
 // —— Pages 静态模式支持 ——
